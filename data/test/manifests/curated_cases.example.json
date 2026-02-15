@@ -1,0 +1,151 @@
+{
+  "manifest_type": "curated_cases",
+  "manifest_version": "1.0",
+  "created_for": "phaseIdCrossCorrelation",
+  "_help": {
+    "purpose": "One row-equivalent entry per manually curated experimental pattern with trusted expected phase and orientation metadata.",
+    "how_to_edit": [
+      "Copy this file to curated_cases.json and replace all example values with real values.",
+      "Keep all keys unchanged unless the code is updated to support new keys.",
+      "Use repo-relative paths like data/test/... (not absolute machine-specific paths).",
+      "If a value is unknown, set null and explain in notes."
+    ],
+    "phase_slugs_allowed": [
+      "fe_bcc",
+      "fe3o4_magnetite",
+      "feo_wustite"
+    ],
+    "euler_convention": "Bunge ZXZ",
+    "angle_units": "degrees",
+    "required_per_case": [
+      "case_id",
+      "exp_pattern_path",
+      "expected_phase",
+      "euler_deg.phi1",
+      "euler_deg.PHI",
+      "euler_deg.phi2",
+      "image_meta.bit_depth",
+      "image_meta.height",
+      "image_meta.width",
+      "manual_label_source"
+    ],
+    "common_mistakes": [
+      "Mixing PHI and phi (use key PHI exactly as shown).",
+      "Using phase names with spaces; always use canonical phase slugs.",
+      "Using angles in radians; all angles must be degrees.",
+      "Forgetting to update expected_phase after copying a case block."
+    ],
+    "recommended_exp_filename_pattern": "{phase_slug}_Ori_{id}.{ext}",
+    "filename_note": "Filenames are relaxed; metadata in this manifest is the source of truth."
+  },
+  "cases": [
+    {
+      "case_id": "c001",
+      "exp_pattern_path": "data/test/curated_patterns/exp/fe_bcc_Ori_1.png",
+      "expected_phase": "fe_bcc",
+      "euler_deg": {
+        "phi1": 35.0,
+        "PHI": 45.0,
+        "phi2": 90.0
+      },
+      "manual_label_source": "expert_manual_pick_2026-02-15",
+      "image_meta": {
+        "bit_depth": 16,
+        "height": 230,
+        "width": 230,
+        "file_format": "png"
+      },
+      "notes": "Clear BCC-like pattern; high confidence manual label."
+    },
+    {
+      "case_id": "c002",
+      "exp_pattern_path": "data/test/curated_patterns/exp/fe_bcc_Ori_2.tif",
+      "expected_phase": "fe_bcc",
+      "euler_deg": {
+        "phi1": 120.0,
+        "PHI": 30.0,
+        "phi2": 250.0
+      },
+      "manual_label_source": "expert_manual_pick_2026-02-15",
+      "image_meta": {
+        "bit_depth": 16,
+        "height": 230,
+        "width": 230,
+        "file_format": "tif"
+      },
+      "notes": "Second BCC orientation for discrimination testing."
+    },
+    {
+      "case_id": "c003",
+      "exp_pattern_path": "data/test/curated_patterns/exp/fe3o4_magnetite_Ori_1.png",
+      "expected_phase": "fe3o4_magnetite",
+      "euler_deg": {
+        "phi1": 210.0,
+        "PHI": 55.0,
+        "phi2": 320.0
+      },
+      "manual_label_source": "expert_manual_pick_2026-02-15",
+      "image_meta": {
+        "bit_depth": 16,
+        "height": 230,
+        "width": 230,
+        "file_format": "png"
+      },
+      "notes": "Magnetite orientation 1."
+    },
+    {
+      "case_id": "c004",
+      "exp_pattern_path": "data/test/curated_patterns/exp/fe3o4_magnetite_Ori_2.bmp",
+      "expected_phase": "fe3o4_magnetite",
+      "euler_deg": {
+        "phi1": 15.0,
+        "PHI": 70.0,
+        "phi2": 145.0
+      },
+      "manual_label_source": "expert_manual_pick_2026-02-15",
+      "image_meta": {
+        "bit_depth": 8,
+        "height": 230,
+        "width": 230,
+        "file_format": "bmp"
+      },
+      "notes": "Example BMP input; code should normalize to target dtype before NCC."
+    },
+    {
+      "case_id": "c005",
+      "exp_pattern_path": "data/test/curated_patterns/exp/feo_wustite_Ori_1.png",
+      "expected_phase": "feo_wustite",
+      "euler_deg": {
+        "phi1": 300.0,
+        "PHI": 40.0,
+        "phi2": 15.0
+      },
+      "manual_label_source": "expert_manual_pick_2026-02-15",
+      "image_meta": {
+        "bit_depth": 16,
+        "height": 230,
+        "width": 230,
+        "file_format": "png"
+      },
+      "notes": "Wustite orientation 1."
+    },
+    {
+      "case_id": "c006",
+      "exp_pattern_path": "data/test/curated_patterns/exp/feo_wustite_Ori_2.png",
+      "expected_phase": "feo_wustite",
+      "euler_deg": {
+        "phi1": 85.0,
+        "PHI": 65.0,
+        "phi2": 275.0
+      },
+      "manual_label_source": "expert_manual_pick_2026-02-15",
+      "image_meta": {
+        "bit_depth": 16,
+        "height": 230,
+        "width": 230,
+        "file_format": "png"
+      },
+      "notes": "Wustite orientation 2."
+    }
+  ]
+}

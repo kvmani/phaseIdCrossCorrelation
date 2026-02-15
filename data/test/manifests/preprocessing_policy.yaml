@@ -1,0 +1,12 @@
+dtype_target: uint16_to_float32_0_1
+normalization_method: minmax_inside_mask
+mask_method: circular
+mask_parameters:
+  center_mode: image_center
+  radius_mode: max_inscribed
+resize_policy: none
+intensity_clip_policy: none
+ncc_variant: masked_ncc
+euler_convention: bunge_zxz
+angle_units: degrees
+exp_sim_alignment_policy: require_same_shape_and_mask_frame

@@ -1,0 +1,139 @@
+{
+  "manifest_type": "scan_bundle",
+  "manifest_version": "1.0",
+  "created_for": "phaseIdCrossCorrelation",
+  "_help": {
+    "purpose": "Register one physical scan represented by three phase-isolated TSL indexing outputs (.oh5), plus manual validation points.",
+    "how_to_edit": [
+      "Copy to scan_bundle.json and replace paths and dimensions with real values.",
+      "All three .oh5 files must come from the same physical scan and same grid.",
+      "Validate nRows/nColumns/pattern shape consistency before running analysis.",
+      "Add at least 10 manual validation points for early qualitative checks."
+    ],
+    "phase_slugs_required": [
+      "fe_bcc",
+      "fe3o4_magnetite",
+      "feo_wustite"
+    ],
+    "flat_index_rule_allowed": [
+      "row_major_y_times_nx_plus_x"
+    ],
+    "field_alias_recommendation": {
+      "image_quality": [
+        "IQ",
+        "Image Quality"
+      ],
+      "confidence_index": [
+        "CI",
+        "Confidence Index"
+      ]
+    }
+  },
+  "scan_bundles": [
+    {
+      "scan_id": "s001",
+      "source_description": "example_three_phase_scan",
+      "oh5_paths": {
+        "assume_fe_bcc": "data/test/scans/scan_s001/scan_s001__assume_fe_bcc.oh5",
+        "assume_fe3o4_magnetite": "data/test/scans/scan_s001/scan_s001__assume_fe3o4_magnetite.oh5",
+        "assume_feo_wustite": "data/test/scans/scan_s001/scan_s001__assume_feo_wustite.oh5"
+      },
+      "grid_meta": {
+        "nx": 120,
+        "ny": 90,
+        "pattern_height": 230,
+        "pattern_width": 230,
+        "flat_index_rule": "row_major_y_times_nx_plus_x"
+      },
+      "reader_expectations": {
+        "required_data_fields": [
+          "Pattern",
+          "Phi1",
+          "Phi",
+          "Phi2",
+          "Phase",
+          "X Position",
+          "Y Position"
+        ],
+        "optional_quality_fields": [
+          "IQ",
+          "CI",
+          "Fit"
+        ]
+      },
+      "manual_validation_points": [
+        {
+          "point_id": "p001",
+          "x": 12,
+          "y": 8,
+          "expected_phase": "fe3o4_magnetite",
+          "label_source": "manual_expert_review"
+        },
+        {
+          "point_id": "p002",
+          "x": 20,
+          "y": 11,
+          "expected_phase": "fe_bcc",
+          "label_source": "manual_expert_review"
+        },
+        {
+          "point_id": "p003",
+          "x": 33,
+          "y": 15,
+          "expected_phase": "feo_wustite",
+          "label_source": "manual_expert_review"
+        },
+        {
+          "point_id": "p004",
+          "x": 41,
+          "y": 19,
+          "expected_phase": "fe3o4_magnetite",
+          "label_source": "manual_expert_review"
+        },
+        {
+          "point_id": "p005",
+          "x": 56,
+          "y": 24,
+          "expected_phase": "fe_bcc",
+          "label_source": "manual_expert_review"
+        },
+        {
+          "point_id": "p006",
+          "x": 62,
+          "y": 35,
+          "expected_phase": "feo_wustite",
+          "label_source": "manual_expert_review"
+        },
+        {
+          "point_id": "p007",
+          "x": 75,
+          "y": 40,
+          "expected_phase": "fe3o4_magnetite",
+          "label_source": "manual_expert_review"
+        },
+        {
+          "point_id": "p008",
+          "x": 82,
+          "y": 46,
+          "expected_phase": "fe_bcc",
+          "label_source": "manual_expert_review"
+        },
+        {
+          "point_id": "p009",
+          "x": 94,
+          "y": 58,
+          "expected_phase": "feo_wustite",
+          "label_source": "manual_expert_review"
+        },
+        {
+          "point_id": "p010",
+          "x": 106,
+          "y": 72,
+          "expected_phase": "fe3o4_magnetite",
+          "label_source": "manual_expert_review"
+        }
+      ],
+      "notes": "Replace all coordinates with real manually validated points before quantitative evaluation."
+    }
+  ]
+}

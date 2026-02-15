@@ -1,0 +1,30 @@
+{
+  "manifest_type": "preprocessing_policy",
+  "manifest_version": "1.0",
+  "created_for": "phaseIdCrossCorrelation",
+  "_help": {
+    "purpose": "Lock preprocessing so NCC values are comparable across runs and students.",
+    "how_to_edit": [
+      "Copy to preprocessing_policy.json and change values only after team agreement.",
+      "If you change any key here, record it in experiment notes and commit message.",
+      "All curated and scan-bundle runs must reference the same policy file."
+    ],
+    "important_warning": "NCC scores are not comparable if normalization/masking policies differ.",
+    "euler_note": "Euler angles are interpreted as Bunge ZXZ in degrees."
+  },
+  "policy": {
+    "dtype_target": "uint16_to_float32_0_1",
+    "normalization_method": "minmax_inside_mask",
+    "mask_method": "circular",
+    "mask_parameters": {
+      "center_mode": "image_center",
+      "radius_mode": "max_inscribed"
+    },
+    "resize_policy": "none",
+    "intensity_clip_policy": "none",
+    "ncc_variant": "masked_ncc",
+    "euler_convention": "bunge_zxz",
+    "angle_units": "degrees",
+    "exp_sim_alignment_policy": "require_same_shape_and_mask_frame"
+  }
+}

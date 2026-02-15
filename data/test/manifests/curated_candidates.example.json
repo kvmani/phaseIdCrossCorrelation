@@ -1,0 +1,178 @@
+{
+  "manifest_type": "curated_candidates",
+  "manifest_version": "1.0",
+  "created_for": "phaseIdCrossCorrelation",
+  "_help": {
+    "purpose": "For each curated experimental case, list all simulated phase candidates used for NCC ranking.",
+    "how_to_edit": [
+      "Copy to curated_candidates.json and replace example values.",
+      "Each case_id must have exactly 3 candidates, one for each assumed phase.",
+      "If TSL indexing fails for a phase, keep candidate Euler as 0,0,0 only with explicit failure flags.",
+      "sim_pattern_path must point to the externally generated simulated pattern image.",
+      "Recommended simulation naming: keep same basename as experimental image and place files under assume_<phase> folders."
+    ],
+    "required_assumed_phases_per_case": [
+      "fe_bcc",
+      "fe3o4_magnetite",
+      "feo_wustite"
+    ],
+    "indexing_status_allowed": [
+      "ok",
+      "failed"
+    ],
+    "fallback_rule": "If indexing_status is failed then is_fallback_orientation must be true and fallback_reason must be non-empty.",
+    "euler_convention": "Bunge ZXZ",
+    "angle_units": "degrees",
+    "path_rule": "Use repo-relative paths.",
+    "recommended_sim_path_pattern": "data/test/curated_patterns/sim/assume_<assumed_phase>/<source_phase>_Ori_<id>.<ext>"
+  },
+  "cases": [
+    {
+      "case_id": "c001",
+      "exp_pattern_path": "data/test/curated_patterns/exp/fe_bcc_Ori_1.png",
+      "expected_phase": "fe_bcc",
+      "candidates": [
+        {
+          "assumed_phase": "fe_bcc",
+          "sim_pattern_path": "data/test/curated_patterns/sim/assume_fe_bcc/fe_bcc_Ori_1.png",
+          "candidate_euler_deg": {
+            "phi1": 34.8,
+            "PHI": 45.3,
+            "phi2": 89.7
+          },
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "fallback_reason": "",
+          "sim_source": "emsoft_external_tsl",
+          "notes": "Expected best NCC for this case."
+        },
+        {
+          "assumed_phase": "fe3o4_magnetite",
+          "sim_pattern_path": "data/test/curated_patterns/sim/assume_fe3o4_magnetite/fe_bcc_Ori_1.png",
+          "candidate_euler_deg": {
+            "phi1": 120.0,
+            "PHI": 62.0,
+            "phi2": 210.0
+          },
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "fallback_reason": "",
+          "sim_source": "emsoft_external_tsl",
+          "notes": "Competing phase candidate."
+        },
+        {
+          "assumed_phase": "feo_wustite",
+          "sim_pattern_path": "data/test/curated_patterns/sim/assume_feo_wustite/fe_bcc_Ori_1.png",
+          "candidate_euler_deg": {
+            "phi1": 275.0,
+            "PHI": 38.0,
+            "phi2": 18.0
+          },
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "fallback_reason": "",
+          "sim_source": "emsoft_external_tsl",
+          "notes": "Competing phase candidate."
+        }
+      ]
+    },
+    {
+      "case_id": "c003",
+      "exp_pattern_path": "data/test/curated_patterns/exp/fe3o4_magnetite_Ori_1.png",
+      "expected_phase": "fe3o4_magnetite",
+      "candidates": [
+        {
+          "assumed_phase": "fe_bcc",
+          "sim_pattern_path": "data/test/curated_patterns/sim/assume_fe_bcc/fe3o4_magnetite_Ori_1.png",
+          "candidate_euler_deg": {
+            "phi1": 18.0,
+            "PHI": 44.0,
+            "phi2": 150.0
+          },
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "fallback_reason": "",
+          "sim_source": "emsoft_external_tsl",
+          "notes": "Competing phase candidate."
+        },
+        {
+          "assumed_phase": "fe3o4_magnetite",
+          "sim_pattern_path": "data/test/curated_patterns/sim/assume_fe3o4_magnetite/fe3o4_magnetite_Ori_1.png",
+          "candidate_euler_deg": {
+            "phi1": 209.5,
+            "PHI": 54.9,
+            "phi2": 320.2
+          },
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "fallback_reason": "",
+          "sim_source": "emsoft_external_tsl",
+          "notes": "Expected best NCC for this case."
+        },
+        {
+          "assumed_phase": "feo_wustite",
+          "sim_pattern_path": "data/test/curated_patterns/sim/assume_feo_wustite/fe3o4_magnetite_Ori_1.png",
+          "candidate_euler_deg": {
+            "phi1": 302.0,
+            "PHI": 28.0,
+            "phi2": 40.0
+          },
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "fallback_reason": "",
+          "sim_source": "emsoft_external_tsl",
+          "notes": "Competing phase candidate."
+        }
+      ]
+    },
+    {
+      "case_id": "c005",
+      "exp_pattern_path": "data/test/curated_patterns/exp/feo_wustite_Ori_1.png",
+      "expected_phase": "feo_wustite",
+      "candidates": [
+        {
+          "assumed_phase": "fe_bcc",
+          "sim_pattern_path": "data/test/curated_patterns/sim/assume_fe_bcc/feo_wustite_Ori_1.png",
+          "candidate_euler_deg": {
+            "phi1": 0.0,
+            "PHI": 0.0,
+            "phi2": 0.0
+          },
+          "indexing_status": "failed",
+          "is_fallback_orientation": true,
+          "fallback_reason": "tsl_no_solution_for_assumed_phase",
+          "sim_source": "emsoft_external_tsl",
+          "notes": "Explicit failure example. Keep for pipeline robustness testing."
+        },
+        {
+          "assumed_phase": "fe3o4_magnetite",
+          "sim_pattern_path": "data/test/curated_patterns/sim/assume_fe3o4_magnetite/feo_wustite_Ori_1.png",
+          "candidate_euler_deg": {
+            "phi1": 125.0,
+            "PHI": 64.0,
+            "phi2": 188.0
+          },
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "fallback_reason": "",
+          "sim_source": "emsoft_external_tsl",
+          "notes": "Competing phase candidate."
+        },
+        {
+          "assumed_phase": "feo_wustite",
+          "sim_pattern_path": "data/test/curated_patterns/sim/assume_feo_wustite/feo_wustite_Ori_1.png",
+          "candidate_euler_deg": {
+            "phi1": 300.3,
+            "PHI": 39.8,
+            "phi2": 15.2
+          },
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "fallback_reason": "",
+          "sim_source": "emsoft_external_tsl",
+          "notes": "Expected best NCC for this case."
+        }
+      ]
+    }
+  ]
+}
