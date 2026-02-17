@@ -1,0 +1,118 @@
+{
+  "document_name": "Simulated Pattern Mapping",
+  "purpose": "For each experimental pattern, list the 3 simulated patterns (one per assumed phase).",
+  "required_assumed_phases": [
+    "fe_bcc",
+    "fe3o4_magnetite",
+    "feo_wustite"
+  ],
+  "rules": {
+    "one_experimental_to_three_simulated": true,
+    "angles_units": "degrees",
+    "if_indexing_failed": {
+      "candidate_angles": {
+        "phi1": 0.0,
+        "PHI": 0.0,
+        "phi2": 0.0
+      },
+      "indexing_status": "failed",
+      "is_fallback_orientation": true
+    }
+  },
+  "records": [
+    {
+      "record_id": "r001",
+      "experimental_image": "experimental_patterns/fe_bcc_Ori_1.png",
+      "true_phase": "fe_bcc",
+      "simulated_candidates": [
+        {
+          "assumed_phase": "fe_bcc",
+          "simulated_image": "simulated_patterns/assume_fe_bcc/fe_bcc_Ori_1.png",
+          "candidate_angles_degrees": {
+            "phi1": 34.8,
+            "PHI": 45.3,
+            "phi2": 89.7
+          },
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "fallback_reason": "",
+          "simulation_source": "external_emsoft_tsl"
+        },
+        {
+          "assumed_phase": "fe3o4_magnetite",
+          "simulated_image": "simulated_patterns/assume_fe3o4_magnetite/fe_bcc_Ori_1.png",
+          "candidate_angles_degrees": {
+            "phi1": 120.0,
+            "PHI": 62.0,
+            "phi2": 210.0
+          },
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "fallback_reason": "",
+          "simulation_source": "external_emsoft_tsl"
+        },
+        {
+          "assumed_phase": "feo_wustite",
+          "simulated_image": "simulated_patterns/assume_feo_wustite/fe_bcc_Ori_1.png",
+          "candidate_angles_degrees": {
+            "phi1": 275.0,
+            "PHI": 38.0,
+            "phi2": 18.0
+          },
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "fallback_reason": "",
+          "simulation_source": "external_emsoft_tsl"
+        }
+      ],
+      "notes": "Replace with real entry"
+    },
+    {
+      "record_id": "r003",
+      "experimental_image": "experimental_patterns/feo_wustite_Ori_1.png",
+      "true_phase": "feo_wustite",
+      "simulated_candidates": [
+        {
+          "assumed_phase": "fe_bcc",
+          "simulated_image": "simulated_patterns/assume_fe_bcc/feo_wustite_Ori_1.png",
+          "candidate_angles_degrees": {
+            "phi1": 0.0,
+            "PHI": 0.0,
+            "phi2": 0.0
+          },
+          "indexing_status": "failed",
+          "is_fallback_orientation": true,
+          "fallback_reason": "tsl_no_solution_for_assumed_phase",
+          "simulation_source": "external_emsoft_tsl"
+        },
+        {
+          "assumed_phase": "fe3o4_magnetite",
+          "simulated_image": "simulated_patterns/assume_fe3o4_magnetite/feo_wustite_Ori_1.png",
+          "candidate_angles_degrees": {
+            "phi1": 125.0,
+            "PHI": 64.0,
+            "phi2": 188.0
+          },
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "fallback_reason": "",
+          "simulation_source": "external_emsoft_tsl"
+        },
+        {
+          "assumed_phase": "feo_wustite",
+          "simulated_image": "simulated_patterns/assume_feo_wustite/feo_wustite_Ori_1.png",
+          "candidate_angles_degrees": {
+            "phi1": 300.3,
+            "PHI": 39.8,
+            "phi2": 15.2
+          },
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "fallback_reason": "",
+          "simulation_source": "external_emsoft_tsl"
+        }
+      ],
+      "notes": "Replace with real entry"
+    }
+  ]
+}

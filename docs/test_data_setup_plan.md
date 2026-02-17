@@ -16,7 +16,7 @@ Two complementary datasets are required.
 
 Purpose:
 
-- Validate preprocessing, NCC computation, and phase discrimination on manually verified patterns.
+- Validate preprocessing, NCC (Normalized Cross Correlation) computation, and phase discrimination on manually verified patterns.
 
 Expected volume:
 
@@ -77,14 +77,9 @@ data/test/
     preprocessing_policy.yaml
   curated_patterns/
     exp/
-      <phase_slug>_Ori_<id>.<ext>
+      exp__<case_id>__<phase_slug>__euler_<phi1>_<PHI>_<phi2>__src.<ext>
     sim/
-      assume_fe_bcc/
-        <source_phase_slug>_Ori_<id>.<ext>
-      assume_fe3o4_magnetite/
-        <source_phase_slug>_Ori_<id>.<ext>
-      assume_feo_wustite/
-        <source_phase_slug>_Ori_<id>.<ext>
+      sim__<case_id>__assume_<phase_slug>__euler_<phi1>_<PHI>_<phi2>__src.<ext>
   scans/
     scan_<scan_id>/
       scan_<scan_id>__assume_fe_bcc.oh5
@@ -108,15 +103,11 @@ Scan ID convention:
 
 - `s001`, `s002`, ... for scan bundles.
 
-Curated pattern naming:
+Euler encoding in filenames:
 
-- Experimental: `{phase}_Ori_{id}.{ext}` (example `fe3o4_magnetite_Ori_2.png`).
-- Simulated: same base filename as experimental, but stored under phase-assumption folder:
-  - `curated_patterns/sim/assume_fe_bcc/{phase}_Ori_{id}.{ext}`
-  - `curated_patterns/sim/assume_fe3o4_magnetite/{phase}_Ori_{id}.{ext}`
-  - `curated_patterns/sim/assume_feo_wustite/{phase}_Ori_{id}.{ext}`
-
-Filename is for convenience only. Orientation truth and candidate metadata must come from manifests.
+- Degrees with fixed precision, e.g. `123.456`.
+- Replace minus sign with `m` in filenames only (example `m12.500`) to avoid shell/path issues.
+- Store true numeric values in manifests as float columns.
 
 Extension policy:
 
@@ -125,8 +116,6 @@ Extension policy:
 - All mixed-format inputs must include normalized dtype metadata in manifest.
 
 ## 6. Required Manifest Files
-
-Preferred format for student editing is JSON (self-documented examples in `data/test/manifests/*.example.json`). CSV/YAML templates remain for compatibility.
 
 ## 6.1 `manifests/curated_cases.csv`
 
@@ -217,17 +206,17 @@ Required keys:
 
 Experimental curated pattern:
 
-- `fe3o4_magnetite_Ori_1.png`
+- `exp__c001__fe3o4_magnetite__euler_123.400_45.000_210.200__src.png`
 
 Simulated candidates for the same case:
 
-- `curated_patterns/sim/assume_fe_bcc/fe3o4_magnetite_Ori_1.png`
-- `curated_patterns/sim/assume_fe3o4_magnetite/fe3o4_magnetite_Ori_1.png`
-- `curated_patterns/sim/assume_feo_wustite/fe3o4_magnetite_Ori_1.png`
+- `sim__c001__assume_fe_bcc__euler_98.500_12.000_301.100__src.png`
+- `sim__c001__assume_fe3o4_magnetite__euler_123.400_45.000_210.200__src.png`
+- `sim__c001__assume_feo_wustite__euler_m5.000_33.300_172.000__src.png`
 
 Indexing-failed candidate still represented with explicit flags in manifest:
 
-- filename does not need special encoding, but manifest must set:
+- filename may encode `euler_0.000_0.000_0.000`, but manifest must set:
   - `indexing_status=failed`
   - `is_fallback_orientation=true`
 

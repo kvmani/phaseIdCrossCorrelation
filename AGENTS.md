@@ -82,3 +82,9 @@ Any change affecting behavior, inputs/outputs, assumptions, or CLI flags must up
 - Manuscript finalization.
 
 These are later roadmap items; current focus is establishing a correct, extensible EBSD core pipeline.
+
+## 11. Path Convention
+
+- In repository documents, JSON/YAML configs, reports, and generated metadata, use repository-relative paths by default.
+- Do not store absolute machine-specific paths (for example `<home>/...`) unless explicitly required.
+- If a CLI accepts absolute paths, any persisted output should still be normalized to repo-relative form where possible.

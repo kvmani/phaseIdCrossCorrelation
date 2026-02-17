@@ -1,0 +1,47 @@
+{
+  "document_name": "Phase-Isolated Scan Files",
+  "purpose": "Describe one physical scan represented by 3 .oh5 files (one per assumed phase).",
+  "required_phase_scan_files": [
+    "assume_fe_bcc",
+    "assume_fe3o4_magnetite",
+    "assume_feo_wustite"
+  ],
+  "scan_records": [
+    {
+      "scan_id": "s001",
+      "scan_files": {
+        "assume_fe_bcc": "scan_files/scan_s001__assume_fe_bcc.oh5",
+        "assume_fe3o4_magnetite": "scan_files/scan_s001__assume_fe3o4_magnetite.oh5",
+        "assume_feo_wustite": "scan_files/scan_s001__assume_feo_wustite.oh5"
+      },
+      "grid_info": {
+        "nx": 120,
+        "ny": 90,
+        "pattern_height": 230,
+        "pattern_width": 230,
+        "flat_index_rule": "row_major_y_times_nx_plus_x"
+      },
+      "manual_check_points": [
+        {
+          "point_id": "p001",
+          "x": 12,
+          "y": 8,
+          "expected_phase": "fe3o4_magnetite"
+        },
+        {
+          "point_id": "p002",
+          "x": 20,
+          "y": 11,
+          "expected_phase": "fe_bcc"
+        },
+        {
+          "point_id": "p003",
+          "x": 33,
+          "y": 15,
+          "expected_phase": "feo_wustite"
+        }
+      ],
+      "notes": "Add at least 10 manually checked points for real data"
+    }
+  ]
+}

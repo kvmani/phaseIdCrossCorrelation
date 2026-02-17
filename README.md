@@ -18,11 +18,11 @@ Current development scope is EBSD-only. Laser Raman Spectroscopy (LRS) integrati
 
 ## Current Project Phase
 
-This repository is currently in **documentation and architecture scaffolding** mode.
+This repository is currently in **data-intake-to-implementation transition** mode.
 
 - No production algorithm implementation is committed yet.
-- The immediate goal is to finalize mission/governance/task documents and stable project structure.
-- Coding begins only after these docs are reviewed and finalized.
+- Student-facing data packet and templates are prepared.
+- Immediate execution follows phase gates defined in `docs/action_plan_post_data_intake.md`.
 
 ## Documentation Map
 
@@ -30,6 +30,8 @@ This repository is currently in **documentation and architecture scaffolding** m
 - `AGENTS.md`: canonical engineering and agent workflow rules.
 - `docs/roadmap.md`: phased delivery plan.
 - `docs/status.md`: read-only snapshot of current state.
+- `docs/action_plan_post_data_intake.md`: phase-gated implementation playbook after data intake.
+- `docs/g0_data_intake_validation.md`: how to run G0 data-intake gate checks.
 - `todo_list.md`: operational task list (living document).
 - `docs/oh5_structure.md`: dedicated guide for TSL `.oh5` layout and data access.
 - `docs/test_data_setup_plan.md`: canonical test data acquisition, naming, and manifest specification.

@@ -1,6 +1,7 @@
 # Roadmap
 
 This roadmap is the long-horizon plan. For daily execution, use `todo_list.md`.
+For post-data phase-gated implementation detail, use `docs/action_plan_post_data_intake.md`.
 
 ## Phase 0: Documentation and Architecture Freeze (Current)
 
