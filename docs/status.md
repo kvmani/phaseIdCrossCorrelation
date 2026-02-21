@@ -1,6 +1,6 @@
 # Project Status Snapshot
 
-Last updated: 2026-02-17
+Last updated: 2026-02-21
 
 ## Purpose
 
@@ -17,6 +17,29 @@ Build a modular EBSD phase-identification workflow that improves discrimination 
   - `scripts/run_g0_data_intake_validation.py`
   - `src/phase_id_xcorr/intake/g0_validator.py`
 - Initial G0 run on template packet correctly returns `HOLD` because real files are not populated yet.
+- Imported student packet in repo test data now passes G0 with `GO`.
+- Curated NCC implementation is now available:
+  - `scripts/run_curated_ncc.py`
+  - `src/phase_id_xcorr/preprocessing/*`
+  - `src/phase_id_xcorr/similarity/ncc.py`
+  - `src/phase_id_xcorr/evaluation/curated_ncc.py`
+- Curated workflow artifacts are generated under `reports/curated_ncc/`.
+- Single-file inspection artifact is available:
+  - `reports/curated_ncc/inspection_report.html`
+- Scientific recovery strategy for band-aware phase identification is documented:
+  - `docs/scientific_strategy_band_aware_phase_id.md`
+- Hough-space NCC branch critical analysis and execution plan is documented:
+  - `docs/hough_space_ncc_action_plan.md`
+- Initial feasibility probe artifact is available:
+  - `reports/curated_ncc/hough_feasibility_probe.md`
+- KikuchiPy Hough comparison workflow is implemented:
+  - `scripts/run_curated_hough_vs_ncc.py`
+  - `src/phase_id_xcorr/features/kikuchipy_hough.py`
+  - `src/phase_id_xcorr/evaluation/curated_hough_vs_ncc.py`
+- Hough comparison usage doc is available:
+  - `docs/curated_hough_vs_ncc_workflow.md`
+- Curated image-vs-hough artifacts are generated under:
+  - `reports/curated_hough_vs_ncc/`
 
 ## Confirmed Constraints
 
@@ -30,16 +53,16 @@ Build a modular EBSD phase-identification workflow that improves discrimination 
 
 ## Current Risks
 
-- Data completeness/consistency risk until student packet is returned and validated.
-- Naming/path mismatches risk in supplied files despite templates.
-- Ambiguity risk if fallback orientations are not explicitly marked in metadata.
+- Intensity-only NCC can collapse predictions to a single phase on curated cases.
+- Failed/fallback candidates can dominate winner selection if unpenalized.
+- Band visibility and contrast mismatch between experiment and simulation can reduce discriminative power.
+- Hough-space similarity can overfit tiny curated sets if parameters are tuned without robustness gates.
 
 ## Immediate Next Steps
 
-1. Receive completed student packet.
-2. Re-run G0 validation on the received packet and resolve reported errors.
-3. Start phased implementation using:
-   - `docs/action_plan_post_data_intake.md`
+1. Run robustness/overfitting checks (H4) on the new image-vs-hough workflow and lock stable defaults.
+2. Implement fallback-aware winner policy with uncertainty gate (B1).
+3. Add hybrid decision track (H3b) and choose default (`image`, `hough`, or `hybrid`) before expanding data volume.
 
 ## Future Work Summary
 

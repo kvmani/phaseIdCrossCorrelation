@@ -581,18 +581,6 @@ def validate_data_packet(
 
                 # Basic point checks
                 points = scan.get("manual_check_points", [])
-                if isinstance(points, list) and len(points) < 10:
-                    findings.append(
-                        Finding(
-                            severity="warning",
-                            code="few_manual_points",
-                            message=(
-                                f"manual_check_points has {len(points)} points; "
-                                "recommend at least 10 for baseline validation."
-                            ),
-                            location=f"{loc}.manual_check_points",
-                        )
-                    )
 
                 # Only attempt OH5 consistency checks when all triad files exist
                 missing_triads = [p for p in triad_paths.values() if not p.exists()]

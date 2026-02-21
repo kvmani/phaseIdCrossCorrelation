@@ -1,0 +1,821 @@
+{
+  "summary": {
+    "timestamp_utc": "2026-02-21T09:41:19+00:00",
+    "packet_dir": "data/test/student_data_packet_phaseid",
+    "out_dir": "reports/curated_hough_vs_ncc",
+    "normalization_method": "minmax_inside_mask",
+    "cases_total": 3,
+    "hough_config": {
+      "n_theta": 180,
+      "n_rho": 90,
+      "n_bands": 9,
+      "sample_tilt_deg": 70.0,
+      "detector_tilt_deg": 0.0,
+      "pc": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "use_convolved_map": true,
+      "plan_phase_name": "bcc_hough_plan",
+      "plan_phase_space_group": 229
+    },
+    "binary_thresholds": [
+      0.35,
+      0.45,
+      0.55,
+      0.65,
+      0.75
+    ],
+    "metrics_by_method": {
+      "image_ncc": {
+        "method": "image_ncc",
+        "count": 3,
+        "correct": 1,
+        "accuracy": 0.3333333333333333,
+        "mean_margin": 0.1999039628497977,
+        "mean_top_score": 0.38513884337918364,
+        "fallback_winner_count": 2,
+        "failed_winner_count": 2
+      },
+      "hough_ncc_raw": {
+        "method": "hough_ncc_raw",
+        "count": 3,
+        "correct": 2,
+        "accuracy": 0.6666666666666666,
+        "mean_margin": 0.07512677736475155,
+        "mean_top_score": 0.8165995192368175,
+        "fallback_winner_count": 1,
+        "failed_winner_count": 1
+      },
+      "hough_ncc_bin_t350": {
+        "method": "hough_ncc_bin_t350",
+        "count": 3,
+        "correct": 2,
+        "accuracy": 0.6666666666666666,
+        "mean_margin": 0.08810157987827948,
+        "mean_top_score": 0.6411663084557072,
+        "fallback_winner_count": 1,
+        "failed_winner_count": 1
+      },
+      "hough_ncc_bin_t450": {
+        "method": "hough_ncc_bin_t450",
+        "count": 3,
+        "correct": 2,
+        "accuracy": 0.6666666666666666,
+        "mean_margin": 0.09294145973060168,
+        "mean_top_score": 0.3095177796401097,
+        "fallback_winner_count": 1,
+        "failed_winner_count": 1
+      },
+      "hough_ncc_bin_t550": {
+        "method": "hough_ncc_bin_t550",
+        "count": 3,
+        "correct": 1,
+        "accuracy": 0.3333333333333333,
+        "mean_margin": 0.0421500965034474,
+        "mean_top_score": 0.6611215058945787,
+        "fallback_winner_count": 1,
+        "failed_winner_count": 1
+      },
+      "hough_ncc_bin_t650": {
+        "method": "hough_ncc_bin_t650",
+        "count": 3,
+        "correct": 2,
+        "accuracy": 0.6666666666666666,
+        "mean_margin": 0.07473574130412958,
+        "mean_top_score": 0.5481669830197738,
+        "fallback_winner_count": 1,
+        "failed_winner_count": 1
+      },
+      "hough_ncc_bin_t750": {
+        "method": "hough_ncc_bin_t750",
+        "count": 3,
+        "correct": 1,
+        "accuracy": 0.3333333333333333,
+        "mean_margin": 0.19855721417117533,
+        "mean_top_score": 0.5058501282577755,
+        "fallback_winner_count": 2,
+        "failed_winner_count": 2
+      }
+    },
+    "best_binary_method": "hough_ncc_bin_t450",
+    "best_binary_threshold": 0.45,
+    "headline_comparison": {
+      "image_ncc_accuracy": 0.3333333333333333,
+      "hough_ncc_raw_accuracy": 0.6666666666666666,
+      "best_hough_binary_accuracy": 0.6666666666666666,
+      "best_hough_binary_method": "hough_ncc_bin_t450"
+    }
+  },
+  "methods": [
+    "image_ncc",
+    "hough_ncc_raw",
+    "hough_ncc_bin_t350",
+    "hough_ncc_bin_t450",
+    "hough_ncc_bin_t550",
+    "hough_ncc_bin_t650",
+    "hough_ncc_bin_t750"
+  ],
+  "binary_threshold_labels": {
+    "hough_ncc_bin_t350": "0.350",
+    "hough_ncc_bin_t450": "0.450",
+    "hough_ncc_bin_t550": "0.550",
+    "hough_ncc_bin_t650": "0.650",
+    "hough_ncc_bin_t750": "0.750"
+  },
+  "best_binary_method": "hough_ncc_bin_t450",
+  "best_binary_threshold": 0.45,
+  "records": [
+    {
+      "record_id": "r001",
+      "true_phase": "fe_bcc",
+      "experimental": {
+        "image_file": "experimental_patterns/fe_bcc_Ori_1.bmp",
+        "orientation_angles_degrees": {
+          "phi1": 144.2059,
+          "PHI": 51.4374,
+          "phi2": 179.1972
+        },
+        "image_meta": {
+          "source_dtype": "uint8",
+          "source_bit_depth": 8,
+          "source_shape": [
+            230,
+            230,
+            3
+          ],
+          "value_min": 0.0,
+          "value_max": 0.9998999834060669
+        }
+      },
+      "artifacts": {
+        "exp_pattern_png": "reports/curated_hough_vs_ncc/cases/r001/exp_pattern.png",
+        "exp_hough_png": "reports/curated_hough_vs_ncc/cases/r001/exp_hough_map.png",
+        "exp_hough_bin_png": "reports/curated_hough_vs_ncc/cases/r001/exp_hough_bin_hough_ncc_bin_t450.png"
+      },
+      "decisions": {
+        "image_ncc": {
+          "method": "image_ncc",
+          "record_id": "r001",
+          "true_phase": "fe_bcc",
+          "pred_phase": "fe_bcc",
+          "is_correct": true,
+          "top_score": 0.4004881766081649,
+          "second_score": 0.1442260191072751,
+          "margin": 0.25626215750088976,
+          "top_indexing_status": "ok",
+          "top_is_fallback_orientation": false
+        },
+        "hough_ncc_raw": {
+          "method": "hough_ncc_raw",
+          "record_id": "r001",
+          "true_phase": "fe_bcc",
+          "pred_phase": "fe_bcc",
+          "is_correct": true,
+          "top_score": 0.7872283544076185,
+          "second_score": 0.7070566811787795,
+          "margin": 0.080171673228839,
+          "top_indexing_status": "ok",
+          "top_is_fallback_orientation": false
+        },
+        "hough_ncc_bin_t350": {
+          "method": "hough_ncc_bin_t350",
+          "record_id": "r001",
+          "true_phase": "fe_bcc",
+          "pred_phase": "fe_bcc",
+          "is_correct": true,
+          "top_score": 0.5994300910528727,
+          "second_score": 0.4861951721238916,
+          "margin": 0.11323491892898113,
+          "top_indexing_status": "ok",
+          "top_is_fallback_orientation": false
+        },
+        "hough_ncc_bin_t450": {
+          "method": "hough_ncc_bin_t450",
+          "record_id": "r001",
+          "true_phase": "fe_bcc",
+          "pred_phase": "fe_bcc",
+          "is_correct": true,
+          "top_score": 0.3679048174280146,
+          "second_score": 0.2131472925820693,
+          "margin": 0.15475752484594532,
+          "top_indexing_status": "ok",
+          "top_is_fallback_orientation": false
+        },
+        "hough_ncc_bin_t550": {
+          "method": "hough_ncc_bin_t550",
+          "record_id": "r001",
+          "true_phase": "fe_bcc",
+          "pred_phase": "fe_bcc",
+          "is_correct": true,
+          "top_score": 0.6488559654655943,
+          "second_score": 0.6460452879558112,
+          "margin": 0.002810677509783144,
+          "top_indexing_status": "ok",
+          "top_is_fallback_orientation": false
+        },
+        "hough_ncc_bin_t650": {
+          "method": "hough_ncc_bin_t650",
+          "record_id": "r001",
+          "true_phase": "fe_bcc",
+          "pred_phase": "fe_bcc",
+          "is_correct": true,
+          "top_score": 0.44531933370673915,
+          "second_score": 0.32083158567079845,
+          "margin": 0.1244877480359407,
+          "top_indexing_status": "ok",
+          "top_is_fallback_orientation": false
+        },
+        "hough_ncc_bin_t750": {
+          "method": "hough_ncc_bin_t750",
+          "record_id": "r001",
+          "true_phase": "fe_bcc",
+          "pred_phase": "fe_bcc",
+          "is_correct": true,
+          "top_score": 0.4843365362321415,
+          "second_score": 0.2195884621709974,
+          "margin": 0.2647480740611441,
+          "top_indexing_status": "ok",
+          "top_is_fallback_orientation": false
+        }
+      },
+      "candidates": [
+        {
+          "assumed_phase": "fe_bcc",
+          "simulated_image": "simulated_patterns/assume_fe_bcc/fe_bcc_Ori_1.bmp",
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "candidate_angles_degrees": {
+            "phi1": 321.2716,
+            "PHI": 125.1454,
+            "phi2": 265.9903
+          },
+          "fallback_reason": "",
+          "simulation_source": "external_emsoft_tsl",
+          "image_meta": {
+            "source_dtype": "uint8",
+            "source_bit_depth": 8,
+            "source_shape": [
+              230,
+              230,
+              3
+            ],
+            "value_min": 0.09018705785274506,
+            "value_max": 0.9998999834060669
+          },
+          "scores": {
+            "image_ncc": 0.4004881766081649,
+            "hough_ncc_raw": 0.7872283544076185,
+            "hough_ncc_bin_t350": 0.5994300910528727,
+            "hough_ncc_bin_t450": 0.3679048174280146,
+            "hough_ncc_bin_t550": 0.6488559654655943,
+            "hough_ncc_bin_t650": 0.44531933370673915,
+            "hough_ncc_bin_t750": 0.4843365362321415
+          },
+          "artifacts": {
+            "sim_pattern_png": "reports/curated_hough_vs_ncc/cases/r001/sim_fe_bcc_pattern.png",
+            "sim_hough_png": "reports/curated_hough_vs_ncc/cases/r001/sim_fe_bcc_hough_map.png",
+            "sim_hough_bin_png": "reports/curated_hough_vs_ncc/cases/r001/sim_fe_bcc_hough_bin_hough_ncc_bin_t450.png"
+          }
+        },
+        {
+          "assumed_phase": "fe3o4_magnetite",
+          "simulated_image": "simulated_patterns/assume_fe3o4_magnetite/fe_bcc_Ori_1.bmp",
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "candidate_angles_degrees": {
+            "phi1": 53.6461,
+            "PHI": 93.3096,
+            "phi2": 35.3563
+          },
+          "fallback_reason": "",
+          "simulation_source": "external_emsoft_tsl",
+          "image_meta": {
+            "source_dtype": "uint8",
+            "source_bit_depth": 8,
+            "source_shape": [
+              230,
+              230,
+              3
+            ],
+            "value_min": 0.035290587693452835,
+            "value_max": 0.9998999834060669
+          },
+          "scores": {
+            "image_ncc": 0.1442260191072751,
+            "hough_ncc_raw": 0.7070566811787795,
+            "hough_ncc_bin_t350": 0.4861951721238916,
+            "hough_ncc_bin_t450": 0.16201329911504794,
+            "hough_ncc_bin_t550": 0.5734557811234985,
+            "hough_ncc_bin_t650": 0.32083158567079845,
+            "hough_ncc_bin_t750": 0.2195884621709974
+          },
+          "artifacts": {
+            "sim_pattern_png": "reports/curated_hough_vs_ncc/cases/r001/sim_fe3o4_magnetite_pattern.png",
+            "sim_hough_png": "reports/curated_hough_vs_ncc/cases/r001/sim_fe3o4_magnetite_hough_map.png",
+            "sim_hough_bin_png": "reports/curated_hough_vs_ncc/cases/r001/sim_fe3o4_magnetite_hough_bin_hough_ncc_bin_t450.png"
+          }
+        },
+        {
+          "assumed_phase": "feo_wustite",
+          "simulated_image": "simulated_patterns/assume_feo_wustite/fe_bcc_Ori_1.bmp",
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "candidate_angles_degrees": {
+            "phi1": 328.7532,
+            "PHI": 35.3966,
+            "phi2": 174.0672
+          },
+          "fallback_reason": "",
+          "simulation_source": "external_emsoft_tsl",
+          "image_meta": {
+            "source_dtype": "uint8",
+            "source_bit_depth": 8,
+            "source_shape": [
+              230,
+              230,
+              3
+            ],
+            "value_min": 0.01568470522761345,
+            "value_max": 0.9998999834060669
+          },
+          "scores": {
+            "image_ncc": 0.11104217899481411,
+            "hough_ncc_raw": 0.6049723421310882,
+            "hough_ncc_bin_t350": 0.4837681661935583,
+            "hough_ncc_bin_t450": 0.2131472925820693,
+            "hough_ncc_bin_t550": 0.6460452879558112,
+            "hough_ncc_bin_t650": 0.306495434238678,
+            "hough_ncc_bin_t750": 0.11511991362374972
+          },
+          "artifacts": {
+            "sim_pattern_png": "reports/curated_hough_vs_ncc/cases/r001/sim_feo_wustite_pattern.png",
+            "sim_hough_png": "reports/curated_hough_vs_ncc/cases/r001/sim_feo_wustite_hough_map.png",
+            "sim_hough_bin_png": "reports/curated_hough_vs_ncc/cases/r001/sim_feo_wustite_hough_bin_hough_ncc_bin_t450.png"
+          }
+        }
+      ]
+    },
+    {
+      "record_id": "r002",
+      "true_phase": "fe3o4_magnetite",
+      "experimental": {
+        "image_file": "experimental_patterns/fe3o4_magnetite_Ori_1.bmp",
+        "orientation_angles_degrees": {
+          "phi1": 184.1265,
+          "PHI": 164.2957,
+          "phi2": 45.9368
+        },
+        "image_meta": {
+          "source_dtype": "uint8",
+          "source_bit_depth": 8,
+          "source_shape": [
+            230,
+            230,
+            3
+          ],
+          "value_min": 0.0,
+          "value_max": 0.9998999834060669
+        }
+      },
+      "artifacts": {
+        "exp_pattern_png": "reports/curated_hough_vs_ncc/cases/r002/exp_pattern.png",
+        "exp_hough_png": "reports/curated_hough_vs_ncc/cases/r002/exp_hough_map.png",
+        "exp_hough_bin_png": "reports/curated_hough_vs_ncc/cases/r002/exp_hough_bin_hough_ncc_bin_t450.png"
+      },
+      "decisions": {
+        "image_ncc": {
+          "method": "image_ncc",
+          "record_id": "r002",
+          "true_phase": "fe3o4_magnetite",
+          "pred_phase": "fe_bcc",
+          "is_correct": false,
+          "top_score": 0.25679072003864073,
+          "second_score": 0.21807733923971773,
+          "margin": 0.038713380798923,
+          "top_indexing_status": "failed",
+          "top_is_fallback_orientation": true
+        },
+        "hough_ncc_raw": {
+          "method": "hough_ncc_raw",
+          "record_id": "r002",
+          "true_phase": "fe3o4_magnetite",
+          "pred_phase": "fe3o4_magnetite",
+          "is_correct": true,
+          "top_score": 0.8215436615655102,
+          "second_score": 0.7598564316633235,
+          "margin": 0.06168722990218667,
+          "top_indexing_status": "ok",
+          "top_is_fallback_orientation": false
+        },
+        "hough_ncc_bin_t350": {
+          "method": "hough_ncc_bin_t350",
+          "record_id": "r002",
+          "true_phase": "fe3o4_magnetite",
+          "pred_phase": "fe3o4_magnetite",
+          "is_correct": true,
+          "top_score": 0.7260185925550017,
+          "second_score": 0.6685588429012157,
+          "margin": 0.057459749653785974,
+          "top_indexing_status": "ok",
+          "top_is_fallback_orientation": false
+        },
+        "hough_ncc_bin_t450": {
+          "method": "hough_ncc_bin_t450",
+          "record_id": "r002",
+          "true_phase": "fe3o4_magnetite",
+          "pred_phase": "fe3o4_magnetite",
+          "is_correct": true,
+          "top_score": 0.30304539230261696,
+          "second_score": 0.29162787212639213,
+          "margin": 0.011417520176224827,
+          "top_indexing_status": "ok",
+          "top_is_fallback_orientation": false
+        },
+        "hough_ncc_bin_t550": {
+          "method": "hough_ncc_bin_t550",
+          "record_id": "r002",
+          "true_phase": "fe3o4_magnetite",
+          "pred_phase": "feo_wustite",
+          "is_correct": false,
+          "top_score": 0.6425976612452757,
+          "second_score": 0.6143017290677355,
+          "margin": 0.02829593217754023,
+          "top_indexing_status": "ok",
+          "top_is_fallback_orientation": false
+        },
+        "hough_ncc_bin_t650": {
+          "method": "hough_ncc_bin_t650",
+          "record_id": "r002",
+          "true_phase": "fe3o4_magnetite",
+          "pred_phase": "fe3o4_magnetite",
+          "is_correct": true,
+          "top_score": 0.7572817523221805,
+          "second_score": 0.7112590650716553,
+          "margin": 0.046022687250525274,
+          "top_indexing_status": "ok",
+          "top_is_fallback_orientation": false
+        },
+        "hough_ncc_bin_t750": {
+          "method": "hough_ncc_bin_t750",
+          "record_id": "r002",
+          "true_phase": "fe3o4_magnetite",
+          "pred_phase": "fe_bcc",
+          "is_correct": false,
+          "top_score": 0.5751295632274156,
+          "second_score": 0.31001498771131464,
+          "margin": 0.26511457551610096,
+          "top_indexing_status": "failed",
+          "top_is_fallback_orientation": true
+        }
+      },
+      "candidates": [
+        {
+          "assumed_phase": "fe_bcc",
+          "simulated_image": "simulated_patterns/assume_fe_bcc/fe3o4_magnetite_Ori_1.bmp",
+          "indexing_status": "failed",
+          "is_fallback_orientation": true,
+          "candidate_angles_degrees": {
+            "phi1": 228.5195,
+            "PHI": 75.0662,
+            "phi2": 352.2953
+          },
+          "fallback_reason": "tsl_no_solution_for_assumed_phase",
+          "simulation_source": "external_emsoft_tsl",
+          "image_meta": {
+            "source_dtype": "uint8",
+            "source_bit_depth": 8,
+            "source_shape": [
+              230,
+              230,
+              3
+            ],
+            "value_min": 0.007842352613806725,
+            "value_max": 0.9998999834060669
+          },
+          "scores": {
+            "image_ncc": 0.25679072003864073,
+            "hough_ncc_raw": 0.7598564316633235,
+            "hough_ncc_bin_t350": 0.6685588429012157,
+            "hough_ncc_bin_t450": 0.28155743503342945,
+            "hough_ncc_bin_t550": 0.5473996146866571,
+            "hough_ncc_bin_t650": 0.7112590650716553,
+            "hough_ncc_bin_t750": 0.5751295632274156
+          },
+          "artifacts": {
+            "sim_pattern_png": "reports/curated_hough_vs_ncc/cases/r002/sim_fe_bcc_pattern.png",
+            "sim_hough_png": "reports/curated_hough_vs_ncc/cases/r002/sim_fe_bcc_hough_map.png",
+            "sim_hough_bin_png": "reports/curated_hough_vs_ncc/cases/r002/sim_fe_bcc_hough_bin_hough_ncc_bin_t450.png"
+          }
+        },
+        {
+          "assumed_phase": "fe3o4_magnetite",
+          "simulated_image": "simulated_patterns/assume_fe3o4_magnetite/fe3o4_magnetite_Ori_1.bmp",
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "candidate_angles_degrees": {
+            "phi1": 201.9241,
+            "PHI": 163.175,
+            "phi2": 334.3814
+          },
+          "fallback_reason": "",
+          "simulation_source": "external_emsoft_tsl",
+          "image_meta": {
+            "source_dtype": "uint8",
+            "source_bit_depth": 8,
+            "source_shape": [
+              230,
+              230,
+              3
+            ],
+            "value_min": 0.007842352613806725,
+            "value_max": 0.9998999834060669
+          },
+          "scores": {
+            "image_ncc": 0.21210051616399306,
+            "hough_ncc_raw": 0.8215436615655102,
+            "hough_ncc_bin_t350": 0.7260185925550017,
+            "hough_ncc_bin_t450": 0.30304539230261696,
+            "hough_ncc_bin_t550": 0.6143017290677355,
+            "hough_ncc_bin_t650": 0.7572817523221805,
+            "hough_ncc_bin_t750": 0.31001498771131464
+          },
+          "artifacts": {
+            "sim_pattern_png": "reports/curated_hough_vs_ncc/cases/r002/sim_fe3o4_magnetite_pattern.png",
+            "sim_hough_png": "reports/curated_hough_vs_ncc/cases/r002/sim_fe3o4_magnetite_hough_map.png",
+            "sim_hough_bin_png": "reports/curated_hough_vs_ncc/cases/r002/sim_fe3o4_magnetite_hough_bin_hough_ncc_bin_t450.png"
+          }
+        },
+        {
+          "assumed_phase": "feo_wustite",
+          "simulated_image": "simulated_patterns/assume_feo_wustite/fe3o4_magnetite_Ori_1.bmp",
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "candidate_angles_degrees": {
+            "phi1": 21.7074,
+            "PHI": 16.766,
+            "phi2": 205.9883
+          },
+          "fallback_reason": "",
+          "simulation_source": "external_emsoft_tsl",
+          "image_meta": {
+            "source_dtype": "uint8",
+            "source_bit_depth": 8,
+            "source_shape": [
+              230,
+              230,
+              3
+            ],
+            "value_min": 0.0313694104552269,
+            "value_max": 0.9998999834060669
+          },
+          "scores": {
+            "image_ncc": 0.21807733923971773,
+            "hough_ncc_raw": 0.7381643923658352,
+            "hough_ncc_bin_t350": 0.6673709398159833,
+            "hough_ncc_bin_t450": 0.29162787212639213,
+            "hough_ncc_bin_t550": 0.6425976612452757,
+            "hough_ncc_bin_t650": 0.6155966630629358,
+            "hough_ncc_bin_t750": 0.19903843427121867
+          },
+          "artifacts": {
+            "sim_pattern_png": "reports/curated_hough_vs_ncc/cases/r002/sim_feo_wustite_pattern.png",
+            "sim_hough_png": "reports/curated_hough_vs_ncc/cases/r002/sim_feo_wustite_hough_map.png",
+            "sim_hough_bin_png": "reports/curated_hough_vs_ncc/cases/r002/sim_feo_wustite_hough_bin_hough_ncc_bin_t450.png"
+          }
+        }
+      ]
+    },
+    {
+      "record_id": "r003",
+      "true_phase": "feo_wustite",
+      "experimental": {
+        "image_file": "experimental_patterns/feo_wustite_Ori_1.bmp",
+        "orientation_angles_degrees": {
+          "phi1": 63.5548,
+          "PHI": 36.2214,
+          "phi2": 351.6164
+        },
+        "image_meta": {
+          "source_dtype": "uint8",
+          "source_bit_depth": 8,
+          "source_shape": [
+            230,
+            230,
+            3
+          ],
+          "value_min": 0.0,
+          "value_max": 0.9998999834060669
+        }
+      },
+      "artifacts": {
+        "exp_pattern_png": "reports/curated_hough_vs_ncc/cases/r003/exp_pattern.png",
+        "exp_hough_png": "reports/curated_hough_vs_ncc/cases/r003/exp_hough_map.png",
+        "exp_hough_bin_png": "reports/curated_hough_vs_ncc/cases/r003/exp_hough_bin_hough_ncc_bin_t450.png"
+      },
+      "decisions": {
+        "image_ncc": {
+          "method": "image_ncc",
+          "record_id": "r003",
+          "true_phase": "feo_wustite",
+          "pred_phase": "fe_bcc",
+          "is_correct": false,
+          "top_score": 0.49813763349074525,
+          "second_score": 0.19340128324116493,
+          "margin": 0.30473635024958035,
+          "top_indexing_status": "failed",
+          "top_is_fallback_orientation": true
+        },
+        "hough_ncc_raw": {
+          "method": "hough_ncc_raw",
+          "record_id": "r003",
+          "true_phase": "feo_wustite",
+          "pred_phase": "fe_bcc",
+          "is_correct": false,
+          "top_score": 0.8410265417373236,
+          "second_score": 0.7575051127740946,
+          "margin": 0.083521428963229,
+          "top_indexing_status": "failed",
+          "top_is_fallback_orientation": true
+        },
+        "hough_ncc_bin_t350": {
+          "method": "hough_ncc_bin_t350",
+          "record_id": "r003",
+          "true_phase": "feo_wustite",
+          "pred_phase": "fe_bcc",
+          "is_correct": false,
+          "top_score": 0.5980502417592469,
+          "second_score": 0.5044401707071756,
+          "margin": 0.09361007105207131,
+          "top_indexing_status": "failed",
+          "top_is_fallback_orientation": true
+        },
+        "hough_ncc_bin_t450": {
+          "method": "hough_ncc_bin_t450",
+          "record_id": "r003",
+          "true_phase": "feo_wustite",
+          "pred_phase": "fe_bcc",
+          "is_correct": false,
+          "top_score": 0.25760312918969747,
+          "second_score": 0.1449537950200626,
+          "margin": 0.11264933416963488,
+          "top_indexing_status": "failed",
+          "top_is_fallback_orientation": true
+        },
+        "hough_ncc_bin_t550": {
+          "method": "hough_ncc_bin_t550",
+          "record_id": "r003",
+          "true_phase": "feo_wustite",
+          "pred_phase": "fe_bcc",
+          "is_correct": false,
+          "top_score": 0.6919108909728662,
+          "second_score": 0.5965672111498473,
+          "margin": 0.09534367982301883,
+          "top_indexing_status": "failed",
+          "top_is_fallback_orientation": true
+        },
+        "hough_ncc_bin_t650": {
+          "method": "hough_ncc_bin_t650",
+          "record_id": "r003",
+          "true_phase": "feo_wustite",
+          "pred_phase": "fe_bcc",
+          "is_correct": false,
+          "top_score": 0.4418998630304018,
+          "second_score": 0.38820307440447904,
+          "margin": 0.05369678862592275,
+          "top_indexing_status": "failed",
+          "top_is_fallback_orientation": true
+        },
+        "hough_ncc_bin_t750": {
+          "method": "hough_ncc_bin_t750",
+          "record_id": "r003",
+          "true_phase": "feo_wustite",
+          "pred_phase": "fe_bcc",
+          "is_correct": false,
+          "top_score": 0.45808428531376955,
+          "second_score": 0.3922752923774886,
+          "margin": 0.06580899293628095,
+          "top_indexing_status": "failed",
+          "top_is_fallback_orientation": true
+        }
+      },
+      "candidates": [
+        {
+          "assumed_phase": "fe_bcc",
+          "simulated_image": "simulated_patterns/assume_fe_bcc/feo_wustite_Ori_1.bmp",
+          "indexing_status": "failed",
+          "is_fallback_orientation": true,
+          "candidate_angles_degrees": {
+            "phi1": 327.3502,
+            "PHI": 82.0973,
+            "phi2": 229.7464
+          },
+          "fallback_reason": "tsl_no_solution_for_assumed_phase",
+          "simulation_source": "external_emsoft_tsl",
+          "image_meta": {
+            "source_dtype": "uint8",
+            "source_bit_depth": 8,
+            "source_shape": [
+              230,
+              230,
+              3
+            ],
+            "value_min": 0.05489647015929222,
+            "value_max": 0.9998999834060669
+          },
+          "scores": {
+            "image_ncc": 0.49813763349074525,
+            "hough_ncc_raw": 0.8410265417373236,
+            "hough_ncc_bin_t350": 0.5980502417592469,
+            "hough_ncc_bin_t450": 0.25760312918969747,
+            "hough_ncc_bin_t550": 0.6919108909728662,
+            "hough_ncc_bin_t650": 0.4418998630304018,
+            "hough_ncc_bin_t750": 0.45808428531376955
+          },
+          "artifacts": {
+            "sim_pattern_png": "reports/curated_hough_vs_ncc/cases/r003/sim_fe_bcc_pattern.png",
+            "sim_hough_png": "reports/curated_hough_vs_ncc/cases/r003/sim_fe_bcc_hough_map.png",
+            "sim_hough_bin_png": "reports/curated_hough_vs_ncc/cases/r003/sim_fe_bcc_hough_bin_hough_ncc_bin_t450.png"
+          }
+        },
+        {
+          "assumed_phase": "fe3o4_magnetite",
+          "simulated_image": "simulated_patterns/assume_fe3o4_magnetite/feo_wustite_Ori_1.bmp",
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "candidate_angles_degrees": {
+            "phi1": 50.9576,
+            "PHI": 129.6535,
+            "phi2": 260.2045
+          },
+          "fallback_reason": "",
+          "simulation_source": "external_emsoft_tsl",
+          "image_meta": {
+            "source_dtype": "uint8",
+            "source_bit_depth": 8,
+            "source_shape": [
+              230,
+              230,
+              3
+            ],
+            "value_min": 0.019605882465839386,
+            "value_max": 0.9998999834060669
+          },
+          "scores": {
+            "image_ncc": 0.19340128324116493,
+            "hough_ncc_raw": 0.7575051127740946,
+            "hough_ncc_bin_t350": 0.5044401707071756,
+            "hough_ncc_bin_t450": 0.1449537950200626,
+            "hough_ncc_bin_t550": 0.5965672111498473,
+            "hough_ncc_bin_t650": 0.38820307440447904,
+            "hough_ncc_bin_t750": 0.3922752923774886
+          },
+          "artifacts": {
+            "sim_pattern_png": "reports/curated_hough_vs_ncc/cases/r003/sim_fe3o4_magnetite_pattern.png",
+            "sim_hough_png": "reports/curated_hough_vs_ncc/cases/r003/sim_fe3o4_magnetite_hough_map.png",
+            "sim_hough_bin_png": "reports/curated_hough_vs_ncc/cases/r003/sim_fe3o4_magnetite_hough_bin_hough_ncc_bin_t450.png"
+          }
+        },
+        {
+          "assumed_phase": "feo_wustite",
+          "simulated_image": "simulated_patterns/assume_feo_wustite/feo_wustite_Ori_1.bmp",
+          "indexing_status": "ok",
+          "is_fallback_orientation": false,
+          "candidate_angles_degrees": {
+            "phi1": 327.2559,
+            "PHI": 82.1393,
+            "phi2": 139.9881
+          },
+          "fallback_reason": "",
+          "simulation_source": "external_emsoft_tsl",
+          "image_meta": {
+            "source_dtype": "uint8",
+            "source_bit_depth": 8,
+            "source_shape": [
+              230,
+              230,
+              3
+            ],
+            "value_min": 0.03921176493167877,
+            "value_max": 0.9998999834060669
+          },
+          "scores": {
+            "image_ncc": 0.1584016691103837,
+            "hough_ncc_raw": 0.6413854688983073,
+            "hough_ncc_bin_t350": 0.4629049497531357,
+            "hough_ncc_bin_t450": 0.12851486145977112,
+            "hough_ncc_bin_t550": 0.5865778418145672,
+            "hough_ncc_bin_t650": 0.3635522009530642,
+            "hough_ncc_bin_t750": 0.3173868209185921
+          },
+          "artifacts": {
+            "sim_pattern_png": "reports/curated_hough_vs_ncc/cases/r003/sim_feo_wustite_pattern.png",
+            "sim_hough_png": "reports/curated_hough_vs_ncc/cases/r003/sim_feo_wustite_hough_map.png",
+            "sim_hough_bin_png": "reports/curated_hough_vs_ncc/cases/r003/sim_feo_wustite_hough_bin_hough_ncc_bin_t450.png"
+          }
+        }
+      ]
+    }
+  ]
+}

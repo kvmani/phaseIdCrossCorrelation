@@ -37,6 +37,11 @@ Optional flags:
    - shared grid/pattern shape across three phase-isolated scan files,
    - declared grid info matches observed scan info when files are present.
 
+Notes:
+
+- Manual check points can be fewer than 10 in early-stage development.
+- Image paths can use any supported format as long as files exist and are readable by the downstream loader.
+
 ## Outputs
 
 - Markdown report: `reports/data_intake_validation.md`

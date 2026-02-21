@@ -1,0 +1,18 @@
+{
+  "packet_dir": "data/test/student_data_packet_phaseid",
+  "timestamp_utc": "2026-02-21T05:43:41+00:00",
+  "gate_status": "GO",
+  "counts": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 0,
+    "total": 0
+  },
+  "checked_files": {
+    "experimental": "01_experimental_patterns_template.json",
+    "simulated": "02_simulated_patterns_template.json",
+    "scan": "03_scan_files_template.json",
+    "processing": "04_processing_template.json"
+  },
+  "findings": []
+}

@@ -18,11 +18,12 @@ Current development scope is EBSD-only. Laser Raman Spectroscopy (LRS) integrati
 
 ## Current Project Phase
 
-This repository is currently in **data-intake-to-implementation transition** mode.
+This repository is currently in **baseline implementation and method-comparison** mode.
 
-- No production algorithm implementation is committed yet.
-- Student-facing data packet and templates are prepared.
-- Immediate execution follows phase gates defined in `docs/action_plan_post_data_intake.md`.
+- Curated masked-NCC baseline is implemented and runnable.
+- KikuchiPy Hough-space comparison workflow is implemented and runnable.
+- Student data packet has been ingested into `data/test/student_data_packet_phaseid`.
+- Immediate execution follows phase gates in `docs/action_plan_post_data_intake.md` and `docs/hough_space_ncc_action_plan.md`.
 
 ## Documentation Map
 
@@ -32,9 +33,13 @@ This repository is currently in **data-intake-to-implementation transition** mod
 - `docs/status.md`: read-only snapshot of current state.
 - `docs/action_plan_post_data_intake.md`: phase-gated implementation playbook after data intake.
 - `docs/g0_data_intake_validation.md`: how to run G0 data-intake gate checks.
+- `docs/curated_ncc_workflow.md`: curated experimental-vs-simulated NCC workflow and artifacts.
+- `docs/curated_hough_vs_ncc_workflow.md`: curated image-NCC vs KikuchiPy Hough-NCC comparison workflow.
 - `todo_list.md`: operational task list (living document).
 - `docs/oh5_structure.md`: dedicated guide for TSL `.oh5` layout and data access.
 - `docs/test_data_setup_plan.md`: canonical test data acquisition, naming, and manifest specification.
+- `docs/scientific_strategy_band_aware_phase_id.md`: scientific recovery strategy for band-sensitive discrimination.
+- `docs/hough_space_ncc_action_plan.md`: Hough-branch critical analysis and phase-gated action plan.
 - `docs/agents.md`: pointer to root `AGENTS.md`.
 
 ## Intended Repository Layout

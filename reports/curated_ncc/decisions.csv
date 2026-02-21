@@ -1,0 +1,4 @@
+record_id,true_phase,pred_phase,is_correct,top_ncc,second_ncc,margin,top_indexing_status,top_is_fallback_orientation,flip_rate,panel_path
+r001,fe_bcc,fe_bcc,True,0.4004881766081649,0.1442260191072751,0.25626215750088976,ok,False,0.0,reports/curated_ncc/cases/r001_panel.png
+r002,fe3o4_magnetite,fe_bcc,False,0.25679072003864073,0.21807733923971773,0.038713380798923,failed,True,0.0,reports/curated_ncc/cases/r002_panel.png
+r003,feo_wustite,fe_bcc,False,0.49813763349074525,0.19340128324116493,0.30473635024958035,failed,True,0.0,reports/curated_ncc/cases/r003_panel.png
