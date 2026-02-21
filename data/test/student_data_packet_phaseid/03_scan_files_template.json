@@ -1,0 +1,65 @@
+{
+  "document_name": "Phase-Isolated Scan Files",
+  "purpose": "Describe one physical scan represented by 3 .oh5 files (one per assumed phase).",
+  "required_phase_scan_files": [
+    "assume_fe_bcc",
+    "assume_fe3o4_magnetite",
+    "assume_feo_wustite"
+  ],
+  "scan_records": [
+    {
+      "scan_id": "s001",
+      "scan_files": {
+        "assume_fe_bcc": "scan_files/scan_s001__assume_fe_bcc.oh5",
+        "assume_fe3o4_magnetite": "scan_files/scan_s001__assume_fe3o4_magnetite.oh5",
+        "assume_feo_wustite": "scan_files/scan_s001__assume_feo_wustite.oh5"
+      },
+      "grid_info": {
+        "nx": 96,
+        "ny": 44,
+        "pattern_height": 230,
+        "pattern_width": 230,
+        "flat_index_rule": "row_major_y_times_nx_plus_x"
+      },
+      "manual_check_points": [
+        {
+          "point_id": "p001",
+          "x": 2.4,
+          "y": 1.74,
+          "expected_phase": "fe3o4_magnetite"
+        },
+        {
+          "point_id": "p002",
+          "x": 2.46,
+          "y": 1.74,
+          "expected_phase": "fe3o4_magnetite"
+        },
+        {
+          "point_id": "p003",
+          "x": 3.6,
+          "y": 1.5,
+          "expected_phase": "fe_bcc"
+        },
+        {
+          "point_id": "p004",
+          "x": 2.7,
+          "y": 1.02,
+          "expected_phase": "fe_bcc"
+        },
+        {
+          "point_id": "p005",
+          "x": 4.26,
+          "y": 0.24,
+          "expected_phase": "feo_wustite"
+        },
+        {
+          "point_id": "p006",
+          "x": 2.1,
+          "y": 0.36,
+          "expected_phase": "feo_wustite"
+        }
+      ],
+      "notes": "Student-provided phase-isolated scan triad."
+    }
+  ]
+}

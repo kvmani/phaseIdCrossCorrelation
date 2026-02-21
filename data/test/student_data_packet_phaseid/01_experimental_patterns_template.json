@@ -1,0 +1,69 @@
+{
+  "document_name": "Experimental Pattern List",
+  "purpose": "List all experimental patterns with trusted phase labels and orientation angles.",
+  "phase_names_allowed": [
+    "fe_bcc",
+    "fe3o4_magnetite",
+    "feo_wustite"
+  ],
+  "angle_convention": {
+    "system": "Bunge ZXZ",
+    "units": "degrees"
+  },
+  "records": [
+    {
+      "record_id": "r001",
+      "image_file": "experimental_patterns/fe_bcc_Ori_1.bmp",
+      "true_phase": "fe_bcc",
+      "orientation_angles_degrees": {
+        "phi1": 144.2059,
+        "PHI": 51.4374,
+        "phi2": 179.1972
+      },
+      "image_info": {
+        "bit_depth": 8,
+        "height": 230,
+        "width": 230,
+        "format": "bmp"
+      },
+      "label_source": "manual_expert_pick",
+      "notes": "Student-provided curated experimental pattern."
+    },
+    {
+      "record_id": "r002",
+      "image_file": "experimental_patterns/fe3o4_magnetite_Ori_1.bmp",
+      "true_phase": "fe3o4_magnetite",
+      "orientation_angles_degrees": {
+        "phi1": 184.1265,
+        "PHI": 164.2957,
+        "phi2": 45.9368
+      },
+      "image_info": {
+        "bit_depth": 8,
+        "height": 230,
+        "width": 230,
+        "format": "bmp"
+      },
+      "label_source": "manual_expert_pick",
+      "notes": "Student-provided curated experimental pattern."
+    },
+    {
+      "record_id": "r003",
+      "image_file": "experimental_patterns/feo_wustite_Ori_1.bmp",
+      "true_phase": "feo_wustite",
+      "orientation_angles_degrees": {
+        "phi1": 63.5548,
+        "PHI": 36.2214,
+        "phi2": 351.6164
+      },
+      "image_info": {
+        "bit_depth": 8,
+        "height": 230,
+        "width": 230,
+        "format": "bmp"
+      },
+      "label_source": "manual_expert_pick",
+      "notes": "Student-provided curated experimental pattern."
+    }
+  ]
+}

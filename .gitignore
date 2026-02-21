@@ -1,0 +1,9 @@
+# OS/editor noise
+.DS_Store
+
+# Python caches
+__pycache__/
+.pytest_cache/
+
+# Large EBSD scan files (keep JSON and image assets tracked)
+data/test/student_data_packet_phaseid/scan_files/*.oh5
