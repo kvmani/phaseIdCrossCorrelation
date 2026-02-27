@@ -7,3 +7,9 @@ __pycache__/
 
 # Large EBSD scan files (keep JSON and image assets tracked)
 data/test/student_data_packet_phaseid/scan_files/*.oh5
+
+# Generated run artifacts and presentations
+reports/presentations/
+reports/student_data_packet_phaseid2_method_comparison/
+reports/student_data_packet_phaseid2_validation/
+reports/student_data_packet_phaseid2_validation_after_bmp_fix/
