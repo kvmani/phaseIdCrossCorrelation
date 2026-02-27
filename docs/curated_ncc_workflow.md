@@ -6,6 +6,10 @@ For direct comparison against KikuchiPy Hough-space scoring, see:
 
 - `docs/curated_hough_vs_ncc_workflow.md`
 
+For a full copy-paste run cycle (G0 validation + baseline NCC + Hough-space comparison), see:
+
+- `docs/mcc_vs_hough_full_cycle_runbook.md`
+
 ## Scope
 
 The workflow compares each curated experimental pattern against three simulated candidates (one per assumed phase):
@@ -43,6 +47,15 @@ python3 scripts/build_curated_ncc_inspection_html.py \
   --out-html reports/curated_ncc/inspection_report.html
 ```
 
+Inspection HTML now includes:
+
+- explicit per-record discrimination summary:
+  - `Winner NCC: phase (score)`
+  - `Other NCCs: [phase (score), ...]`
+- optional interactive pattern match viewer:
+  - `Overlay` mode with adjustable alpha
+  - `Split 50/50` mode (left experimental, right simulated)
+
 ## Algorithm Steps
 
 1. Load experimental/simulated mapping JSON files.
@@ -79,6 +92,7 @@ Outputs under the specified `--out-dir`:
 - `manifest.json`: run metadata for traceability.
 - `cases/<record_id>_panel.png`: visual comparison panels (exp + 3 sims + NCC labels).
 - `inspection_report.html`: standalone bird's-eye inspection artifact (all records in one file).
+  Includes per-record winner-vs-others score breakdown and optional interactive blend/split viewer.
 
 ## Key Fields
 

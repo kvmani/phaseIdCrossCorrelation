@@ -1,0 +1,18 @@
+{
+  "timestamp_utc": "2026-02-27T03:10:30+00:00",
+  "git_commit": "f35bfa900aadd57dfc4b5ea71840b63d48333e0b",
+  "repo_root": ".",
+  "packet_dir": "data/test/student_data_packet_phaseid2",
+  "out_dir": "reports/student_data_packet_phaseid2_method_comparison/curated_hough_vs_ncc",
+  "debug": false,
+  "python_version": "3.11.2",
+  "platform": "macOS-15.7.4-arm64-arm-64bit",
+  "workflow": "curated_hough_vs_ncc",
+  "artifacts": {
+    "scores_csv": "reports/student_data_packet_phaseid2_method_comparison/curated_hough_vs_ncc/scores.csv",
+    "decisions_csv": "reports/student_data_packet_phaseid2_method_comparison/curated_hough_vs_ncc/decisions.csv",
+    "summary_json": "reports/student_data_packet_phaseid2_method_comparison/curated_hough_vs_ncc/summary.json",
+    "report_data_json": "reports/student_data_packet_phaseid2_method_comparison/curated_hough_vs_ncc/report_data.json",
+    "cases_dir": "reports/student_data_packet_phaseid2_method_comparison/curated_hough_vs_ncc/cases"
+  }
+}

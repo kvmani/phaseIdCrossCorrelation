@@ -74,6 +74,7 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [ ] Add methods doc for exact preprocessing + masked NCC formula used in code.
 - [x] Add usage doc for curated NCC CLI workflow (`docs/curated_ncc_workflow.md`).
 - [x] Add usage doc for curated image-vs-hough workflow (`docs/curated_hough_vs_ncc_workflow.md`).
+- [x] Add full-cycle one-go runbook for baseline NCC vs Hough comparison (`docs/mcc_vs_hough_full_cycle_runbook.md`).
 - [ ] Add results baseline document with case-level evidence tables.
 - [x] Add phase-gated execution plan for post-data implementation (`docs/action_plan_post_data_intake.md`).
 - [x] Add G0 validation usage documentation (`docs/g0_data_intake_validation.md`).

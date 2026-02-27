@@ -1,0 +1,109 @@
+{
+  "timestamp_utc": "2026-02-27T03:10:30+00:00",
+  "packet_dir": "data/test/student_data_packet_phaseid2",
+  "out_dir": "reports/student_data_packet_phaseid2_method_comparison/curated_hough_vs_ncc",
+  "normalization_method": "minmax_inside_mask",
+  "cases_total": 3,
+  "hough_config": {
+    "n_theta": 180,
+    "n_rho": 90,
+    "n_bands": 9,
+    "sample_tilt_deg": 70.0,
+    "detector_tilt_deg": 0.0,
+    "pc": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "use_convolved_map": true,
+    "plan_phase_name": "bcc_hough_plan",
+    "plan_phase_space_group": 229
+  },
+  "binary_thresholds": [
+    0.35,
+    0.45,
+    0.55,
+    0.65,
+    0.75
+  ],
+  "metrics_by_method": {
+    "image_ncc": {
+      "method": "image_ncc",
+      "count": 3,
+      "correct": 3,
+      "accuracy": 1.0,
+      "mean_margin": 0.034514910284287985,
+      "mean_top_score": 0.34125830313708855,
+      "fallback_winner_count": 0,
+      "failed_winner_count": 0
+    },
+    "hough_ncc_raw": {
+      "method": "hough_ncc_raw",
+      "count": 3,
+      "correct": 2,
+      "accuracy": 0.6666666666666666,
+      "mean_margin": 0.03148599856450499,
+      "mean_top_score": 0.5953821524878323,
+      "fallback_winner_count": 0,
+      "failed_winner_count": 0
+    },
+    "hough_ncc_bin_t350": {
+      "method": "hough_ncc_bin_t350",
+      "count": 3,
+      "correct": 2,
+      "accuracy": 0.6666666666666666,
+      "mean_margin": 0.051503148265568045,
+      "mean_top_score": 0.4788343443301555,
+      "fallback_winner_count": 0,
+      "failed_winner_count": 0
+    },
+    "hough_ncc_bin_t450": {
+      "method": "hough_ncc_bin_t450",
+      "count": 3,
+      "correct": 3,
+      "accuracy": 1.0,
+      "mean_margin": 0.025822358856316157,
+      "mean_top_score": 0.3594922077035412,
+      "fallback_winner_count": 0,
+      "failed_winner_count": 0
+    },
+    "hough_ncc_bin_t550": {
+      "method": "hough_ncc_bin_t550",
+      "count": 3,
+      "correct": 1,
+      "accuracy": 0.3333333333333333,
+      "mean_margin": 0.10507057206832521,
+      "mean_top_score": 0.505328629845886,
+      "fallback_winner_count": 0,
+      "failed_winner_count": 0
+    },
+    "hough_ncc_bin_t650": {
+      "method": "hough_ncc_bin_t650",
+      "count": 3,
+      "correct": 2,
+      "accuracy": 0.6666666666666666,
+      "mean_margin": 0.029187597445567908,
+      "mean_top_score": 0.3820593890804271,
+      "fallback_winner_count": 0,
+      "failed_winner_count": 0
+    },
+    "hough_ncc_bin_t750": {
+      "method": "hough_ncc_bin_t750",
+      "count": 3,
+      "correct": 1,
+      "accuracy": 0.3333333333333333,
+      "mean_margin": 0.0273735004223218,
+      "mean_top_score": 0.35781565668535903,
+      "fallback_winner_count": 2,
+      "failed_winner_count": 2
+    }
+  },
+  "best_binary_method": "hough_ncc_bin_t450",
+  "best_binary_threshold": 0.45,
+  "headline_comparison": {
+    "image_ncc_accuracy": 1.0,
+    "hough_ncc_raw_accuracy": 0.6666666666666666,
+    "best_hough_binary_accuracy": 1.0,
+    "best_hough_binary_method": "hough_ncc_bin_t450"
+  }
+}

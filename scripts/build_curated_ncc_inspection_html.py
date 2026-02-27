@@ -83,6 +83,29 @@ def _fmt_float(value: Any, digits: int = 5) -> str:
         return "n/a"
 
 
+def _score_breakdown(rows: list[dict[str, str]]) -> tuple[tuple[str, float] | None, list[tuple[str, float]], list[tuple[str, float]]]:
+    pairs: list[tuple[str, float]] = []
+    for row in rows:
+        phase = str(row.get("assumed_phase", ""))
+        try:
+            score = float(row.get("ncc", "nan"))
+        except Exception:
+            score = float("nan")
+        if not np.isfinite(score):
+            continue
+        pairs.append((phase, score))
+    ranked = sorted(pairs, key=lambda x: x[1], reverse=True)
+    winner = ranked[0] if ranked else None
+    others = ranked[1:] if len(ranked) > 1 else []
+    return winner, others, ranked
+
+
+def _fmt_score_pairs(pairs: list[tuple[str, float]]) -> str:
+    if not pairs:
+        return "[]"
+    return "[" + ", ".join(f"{phase} ({score:.5f})" for phase, score in pairs) + "]"
+
+
 def build_report(packet_dir: Path, results_dir: Path, out_html: Path, repo_root: Path) -> None:
     exp_json = _load_json(packet_dir / "01_experimental_patterns_template.json")
     sim_json = _load_json(packet_dir / "02_simulated_patterns_template.json")
@@ -94,8 +117,13 @@ def build_report(packet_dir: Path, results_dir: Path, out_html: Path, repo_root:
     exp_by_id = {str(r.get("record_id")): r for r in exp_json.get("records", [])}
     score_by_key = {(r["record_id"], r["assumed_phase"]): r for r in scores_rows}
     decision_by_id = {r["record_id"]: r for r in decisions_rows}
+    scores_by_record: dict[str, list[dict[str, str]]] = {}
+    for row in scores_rows:
+        rid = str(row.get("record_id", ""))
+        scores_by_record.setdefault(rid, []).append(row)
 
     sections: list[str] = []
+    blend_widget_inits: list[str] = []
 
     # Summary
     sections.append(
@@ -120,9 +148,14 @@ def build_report(packet_dir: Path, results_dir: Path, out_html: Path, repo_root:
     rows_html = []
     for r in decisions_rows:
         cls = "ok" if str(r.get("is_correct", "")).lower() == "true" else "bad"
+        rid = str(r.get("record_id", ""))
+        winner, others, _ranked = _score_breakdown(scores_by_record.get(rid, []))
+        winner_txt = "n/a" if winner is None else f"{winner[0]} ({winner[1]:.5f})"
+        others_txt = _fmt_score_pairs(others)
         rows_html.append(
             f"<tr class='{cls}'><td>{r.get('record_id')}</td><td>{r.get('true_phase')}</td><td>{r.get('pred_phase')}</td>"
             f"<td>{r.get('is_correct')}</td><td>{_fmt_float(r.get('top_ncc'), 5)}</td><td>{_fmt_float(r.get('margin'), 5)}</td>"
+            f"<td>{winner_txt}</td><td>{others_txt}</td>"
             f"<td>{r.get('top_indexing_status')}</td><td>{r.get('top_is_fallback_orientation')}</td><td>{_fmt_float(r.get('flip_rate'), 3)}</td></tr>"
         )
 
@@ -132,7 +165,7 @@ def build_report(packet_dir: Path, results_dir: Path, out_html: Path, repo_root:
           <h2>Decision Overview</h2>
           <table>
             <thead>
-              <tr><th>record</th><th>true</th><th>pred</th><th>correct</th><th>top_ncc</th><th>margin</th><th>winner_status</th><th>winner_fallback</th><th>flip_rate</th></tr>
+              <tr><th>record</th><th>true</th><th>pred</th><th>correct</th><th>top_ncc</th><th>margin</th><th>winner_ncc</th><th>other_nccs</th><th>winner_status</th><th>winner_fallback</th><th>flip_rate</th></tr>
             </thead>
             <tbody>
         """
@@ -162,6 +195,7 @@ def build_report(packet_dir: Path, results_dir: Path, out_html: Path, repo_root:
         candidate_cards = []
         candidate_rows = []
         candidate_prepped = {}
+        sim_uri_by_phase: dict[str, str] = {}
         for phase in PHASE_ORDER:
             cand = next((c for c in rec.get("simulated_candidates", []) if c.get("assumed_phase") == phase), None)
             if cand is None:
@@ -172,6 +206,7 @@ def build_report(packet_dir: Path, results_dir: Path, out_html: Path, repo_root:
             sim_prep = prepare_pattern(sim_loaded.array, normalization_method=normalization_method)
             sim_uri = _array_data_uri(sim_prep.array)
             candidate_prepped[phase] = sim_prep
+            sim_uri_by_phase[phase] = sim_uri
 
             score = score_by_key.get((rid, phase), {})
             ncc = score.get("ncc", "n/a")
@@ -200,6 +235,39 @@ def build_report(packet_dir: Path, results_dir: Path, out_html: Path, repo_root:
                 f"<tr><td>{phase}</td><td>{_fmt_float(ncc,5)}</td><td>{rank}</td><td>{cand.get('indexing_status')}</td><td>{cand.get('is_fallback_orientation')}</td></tr>"
             )
 
+        winner_pair, other_pairs, ranked_pairs = _score_breakdown(scores_by_record.get(rid, []))
+        winner_txt = "n/a" if winner_pair is None else f"{winner_pair[0]} ({winner_pair[1]:.5f})"
+        others_txt = _fmt_score_pairs(other_pairs)
+        viewer_candidates: list[dict[str, Any]] = []
+        for phase, score in ranked_pairs:
+            sim_uri = sim_uri_by_phase.get(phase)
+            if sim_uri is None:
+                continue
+            viewer_candidates.append(
+                {
+                    "phase": phase,
+                    "score": float(score),
+                    "src": sim_uri,
+                }
+            )
+        if not viewer_candidates:
+            for phase, sim_uri in sim_uri_by_phase.items():
+                viewer_candidates.append({"phase": phase, "score": float("nan"), "src": sim_uri})
+        default_phase = str(decision.get("pred_phase", "")) if decision else ""
+        if default_phase not in {c["phase"] for c in viewer_candidates} and viewer_candidates:
+            default_phase = str(viewer_candidates[0]["phase"])
+        widget_id = f"blend-{rid}"
+        viewer_options = "".join(
+            f"<option value='{c['phase']}'>{c['phase']} ({_fmt_float(c['score'],5)})</option>" for c in viewer_candidates
+        )
+        viewer_config = {
+            "exp": exp_img_uri,
+            "candidates": viewer_candidates,
+            "default_phase": default_phase,
+            "default_alpha": 0.5,
+        }
+        blend_widget_inits.append(f"initBlendWidget('{widget_id}', {json.dumps(viewer_config)});")
+
         pairwise = _pairwise_candidate_similarity(candidate_prepped) if len(candidate_prepped) >= 2 else {}
         pairwise_html = "".join(
             f"<li>{k}: {_fmt_float(v,5)}</li>" for k, v in sorted(pairwise.items())
@@ -212,6 +280,11 @@ def build_report(packet_dir: Path, results_dir: Path, out_html: Path, repo_root:
               <p><b>true={exp_rec.get('true_phase','n/a')}</b> | <b>pred={decision.get('pred_phase','n/a')}</b> |
                  correct={decision.get('is_correct','n/a')} | top_ncc={_fmt_float(decision.get('top_ncc'),5)} |
                  margin={_fmt_float(decision.get('margin'),5)} | flip_rate={_fmt_float(decision.get('flip_rate'),3)}</p>
+              <div class='score-breakdown'>
+                <div><b>Winner NCC:</b> {winner_txt}</div>
+                <div><b>Other NCCs:</b> {others_txt}</div>
+                <div><b>Top1-Top2 Margin:</b> {_fmt_float(decision.get('margin'),5)}</div>
+              </div>
 
               <div class='exp-block'>
                 <div class='img-card exp'>
@@ -224,6 +297,26 @@ def build_report(packet_dir: Path, results_dir: Path, out_html: Path, repo_root:
                   <div class='meta'>dtype={exp_loaded.source_dtype} bit_depth={exp_loaded.source_bit_depth} shape={exp_loaded.source_shape}</div>
                   <div class='meta'>value_range=[{_fmt_float(exp_loaded.value_min,4)}, {_fmt_float(exp_loaded.value_max,4)}]</div>
                 </div>
+              </div>
+
+              <h3>Pattern Match Viewer (Optional)</h3>
+              <div class='blend-widget' id='{widget_id}'>
+                <div class='blend-controls'>
+                  <label>Candidate
+                    <select class='bw-phase'>{viewer_options}</select>
+                  </label>
+                  <label>Mode
+                    <select class='bw-mode'>
+                      <option value='overlay'>Overlay</option>
+                      <option value='split'>Split 50/50</option>
+                    </select>
+                  </label>
+                  <label>Alpha
+                    <input class='bw-alpha' type='range' min='0' max='1' step='0.05' value='0.50'>
+                    <span class='bw-alpha-value'>0.50</span>
+                  </label>
+                </div>
+                <canvas class='bw-canvas'></canvas>
               </div>
 
               <div class='grid'>
@@ -265,8 +358,92 @@ def build_report(packet_dir: Path, results_dir: Path, out_html: Path, repo_root:
     .img-card .meta{font-size:12px;color:#333;margin-top:3px;word-break:break-word}
     .exp-block{display:flex;gap:10px;margin-bottom:10px}
     .exp-block .img-card{max-width:360px}
+    .score-breakdown{background:#f7fbff;border:1px solid #d9e6f7;border-radius:6px;padding:8px;margin:10px 0;font-size:13px}
+    .blend-widget{border:1px solid #ddd;border-radius:6px;padding:10px;background:#fcfcfc;margin:10px 0}
+    .blend-controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+    .blend-controls label{font-size:12px;color:#222;display:flex;gap:6px;align-items:center}
+    .blend-controls select,.blend-controls input{font-size:12px}
+    .bw-canvas{width:100%;max-width:360px;height:auto;border:1px solid #bbb;background:#000}
     code{background:#f5f5f5;padding:1px 4px;border-radius:4px}
     """
+
+    blend_script = """
+    <script>
+    function initBlendWidget(widgetId, config){
+      const root = document.getElementById(widgetId);
+      if(!root || !config || !Array.isArray(config.candidates) || config.candidates.length === 0){ return; }
+
+      const phaseSel = root.querySelector('.bw-phase');
+      const modeSel = root.querySelector('.bw-mode');
+      const alphaInput = root.querySelector('.bw-alpha');
+      const alphaValue = root.querySelector('.bw-alpha-value');
+      const canvas = root.querySelector('.bw-canvas');
+      const ctx = canvas.getContext('2d');
+
+      const expImg = new Image();
+      expImg.src = config.exp;
+
+      const simByPhase = new Map();
+      config.candidates.forEach((c) => {
+        const img = new Image();
+        img.src = c.src;
+        simByPhase.set(c.phase, img);
+        img.onload = render;
+      });
+      expImg.onload = render;
+
+      if(config.default_phase){ phaseSel.value = config.default_phase; }
+      if(typeof config.default_alpha === 'number'){ alphaInput.value = String(config.default_alpha); }
+      alphaValue.textContent = Number(alphaInput.value).toFixed(2);
+
+      phaseSel.addEventListener('change', render);
+      modeSel.addEventListener('change', render);
+      alphaInput.addEventListener('input', () => {
+        alphaValue.textContent = Number(alphaInput.value).toFixed(2);
+        render();
+      });
+
+      function render(){
+        const simImg = simByPhase.get(phaseSel.value);
+        if(!simImg || !expImg.complete || !simImg.complete){ return; }
+
+        const w = expImg.naturalWidth || expImg.width;
+        const h = expImg.naturalHeight || expImg.height;
+        if(!w || !h){ return; }
+        canvas.width = w;
+        canvas.height = h;
+        ctx.clearRect(0, 0, w, h);
+
+        if(modeSel.value === 'split'){
+          const mid = Math.floor(w / 2);
+          ctx.globalAlpha = 1.0;
+          ctx.drawImage(expImg, 0, 0, mid, h, 0, 0, mid, h);
+          ctx.drawImage(simImg, mid, 0, w - mid, h, mid, 0, w - mid, h);
+          ctx.strokeStyle = 'rgba(255,255,0,0.9)';
+          ctx.beginPath();
+          ctx.moveTo(mid + 0.5, 0);
+          ctx.lineTo(mid + 0.5, h);
+          ctx.stroke();
+          return;
+        }
+
+        ctx.globalAlpha = 1.0;
+        ctx.drawImage(expImg, 0, 0, w, h);
+        ctx.globalAlpha = Number(alphaInput.value);
+        ctx.drawImage(simImg, 0, 0, w, h);
+        ctx.globalAlpha = 1.0;
+      }
+
+      render();
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+      __BLEND_WIDGET_INITS__
+    });
+    </script>
+    """
+    init_js = "\n      ".join(blend_widget_inits) if blend_widget_inits else ""
+    blend_script = blend_script.replace("__BLEND_WIDGET_INITS__", init_js)
 
     html = f"""<!DOCTYPE html>
 <html lang='en'>
@@ -278,6 +455,7 @@ def build_report(packet_dir: Path, results_dir: Path, out_html: Path, repo_root:
 </head>
 <body>
 {''.join(sections)}
+{blend_script}
 </body>
 </html>
 """

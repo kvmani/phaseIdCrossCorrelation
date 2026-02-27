@@ -1,0 +1,182 @@
+{
+  "deck_title": "phaseIdCrossCorrelation: NCC vs Hough-NCC (Curated EBSD Comparison)",
+  "scan_root": "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation",
+  "created_at_utc": "2026-02-23T17:03:00.079683+00:00",
+  "style": {
+    "font_name": "Arial",
+    "title_font_size_pt": 24,
+    "body_font_size_pt": 18,
+    "bottom_line_font_size_pt": 20,
+    "title_bar_bg": "000000",
+    "title_text_color": "FFFFFF",
+    "bottom_bar_bg": "000000",
+    "bottom_text_color": "FFFFFF",
+    "left_panel_fraction": 0.2
+  },
+  "slides": [
+    {
+      "section": "objective",
+      "title": "Objective and Scope",
+      "bullets": [
+        "Goal: improve phase ID among fe_bcc, fe3o4_magnetite, and feo_wustite.",
+        "Compare masked image-space NCC vs KikuchiPy Hough-space NCC variants.",
+        "Use latest result snapshot: reports/curated_hough_vs_ncc/summary.json (2026-02-21 09:41 UTC).",
+        "Primary metric: top-1 phase accuracy on curated experimental patterns."
+      ],
+      "figure": "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/presentations/phaseid_ncc_vs_hough_20260223/assets/pipeline_overview.png",
+      "bottom_line": "This comparison targets phase-correctness, not throughput, on curated benchmark evidence.",
+      "source_files": [
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/README.md",
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/docs/mission_statement.md",
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/curated_hough_vs_ncc/summary.json"
+      ]
+    },
+    {
+      "section": "scope",
+      "title": "Data and Trial Configuration",
+      "bullets": [
+        "Curated cases: 3 (r001-r003), one experimental pattern per phase.",
+        "Each case compares 3 simulated candidates from phase-isolated indexing assumptions.",
+        "Hough config: n_theta=180, n_rho=90, n_bands=9, convolved-map=True.",
+        "Binary Hough trials sweep tau = 0.35, 0.45, 0.55, 0.65, 0.75."
+      ],
+      "figure": "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/presentations/phaseid_ncc_vs_hough_20260223/assets/ncc_equations.png",
+      "bottom_line": "The experiment is controlled but very small, so conclusions are directional not final.",
+      "source_files": [
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/docs/curated_hough_vs_ncc_workflow.md",
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/curated_hough_vs_ncc/summary.json"
+      ]
+    },
+    {
+      "section": "methodology",
+      "title": "Methodology Pipeline",
+      "bullets": [
+        "Experimental pattern is compared against three phase-conditional simulated patterns.",
+        "Common preprocessing: circular mask + minmax normalization inside mask.",
+        "Compute image_ncc and hough_ncc scores per candidate; rank by top score.",
+        "Decision evidence includes top score, second score, and margin = top-second."
+      ],
+      "figure": "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/presentations/phaseid_ncc_vs_hough_20260223/assets/pipeline_overview.png",
+      "bottom_line": "Both branches use identical candidates; only similarity representation differs.",
+      "source_files": [
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/docs/curated_ncc_workflow.md",
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/docs/curated_hough_vs_ncc_workflow.md",
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/docs/mcc_vs_hough_full_cycle_runbook.md"
+      ]
+    },
+    {
+      "section": "equations",
+      "title": "Scoring Equations and Decision Rule",
+      "bullets": [
+        "NCC is computed over masked pixels to reduce edge/background bias.",
+        "Prediction uses argmax over candidate scores for the 3 phase hypotheses.",
+        "Confidence proxy is margin (top score minus runner-up score).",
+        "Hough trials evaluate raw map NCC and thresholded binary-map NCC."
+      ],
+      "figure": "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/presentations/phaseid_ncc_vs_hough_20260223/assets/ncc_equations.png",
+      "bottom_line": "Decision quality depends on separability of candidate scores, not just raw score magnitude.",
+      "source_files": [
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/src/phase_id_xcorr/similarity/ncc.py",
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/src/phase_id_xcorr/evaluation/curated_hough_vs_ncc.py",
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/curated_hough_vs_ncc/summary.json"
+      ]
+    },
+    {
+      "section": "result",
+      "title": "Headline Accuracy: NCC vs Hough-NCC",
+      "bullets": [
+        "Image NCC: 1/3 correct (33.3%).",
+        "Hough raw NCC: 2/3 correct (66.7%).",
+        "Best binary Hough method: hough_ncc_bin_t450 at 2/3 (66.7%).",
+        "Absolute gain over image NCC: +33.3 percentage points on curated set."
+      ],
+      "figure": "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/presentations/phaseid_ncc_vs_hough_20260223/assets/accuracy_by_method.png",
+      "bottom_line": "Latest curated JSON indicates Hough-space scoring improves top-1 phase accuracy.",
+      "source_files": [
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/curated_hough_vs_ncc/summary.json"
+      ]
+    },
+    {
+      "section": "result",
+      "title": "Binary Threshold Trials (Hough NCC)",
+      "bullets": [
+        "Thresholds 0.35, 0.45, and 0.65 each achieve 2/3 accuracy.",
+        "Thresholds 0.55 and 0.75 fall to 1/3 accuracy.",
+        "Best threshold in latest summary: tau=0.45 with strongest mean margin among 2/3 methods.",
+        "Result confirms parameter sensitivity and need for robustness gating."
+      ],
+      "figure": "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/presentations/phaseid_ncc_vs_hough_20260223/assets/threshold_sweep.png",
+      "bottom_line": "Tau=0.45 is a provisional best setting, not yet a frozen operating point.",
+      "source_files": [
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/curated_hough_vs_ncc/summary.json"
+      ]
+    },
+    {
+      "section": "result",
+      "title": "Winner Quality Flags and Fallback Impact",
+      "bullets": [
+        "Image NCC winners include failed/fallback orientations in 2 of 3 cases.",
+        "Hough raw and hough_bin_t450 reduce failed/fallback winners to 1 of 3.",
+        "The unresolved error case (r003) still tracks a failed/fallback bcc winner.",
+        "Decision hygiene (penalty + uncertainty gate) is required before scale-up."
+      ],
+      "figure": "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/presentations/phaseid_ncc_vs_hough_20260223/assets/winner_quality_flags.png",
+      "bottom_line": "Reducing fallback-driven winners is central to reliable phase decisions.",
+      "source_files": [
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/curated_hough_vs_ncc/summary.json",
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/docs/scientific_strategy_band_aware_phase_id.md"
+      ]
+    },
+    {
+      "section": "result",
+      "title": "Per-Case Outcome Matrix",
+      "bullets": [
+        "r001 (truth bcc): all methods correct.",
+        "r002 (truth fe3o4): image NCC fails, Hough raw/bin methods recover correct phase.",
+        "r003 (truth feo): all methods predict bcc (persistent failure).",
+        "Improvements are real but case-dependent; ambiguity remains on hard sample."
+      ],
+      "figure": "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/presentations/phaseid_ncc_vs_hough_20260223/assets/case_method_matrix.png",
+      "bottom_line": "Hough branch fixes one key failure but does not solve all ambiguity cases.",
+      "source_files": [
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/curated_hough_vs_ncc/report_data.json",
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/curated_hough_vs_ncc/decisions.csv"
+      ]
+    },
+    {
+      "section": "result",
+      "title": "Qualitative Evidence: r002 Recovered by Hough",
+      "bullets": [
+        "Ground truth for r002 is fe3o4_magnetite.",
+        "Image NCC selects bcc candidate (incorrect).",
+        "Hough raw and binary (tau=0.45) select fe3o4 candidate (correct).",
+        "Band-structure representation improves discrimination in this magnetite case."
+      ],
+      "figure": "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/presentations/phaseid_ncc_vs_hough_20260223/assets/r002_evidence_montage.png",
+      "bottom_line": "For r002, Hough-space matching corrects the phase label missed by image NCC.",
+      "source_files": [
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/curated_hough_vs_ncc/report_data.json",
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/curated_hough_vs_ncc/cases/r002/exp_pattern.png",
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/curated_hough_vs_ncc/cases/r002/exp_hough_map.png"
+      ]
+    },
+    {
+      "section": "conclusion",
+      "title": "Conclusions and Next Steps",
+      "bullets": [
+        "Latest JSON comparison supports Hough-NCC as a stronger branch than image NCC on curated data.",
+        "One hard case (r003) remains unresolved; all methods collapse to bcc.",
+        "Immediate actions: fallback penalty, uncertainty output, and robustness-gated parameter lock.",
+        "Expand curated orientations per phase before declaring default method for scan-wide runs."
+      ],
+      "figure": "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/presentations/phaseid_ncc_vs_hough_20260223/assets/r003_evidence_montage.png",
+      "bottom_line": "Adopt Hough branch in parallel with strict decision guardrails before broader deployment.",
+      "source_files": [
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/curated_hough_vs_ncc/summary.json",
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/reports/curated_hough_vs_ncc/report_data.json",
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/docs/hough_space_ncc_action_plan.md",
+        "/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/docs/scientific_strategy_band_aware_phase_id.md"
+      ]
+    }
+  ]
+}

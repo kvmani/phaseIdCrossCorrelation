@@ -1,0 +1,73 @@
+{
+  "packet_dir": "data/test/student_data_packet_phaseid2",
+  "timestamp_utc": "2026-02-26T17:52:50+00:00",
+  "gate_status": "HOLD",
+  "counts": {
+    "errors": 3,
+    "warnings": 6,
+    "info": 0,
+    "total": 9
+  },
+  "checked_files": {
+    "experimental": "01_experimental_patterns_template.json",
+    "simulated": "02_simulated_patterns_template.json",
+    "scan": "03_scan_files_template.json",
+    "processing": "04_processing_template.json"
+  },
+  "findings": [
+    {
+      "severity": "warning",
+      "code": "placeholder_text",
+      "message": "Placeholder text still present; replace with real notes.",
+      "location": "experimental_json.records[0].notes"
+    },
+    {
+      "severity": "warning",
+      "code": "placeholder_text",
+      "message": "Placeholder text still present; replace with real notes.",
+      "location": "experimental_json.records[1].notes"
+    },
+    {
+      "severity": "warning",
+      "code": "placeholder_text",
+      "message": "Placeholder text still present; replace with real notes.",
+      "location": "experimental_json.records[2].notes"
+    },
+    {
+      "severity": "warning",
+      "code": "placeholder_text",
+      "message": "Placeholder text still present; replace with real notes.",
+      "location": "simulated_json.records[0].notes"
+    },
+    {
+      "severity": "warning",
+      "code": "placeholder_text",
+      "message": "Placeholder text still present; replace with real notes.",
+      "location": "simulated_json.records[1].notes"
+    },
+    {
+      "severity": "warning",
+      "code": "placeholder_text",
+      "message": "Placeholder text still present; replace with real notes.",
+      "location": "simulated_json.records[2].notes"
+    },
+    {
+      "severity": "error",
+      "code": "oh5_read_error",
+      "message": "Failed reading assume_fe3o4_magnetite: \"Unable to synchronously open object (object 'Pattern' doesn't exist)\"",
+      "location": "scan_json.scan_records[0].scan_files.assume_fe3o4_magnetite"
+    },
+    {
+      "severity": "error",
+      "code": "oh5_read_error",
+      "message": "Failed reading assume_feo_wustite: \"Unable to synchronously open object (object 'Pattern' doesn't exist)\"",
+      "location": "scan_json.scan_records[0].scan_files.assume_feo_wustite"
+    },
+    {
+      "severity": "error",
+      "code": "oh5_read_error",
+      "message": "Failed reading assume_fe_bcc: \"Unable to synchronously open object (object 'Pattern' doesn't exist)\"",
+      "location": "scan_json.scan_records[0].scan_files.assume_fe_bcc"
+    }
+  ]
+}

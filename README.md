@@ -35,6 +35,7 @@ This repository is currently in **baseline implementation and method-comparison*
 - `docs/g0_data_intake_validation.md`: how to run G0 data-intake gate checks.
 - `docs/curated_ncc_workflow.md`: curated experimental-vs-simulated NCC workflow and artifacts.
 - `docs/curated_hough_vs_ncc_workflow.md`: curated image-NCC vs KikuchiPy Hough-NCC comparison workflow.
+- `docs/mcc_vs_hough_full_cycle_runbook.md`: one-go command sequence to run G0 + curated NCC + Hough comparison and print headline metrics.
 - `todo_list.md`: operational task list (living document).
 - `docs/oh5_structure.md`: dedicated guide for TSL `.oh5` layout and data access.
 - `docs/test_data_setup_plan.md`: canonical test data acquisition, naming, and manifest specification.

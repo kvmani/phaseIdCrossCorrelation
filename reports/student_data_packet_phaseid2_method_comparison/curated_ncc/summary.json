@@ -1,0 +1,30 @@
+{
+  "timestamp_utc": "2026-02-27T03:10:28+00:00",
+  "packet_dir": "data/test/student_data_packet_phaseid2",
+  "out_dir": "reports/student_data_packet_phaseid2_method_comparison/curated_ncc",
+  "normalization_method": "minmax_inside_mask",
+  "cases_total": 3,
+  "cases_correct": 3,
+  "top1_accuracy": 1.0,
+  "mean_top_ncc": 0.34125830313708855,
+  "mean_margin": 0.034514910284287985,
+  "mean_flip_rate": 0.0,
+  "per_phase": {
+    "fe_bcc": {
+      "count": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    },
+    "fe3o4_magnetite": {
+      "count": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    },
+    "feo_wustite": {
+      "count": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    }
+  },
+  "error_case_ids": []
+}

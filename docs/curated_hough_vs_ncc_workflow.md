@@ -8,6 +8,10 @@ This workflow compares phase decisions from:
 
 The Hough transform path uses KikuchiPy's PyEBSDIndex-backed Radon/Hough plan (not a custom Hough implementation).
 
+For a one-go end-to-end command sequence (G0 gate + curated NCC + Hough comparison + summary printout), see:
+
+- `docs/mcc_vs_hough_full_cycle_runbook.md`
+
 ## Run
 
 From repository root:
@@ -41,6 +45,8 @@ Optional:
   structured metadata used to compose HTML report.
 - `reports/curated_hough_vs_ncc/inspection_report.html`:
   single visual report with annotated patterns, Hough maps, candidate tables, and method comparison.
+  It includes per-method score discrimination breakdown (`winner_score` and `other_scores`) and an optional
+  interactive exp-vs-sim pattern viewer (`Overlay` with alpha slider or `Split 50/50`).
 - `reports/curated_hough_vs_ncc/manifest.json`:
   run metadata for reproducibility.
 
@@ -49,4 +55,3 @@ Optional:
 - Persisted paths in JSON/CSV outputs are repository-relative.
 - Experimental and simulated image preprocessing follows the same normalization policy from `04_processing_template.json`.
 - This workflow is curated-case validation and method comparison; it does not yet run scan-wide `.oh5` extraction.
-

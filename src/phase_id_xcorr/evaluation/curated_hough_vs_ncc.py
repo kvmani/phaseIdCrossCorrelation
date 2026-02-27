@@ -555,6 +555,27 @@ def build_curated_hough_vs_ncc_html(
 ) -> Path:
     """Build a single-file HTML report from `report_data.json`."""
 
+    def method_score_breakdown(cands: list[dict[str, Any]], method: str) -> tuple[tuple[str, float] | None, list[tuple[str, float]], list[tuple[str, float]]]:
+        pairs: list[tuple[str, float]] = []
+        for cand in cands:
+            phase = str(cand.get("assumed_phase", ""))
+            try:
+                score = float(cand.get("scores", {}).get(method, float("nan")))
+            except Exception:
+                score = float("nan")
+            if not np.isfinite(score):
+                continue
+            pairs.append((phase, score))
+        ranked = sorted(pairs, key=lambda x: x[1], reverse=True)
+        winner = ranked[0] if ranked else None
+        others = ranked[1:] if len(ranked) > 1 else []
+        return winner, others, ranked
+
+    def fmt_score_pairs(pairs: list[tuple[str, float]]) -> str:
+        if not pairs:
+            return "[]"
+        return "[" + ", ".join(f"{phase} ({score:.5f})" for phase, score in pairs) + "]"
+
     payload = _load_json(report_data_json)
     summary = payload.get("summary", {})
     records = payload.get("records", [])
@@ -599,6 +620,7 @@ def build_curated_hough_vs_ncc_html(
 
     # Per-record sections
     rec_sections = []
+    blend_widget_inits: list[str] = []
     for rec in records:
         rid = str(rec.get("record_id"))
         true_phase = str(rec.get("true_phase"))
@@ -628,21 +650,26 @@ def build_curated_hough_vs_ncc_html(
             if method.startswith("hough_ncc_bin_t"):
                 name = f"{method} (thr={threshold_labels.get(method,'n/a')})"
             cls = "ok" if bool(d.get("is_correct", False)) else "bad"
+            winner, others, _ranked = method_score_breakdown(candidates, method)
+            winner_txt = "n/a" if winner is None else f"{winner[0]} ({winner[1]:.5f})"
+            others_txt = fmt_score_pairs(others)
             dec_rows.append(
                 f"<tr class='{cls}'><td>{name}</td><td>{d.get('pred_phase')}</td>"
-                f"<td>{d.get('is_correct')}</td><td>{float(d.get('top_score',0.0)):.5f}</td>"
+                f"<td>{d.get('is_correct')}</td><td>{winner_txt}</td><td>{others_txt}</td>"
                 f"<td>{float(d.get('margin',0.0)):.5f}</td><td>{d.get('top_indexing_status')}</td>"
                 f"<td>{d.get('top_is_fallback_orientation')}</td></tr>"
             )
 
         cand_cards = []
         cand_score_rows = []
+        sim_pattern_uri_by_phase: dict[str, str] = {}
         for cand in sorted(candidates, key=lambda c: PHASE_ORDER.index(str(c.get("assumed_phase"))) if str(c.get("assumed_phase")) in PHASE_ORDER else 999):
             phase = str(cand.get("assumed_phase"))
             c_art = cand.get("artifacts", {})
             c_pattern = _image_data_uri(repo_root / c_art["sim_pattern_png"])
             c_hough = _image_data_uri(repo_root / c_art["sim_hough_png"])
             c_hbin = _image_data_uri(repo_root / c_art["sim_hough_bin_png"])
+            sim_pattern_uri_by_phase[phase] = c_pattern
             c_euler = cand.get("candidate_angles_degrees", {})
             c_euler_text = (
                 f"phi1={c_euler.get('phi1','n/a')}, PHI={c_euler.get('PHI','n/a')}, phi2={c_euler.get('phi2','n/a')}"
@@ -678,6 +705,38 @@ def build_curated_hough_vs_ncc_html(
                 f"<td>{''.join(score_cells)}</td></tr>"
             )
 
+        default_method = str(best_binary_method if best_binary_method in methods else "image_ncc")
+        _winner, _others, ranked_for_default = method_score_breakdown(candidates, default_method)
+        viewer_candidates = []
+        for phase, score in ranked_for_default:
+            sim_uri = sim_pattern_uri_by_phase.get(phase)
+            if sim_uri is None:
+                continue
+            viewer_candidates.append(
+                {
+                    "phase": phase,
+                    "score": float(score),
+                    "src": sim_uri,
+                }
+            )
+        if not viewer_candidates:
+            for phase, sim_uri in sim_pattern_uri_by_phase.items():
+                viewer_candidates.append({"phase": phase, "score": float("nan"), "src": sim_uri})
+        default_phase = str(decisions.get(default_method, {}).get("pred_phase", ""))
+        if default_phase not in {c["phase"] for c in viewer_candidates} and viewer_candidates:
+            default_phase = str(viewer_candidates[0]["phase"])
+        widget_id = f"hblend-{rid}"
+        viewer_options = "".join(
+            f"<option value='{c['phase']}'>{c['phase']} ({float(c['score']):.5f})</option>" for c in viewer_candidates
+        )
+        viewer_config = {
+            "exp": exp_pattern_uri,
+            "candidates": viewer_candidates,
+            "default_phase": default_phase,
+            "default_alpha": 0.5,
+        }
+        blend_widget_inits.append(f"initBlendWidget('{widget_id}', {json.dumps(viewer_config)});")
+
         rec_sections.append(
             f"""
             <section class='record'>
@@ -692,9 +751,29 @@ def build_curated_hough_vs_ncc_html(
               <div class='meta'>Euler: {euler_text}</div>
               <div class='meta'>{img_meta_text}</div>
 
+              <h3>Pattern Match Viewer (Optional)</h3>
+              <div class='blend-widget' id='{widget_id}'>
+                <div class='blend-controls'>
+                  <label>Candidate
+                    <select class='bw-phase'>{viewer_options}</select>
+                  </label>
+                  <label>Mode
+                    <select class='bw-mode'>
+                      <option value='overlay'>Overlay</option>
+                      <option value='split'>Split 50/50</option>
+                    </select>
+                  </label>
+                  <label>Alpha
+                    <input class='bw-alpha' type='range' min='0' max='1' step='0.05' value='0.50'>
+                    <span class='bw-alpha-value'>0.50</span>
+                  </label>
+                </div>
+                <canvas class='bw-canvas'></canvas>
+              </div>
+
               <h3>Method Decisions</h3>
               <table>
-                <thead><tr><th>method</th><th>pred_phase</th><th>correct</th><th>top_score</th><th>margin</th><th>winner_status</th><th>winner_fallback</th></tr></thead>
+                <thead><tr><th>method</th><th>pred_phase</th><th>correct</th><th>winner_score</th><th>other_scores</th><th>margin</th><th>winner_status</th><th>winner_fallback</th></tr></thead>
                 <tbody>{''.join(dec_rows)}</tbody>
               </table>
 
@@ -732,8 +811,90 @@ def build_curated_hough_vs_ncc_html(
     .cand-card{background:#fcfcfc;border:1px solid #ddd;border-radius:6px;padding:8px}
     .cand-card.failed{border:2px solid #c33838}
     .exp{max-width:980px}
+    .blend-widget{border:1px solid #ddd;border-radius:6px;padding:10px;background:#fcfcfc;margin:10px 0}
+    .blend-controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+    .blend-controls label{font-size:12px;color:#222;display:flex;gap:6px;align-items:center}
+    .blend-controls select,.blend-controls input{font-size:12px}
+    .bw-canvas{width:100%;max-width:360px;height:auto;border:1px solid #bbb;background:#000}
     code{background:#f5f5f5;padding:1px 4px;border-radius:4px}
     """
+
+    blend_script = """
+    <script>
+    function initBlendWidget(widgetId, config){
+      const root = document.getElementById(widgetId);
+      if(!root || !config || !Array.isArray(config.candidates) || config.candidates.length === 0){ return; }
+
+      const phaseSel = root.querySelector('.bw-phase');
+      const modeSel = root.querySelector('.bw-mode');
+      const alphaInput = root.querySelector('.bw-alpha');
+      const alphaValue = root.querySelector('.bw-alpha-value');
+      const canvas = root.querySelector('.bw-canvas');
+      const ctx = canvas.getContext('2d');
+
+      const expImg = new Image();
+      expImg.src = config.exp;
+
+      const simByPhase = new Map();
+      config.candidates.forEach((c) => {
+        const img = new Image();
+        img.src = c.src;
+        simByPhase.set(c.phase, img);
+        img.onload = render;
+      });
+      expImg.onload = render;
+
+      if(config.default_phase){ phaseSel.value = config.default_phase; }
+      if(typeof config.default_alpha === 'number'){ alphaInput.value = String(config.default_alpha); }
+      alphaValue.textContent = Number(alphaInput.value).toFixed(2);
+
+      phaseSel.addEventListener('change', render);
+      modeSel.addEventListener('change', render);
+      alphaInput.addEventListener('input', () => {
+        alphaValue.textContent = Number(alphaInput.value).toFixed(2);
+        render();
+      });
+
+      function render(){
+        const simImg = simByPhase.get(phaseSel.value);
+        if(!simImg || !expImg.complete || !simImg.complete){ return; }
+        const w = expImg.naturalWidth || expImg.width;
+        const h = expImg.naturalHeight || expImg.height;
+        if(!w || !h){ return; }
+        canvas.width = w;
+        canvas.height = h;
+        ctx.clearRect(0, 0, w, h);
+
+        if(modeSel.value === 'split'){
+          const mid = Math.floor(w / 2);
+          ctx.globalAlpha = 1.0;
+          ctx.drawImage(expImg, 0, 0, mid, h, 0, 0, mid, h);
+          ctx.drawImage(simImg, mid, 0, w - mid, h, mid, 0, w - mid, h);
+          ctx.strokeStyle = 'rgba(255,255,0,0.9)';
+          ctx.beginPath();
+          ctx.moveTo(mid + 0.5, 0);
+          ctx.lineTo(mid + 0.5, h);
+          ctx.stroke();
+          return;
+        }
+
+        ctx.globalAlpha = 1.0;
+        ctx.drawImage(expImg, 0, 0, w, h);
+        ctx.globalAlpha = Number(alphaInput.value);
+        ctx.drawImage(simImg, 0, 0, w, h);
+        ctx.globalAlpha = 1.0;
+      }
+
+      render();
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+      __BLEND_WIDGET_INITS__
+    });
+    </script>
+    """
+    init_js = "\n      ".join(blend_widget_inits) if blend_widget_inits else ""
+    blend_script = blend_script.replace("__BLEND_WIDGET_INITS__", init_js)
 
     html = f"""<!DOCTYPE html>
 <html lang='en'>
@@ -760,6 +921,7 @@ def build_curated_hough_vs_ncc_html(
   </section>
 
   {''.join(rec_sections)}
+  {blend_script}
 </body>
 </html>
 """
@@ -767,4 +929,3 @@ def build_curated_hough_vs_ncc_html(
     out_html.parent.mkdir(parents=True, exist_ok=True)
     out_html.write_text(html, encoding="utf-8")
     return out_html
-

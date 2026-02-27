@@ -1,0 +1,4 @@
+record_id,true_phase,pred_phase,is_correct,top_ncc,second_ncc,margin,top_indexing_status,top_is_fallback_orientation,flip_rate,panel_path
+r001,fe_bcc,fe_bcc,True,0.28706415844180094,0.2440959210855497,0.04296823735625124,ok,False,0.0,reports/student_data_packet_phaseid2_method_comparison/curated_ncc/cases/r001_panel.png
+r002,fe3o4_magnetite,fe3o4_magnetite,True,0.3444639464860973,0.3009402848270744,0.04352366165902288,ok,False,0.0,reports/student_data_packet_phaseid2_method_comparison/curated_ncc/cases/r002_panel.png
+r003,feo_wustite,feo_wustite,True,0.3922468044833674,0.3751939726457776,0.01705283183758982,ok,False,0.0,reports/student_data_packet_phaseid2_method_comparison/curated_ncc/cases/r003_panel.png
