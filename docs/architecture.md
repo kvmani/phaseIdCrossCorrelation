@@ -1,59 +1,84 @@
 # Proposed Architecture (Implementation Blueprint)
 
-This is the initial module blueprint for Phase 1 implementation (EBSD-only baseline).
+This is the active blueprint for EBSD phase identification with two coordinated tracks:
+
+- NCC evidence track (existing baseline)
+- ML classifier track (new supervised branch)
 
 ## Module Map
 
 ```text
 src/
   phase_id_xcorr/
-    io/
-      oh5_reader.py
-      field_aliases.py
-    indexing/
-      tsl_candidates.py
-    simulation/
-      external_patterns.py
+    intake/
+      g0_validator.py
     preprocessing/
-      pattern_prep.py
+      image_io.py
       masking.py
+      pattern_prep.py
     similarity/
       ncc.py
-    decision/
-      selector.py
-      confidence.py
+    features/
+      kikuchipy_hough.py
     evaluation/
-      benchmark_cases.py
-      metrics.py
-    workflows/
-      run_case.py
-      run_batch.py
+      curated_ncc.py
+      curated_hough_vs_ncc.py
     reporting/
-      manifest.py
-      tables.py
+      run_manifest.py
+    ml/
+      config.py
+      oh5_reader.py
+      labels.py
+      quality.py
+      split.py
+      dataset_builder.py
+      dataset_io.py
+      models.py
+      metrics.py
+      training.py
+      suite.py
 ```
 
-## Data Contracts
+## ML Data Contracts
 
-- Candidate orientation record:
-  - `pixel_x`, `pixel_y`, `phase_name`, `euler`, `source_file`, `quality_fields`.
-- Simulated pattern record:
-  - `pixel_x`, `pixel_y`, `phase_name`, `orientation_id`, `pattern_path`.
-- Decision result record:
-  - `pixel_x`, `pixel_y`, `winner_phase`, `winner_ncc`, `runner_up_ncc`, `margin`, `all_scores`.
+Input contracts:
 
-## Baseline Workflow
+- YAML data-prep config:
+  - phase definitions (`name`, `label`),
+  - one or more `.oh5` + CSV label pairs,
+  - quality thresholds,
+  - split policy.
+- CSV label table (per `.oh5`):
+  - row coordinates (`x`, `y`) or `flat_index`,
+  - phase assignment (`phase_name` or numeric label),
+  - optional sample metadata columns.
 
-1. Read `.oh5`-derived candidate orientations for each assumed phase.
-2. Load experimental pattern and corresponding simulated candidate patterns.
-3. Apply consistent preprocessing/mask.
-4. Compute NCC per candidate.
-5. Select winner and confidence margin.
-6. Persist evidence and summaries.
+Output contracts:
+
+- `records.csv`: one row per accepted sample with source paths, coordinates, quality values, phase mapping, and split.
+- `splits/{train,val,test}.npz`: pattern tensors + labels.
+- `dataset_manifest.json`: run settings, field mappings, acceptance/rejection counts.
+
+## Workflow Boundaries
+
+1. `scripts/run_ml_dataset_prepare.py`
+- Thin CLI wrapper.
+- Resolves paths and config.
+- Calls `phase_id_xcorr.ml.dataset_builder.prepare_ml_dataset(...)`.
+
+2. `scripts/run_ml_train_classifier.py`
+- Thin CLI wrapper.
+- Loads training config + prepared dataset manifest.
+- Calls `phase_id_xcorr.ml.training.train_classifier(...)`.
+
+3. `phase_id_xcorr.ml.suite`
+- Optional benchmark orchestration over multiple model configs.
+- Writes model-comparison summary reports.
 
 ## Design Constraints
 
-- CPU-first implementation.
-- Deterministic outputs in debug mode.
-- Pluggable scoring functions for future ablations.
-- No hidden hard-coded paths; use configs.
+- Configuration-driven (no hard-coded phase names).
+- Robust `.oh5` field aliasing and clear failure modes when `Pattern` is absent.
+- Deterministic split generation and reproducible seed control.
+- Machine-readable run artifacts for every workflow run.
+- Keep scripts orchestration-only; core logic stays in `src/` modules.

@@ -1,3 +1,7 @@
 # configs
 
-YAML configuration files will live here.
+YAML configuration files live here.
+
+Current groups:
+
+- `configs/ml/`: ML dataset-prep, training, and benchmark-suite templates.

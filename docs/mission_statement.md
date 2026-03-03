@@ -1,8 +1,8 @@
-# Mission Statement: Phase Identification by Cross-Correlation in Multi-Phase EBSD
+# Mission Statement: Phase Identification by Cross-Correlation and ML Classification in Multi-Phase EBSD
 
 ## Vision
 
-Develop a scientifically rigorous, modular, and reproducible EBSD analysis framework that improves phase discrimination in mixed microstructures where standard Hough/dictionary indexing is unreliable.
+Develop a scientifically rigorous, modular, and reproducible EBSD analysis framework that improves phase discrimination in mixed microstructures where standard indexing is unreliable.
 
 ## Problem Context
 
@@ -14,11 +14,13 @@ In the current target system, three phases coexist with fine spatial intermixing
 
 Conventional indexing can misclassify phases, especially magnetite vs wustite, due to similarity in Kikuchi geometry and interplanar-angle relationships.
 
-## Core Hypothesis
+## Core Hypotheses
 
-At each scan pixel, if we obtain phase-conditional orientation candidates and compare externally simulated patterns against the experimental pattern using a consistent masked NCC metric, the best-matching candidate should provide a more reliable phase decision than direct single-pass indexing alone.
+1. NCC evidence path: if we compare phase-conditioned simulated patterns against experimental patterns under consistent preprocessing, NCC-based evidence remains an interpretable baseline for phase decisions.
+2. ML classification path: if we train a supervised classifier on labeled experimental Kikuchi patterns from `.oh5` scans, the model can learn discriminative phase cues that are difficult to encode with correlation-only metrics.
+3. Hybrid readiness: storing full per-sample evidence (quality filters, labels, scores, predictions) enables future fusion of NCC and ML decision tracks.
 
-## Baseline Algorithm (Phase 1)
+## Baseline Algorithm (Track A: NCC)
 
 For each EBSD pixel `(x, y)`:
 
@@ -32,45 +34,62 @@ For each EBSD pixel `(x, y)`:
 5. Select highest NCC as predicted phase/orientation.
 6. Record confidence and runner-up margin for interpretability.
 
+## New Algorithm Branch (Track B: ML Classifier)
+
+For supervised phase classification from experimental patterns:
+
+1. Ingest one or more `.oh5` scan files plus corresponding ground-truth CSV label files.
+2. Extract Kikuchi patterns and scan quality fields from `.oh5` using robust field aliasing (`CI` vs `Confidence Index`, `IQ` vs `Image Quality`).
+3. Filter low-quality patterns using configurable thresholds (for example CI/IQ/Fit/Valid gates).
+4. Map phase names to class labels from YAML configuration (no hard-coded material names).
+5. Build a combined dataset across all input file pairs.
+6. Create deterministic train/val/test splits from YAML policy.
+7. Train and evaluate configurable classifier backbones with optional pretrained initialization.
+8. Persist run metadata and metrics for traceability (`manifest.json`, report artifacts, split/evidence tables).
+
 ## Scope and Boundaries
 
 ### In Scope Now
 
-- EBSD-only baseline pipeline.
-- `.oh5` ingestion and candidate extraction.
-- NCC-based decision framework.
+- EBSD-only phase discrimination pipeline with two tracks:
+  - NCC evidence track (existing baseline).
+  - ML classifier track (new branch: data prep + training + evaluation).
+- `.oh5` ingestion and quality-aware pattern extraction.
+- YAML-configurable phase labels and split policies.
 - Reproducible debug workflows with in-repo test data.
 - Documentation and architecture foundation for future growth.
 
 ### Deferred to Later Phases
 
-- LRS registration and fusion (Raman available only sparsely and for Raman-active phases).
-- Throughput and large-scale performance tuning.
+- Sparse LRS registration and multimodal fusion.
+- Throughput and large-scale distributed training optimization.
 - Manuscript final drafting and journal-specific formatting.
 
 ## Scientific and Engineering Principles
 
-- Accuracy and interpretability before speed.
-- Modular design with clear interfaces and replaceable components.
-- Deterministic runs for reproducibility.
-- Explicit assumptions and traceable evidence for each decision.
-- Architecture must be extensible for sparse multimodal fusion (LRS) later.
+- Correctness and interpretability before speed.
+- Reproducibility before convenience.
+- Modular design with explicit interfaces and replaceable components.
+- Deterministic debug runs with machine-readable manifests.
+- Architecture must remain fusion-ready for future NCC + ML + sparse LRS decisions.
 
 ## Success Criteria (Current)
 
 Primary success criterion:
 
-- Correct phase identification with clear discrimination for manually verified benchmark cases.
+- Improved phase identification correctness on manually verified benchmark cases versus correlation-only baseline.
 
 Supporting criteria:
 
-- Stable reproducible results on CPU.
-- Clear confidence reporting per pixel/case.
-- Clean, maintainable documentation and task tracking.
+- Stable reproducible runs on debug data.
+- Clear confidence reporting and per-class performance summaries.
+- Traceable lineage from raw `.oh5` / CSV labels to trained model artifacts.
+- Clean, maintainable documentation synchronized with implementation.
 
 ## Deliverables for Current Stage
 
-- Mission/governance/task documents finalized.
-- Stable project scaffold and workflow conventions.
-- `.oh5` access reference to avoid repeated rediscovery effort.
-- Ready-to-implement architecture plan for coding phase.
+- Mission/governance/task documents synchronized with ML expansion.
+- Dedicated modular ML package scaffold under `src/phase_id_xcorr/ml`.
+- Config-driven dataset preparation workflow from `.oh5` + CSV labels.
+- Config-driven classifier training workflow with pretrained/scratch options.
+- Run-level reporting artifacts and deterministic debug tests.

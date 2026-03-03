@@ -177,6 +177,7 @@ A practical strategy is to normalize names with:
 ## Practical Caveats
 
 - Some datasets may deviate from expected path layout; validate and fail with clear messages.
+- Some indexing-focused `.oh5` exports contain orientation/quality maps but omit `Pattern`; ML training workflows must detect this and fail or skip by explicit policy.
 - Orientation units and conventions (e.g., Euler angle units/order) must be confirmed before downstream use.
 - Flattening order assumptions can break map-pattern alignment if mismatched; validate with small known points.
 
@@ -187,4 +188,3 @@ A practical strategy is to normalize names with:
 - [ ] `Pattern` dataset found and shape recognized.
 - [ ] Euler/phase/position fields found (or mapped with aliases).
 - [ ] Spot-check a few `(x, y)` accesses against known visualization or external tools.
-

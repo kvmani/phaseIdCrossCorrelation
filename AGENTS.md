@@ -8,7 +8,9 @@ Guideline hierarchy: root `AGENTS.md` is the default policy. A deeper `agents.md
 
 ## 1. Project Mandate
 
-- Primary objective: robust phase discrimination in mixed-phase EBSD patterns using phase-isolated indexing candidates and NCC scoring against externally simulated patterns.
+- Primary objective: robust phase discrimination in mixed-phase EBSD patterns using complementary evidence tracks:
+  - phase-isolated indexing + NCC scoring against externally simulated patterns,
+  - supervised ML classification from experimental Kikuchi patterns.
 - Current scope: EBSD-only algorithm development.
 - Future scope: sparse LRS integration (architecture must remain integration-ready).
 - Priority order: correctness > reproducibility > maintainability > speed.
@@ -27,6 +29,7 @@ Guideline hierarchy: root `AGENTS.md` is the default policy. A deeper `agents.md
   - `indexing/`: candidate orientation ingestion from external TSL runs.
   - `simulation/`: interfaces for externally simulated patterns.
   - `similarity/`: NCC and other scoring methods.
+  - `ml/`: dataset preparation, model training, evaluation, and benchmark orchestration.
   - `decision/`: phase/orientation selection and confidence logic.
   - `evaluation/`: manually curated benchmark case evaluation.
   - `workflows/`: orchestration pipelines.
@@ -42,9 +45,12 @@ Guideline hierarchy: root `AGENTS.md` is the default policy. A deeper `agents.md
 ## 5. Algorithm Policy (Initial)
 
 - Baseline phase decision metric: masked normalized cross-correlation (NCC).
+- ML branch: supervised classification of experimental Kikuchi patterns using YAML-configured phase labels and deterministic train/val/test splits.
 - Baseline candidate generation: one-phase-at-a-time indexing externally (phase-isolated assumptions).
 - For each pixel, compare all candidate phase simulations to the same experimental pattern under consistent preprocessing.
-- Always store intermediate evidence for traceability (candidate list, NCC scores, selected winner).
+- Always store intermediate evidence for traceability:
+  - candidate list, NCC scores, selected winner (NCC track),
+  - sample lineage, quality-filter decisions, split assignment, model predictions/metrics (ML track).
 
 ## 6. Reproducibility and Logging
 
@@ -65,6 +71,7 @@ Any change affecting behavior, inputs/outputs, assumptions, or CLI flags must up
 
 - Unit tests for data access, NCC scoring, candidate ranking, and edge cases.
 - At least one debug integration test for end-to-end workflow.
+- For ML track, include tests for `.oh5` pattern extraction, label mapping, quality filtering, split determinism, and training smoke path.
 - Use in-repo small fixtures for deterministic tests.
 
 ## 9. Contribution Workflow (Single User, Agent-Assisted)

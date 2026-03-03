@@ -4,14 +4,13 @@ Operational task list for this repository. Keep this file updated as priorities 
 
 ## Priority Now
 
-- [ ] Review and finalize all scaffold documents (`README.md`, `AGENTS.md`, mission, roadmap, status, `.oh5` guide).
-- [ ] Approve initial repository module boundaries under `src/`.
-- [x] Define minimum debug dataset contents and naming conventions in `data/test/` (`docs/test_data_setup_plan.md`).
-- [x] Prepare student-facing data packet and templates (`student_data_packet_phaseid/`, zip archive).
-- [x] Populate `data/test/` using the approved naming and manifest scheme in `docs/test_data_setup_plan.md`.
-- [ ] Define the first benchmark set of manually verified pixels/cases.
+- [x] Synchronize mission/roadmap/status docs for dual-track EBSD phase ID (NCC + ML).
+- [x] Define dedicated ML classifier module boundaries and configuration-first workflow scope.
+- [ ] Implement ML `.oh5` + CSV dataset preparation runner with quality filters and deterministic splits.
+- [ ] Implement ML classifier training runner with scratch/pretrained support and reproducible reports.
+- [ ] Define the first benchmark set of manually verified pixels/cases for NCC-vs-ML comparison.
 
-## Post-Data Intake Gates (Execution Order)
+## Post-Data Intake Gates (NCC Track)
 
 Reference: `docs/action_plan_post_data_intake.md`
 
@@ -45,16 +44,18 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [ ] H4: Run robustness/overfitting checks and select stable Hough parameters.
 - [ ] H5: Publish scientific comparison report and choose keep/reject/default strategy.
 
-## Phase 1: EBSD Baseline Implementation (Work Packages)
+## ML Classifier Track (Phase 1B)
 
-- [x] Implement multi-format image reader (`.bmp`, `.png`, `.tif/.tiff`, `.jpg/.jpeg`) with consistent grayscale conversion.
-- [x] Support both 8-bit and 16-bit inputs in preprocessing (normalize to canonical float range before NCC).
-- [ ] Implement `.oh5` reader layer with robust scan-group discovery and field aliasing.
-- [ ] Implement data model for per-pixel candidate orientations from phase-isolated TSL runs.
-- [x] Implement masked NCC scoring module with deterministic preprocessing.
-- [x] Implement decision module selecting winning phase/orientation and confidence margin.
-- [x] Add CLI workflow for single-case and batch-case runs.
-- [x] Add run `manifest.json` outputs for reproducibility.
+- [x] M0: Define ML scope, repository layout, and documentation contract.
+- [ ] M1: Add `.oh5` pattern extractor with robust field aliasing and pattern-presence checks.
+- [ ] M2: Add CSV label ingestor supporting configurable phase-name/label columns.
+- [ ] M3: Add quality gating (CI/IQ/Fit/Valid) with YAML thresholds and per-file stats.
+- [ ] M4: Build combined dataset artifact across multiple `.oh5` + CSV pairs.
+- [ ] M5: Add deterministic stratified train/val/test splitting with seed control.
+- [ ] M6: Implement configurable classifier training/evaluation runner (timm backbones).
+- [ ] M7: Add scratch vs pretrained initialization mode and checkpoint/report artifacts.
+- [ ] M8: Publish model-selection rationale for at least five open-source backbones.
+- [ ] M9: Add benchmark-suite runner for repeated multi-model experiments.
 
 ## Testing and Validation
 
@@ -67,7 +68,8 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [x] Add curated image-vs-hough workflow integration test (`tests/test_curated_hough_vs_ncc.py`).
 - [ ] Unit tests for `.oh5` dataset-path discovery and shape handling.
 - [ ] Integration test for debug pipeline end-to-end.
-- [ ] Build first correctness report on manually identified benchmark cases.
+- [ ] ML unit tests for `.oh5` pattern extraction, label merge, and split determinism.
+- [ ] ML training smoke test on tiny deterministic dataset.
 
 ## Documentation and Reporting
 
@@ -78,6 +80,8 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [ ] Add results baseline document with case-level evidence tables.
 - [x] Add phase-gated execution plan for post-data implementation (`docs/action_plan_post_data_intake.md`).
 - [x] Add G0 validation usage documentation (`docs/g0_data_intake_validation.md`).
+- [ ] Add ML workflow usage docs (dataset prep, training, benchmark suite).
+- [ ] Add ML model-catalog doc with pretrained provenance and citations.
 
 ## Later
 

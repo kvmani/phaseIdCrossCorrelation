@@ -1,0 +1,31 @@
+schema_version: phase_id_xcorr.ml_train.v1
+
+dataset_manifest_path: reports/ml/datasets/debug_fixture/manifest.json
+output_dir: reports/ml/runs/base_timm_debug
+
+seed: 42
+device: auto
+amp: true
+
+batch_size: 4
+num_workers: 0
+epochs: 1
+learning_rate: 0.0003
+weight_decay: 0.0001
+
+max_train_samples: 24
+max_val_samples: 12
+max_test_samples: 12
+
+input:
+  resize_hw: [224, 224]
+  apply_circular_mask: true
+  normalize:
+    mean: [0.5]
+    std: [0.25]
+
+model:
+  family: timm
+  model_name: convnextv2_nano.fcmae_ft_in22k_in1k
+  pretrained: true
+  in_chans: 1

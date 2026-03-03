@@ -1,3 +1,3 @@
 # tests
 
-Unit and integration tests will live here.
+Unit and integration tests for NCC/Hough and ML workflows.
