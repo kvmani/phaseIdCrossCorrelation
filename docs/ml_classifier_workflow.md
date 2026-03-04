@@ -2,7 +2,7 @@
 
 This document defines the ML branch for EBSD phase classification from experimental Kikuchi patterns.
 
-For detailed input preparation examples, CSV-to-`.oh5` mapping rules, sanity checks, event logging, and manifest contracts, see:
+For detailed input preparation examples (CSV labels and single-phase scan-map mode), sanity checks, event logging, and manifest contracts, see:
 
 - `docs/ml_input_data_runbook.md`
 
@@ -10,7 +10,7 @@ For detailed input preparation examples, CSV-to-`.oh5` mapping rules, sanity che
 
 Build a reproducible supervised classifier pipeline that:
 
-1. ingests one or more `.oh5` scan files and corresponding CSV labels,
+1. ingests one or more `.oh5` scan files with config-defined labels,
 2. filters low-quality pixels using configurable metrics,
 3. prepares deterministic train/val/test datasets,
 4. trains configurable classifier backbones (scratch or pretrained),
@@ -18,10 +18,13 @@ Build a reproducible supervised classifier pipeline that:
 
 ## 2. Input Data Contract
 
-Per source pair:
+Supported dataset-prep modes:
 
-- `.oh5` file containing EBSD scan data.
-- CSV with per-pixel labels.
+1. `input_mode: oh5_csv_labels`
+   - per source: one `.oh5` file + one CSV with per-pixel labels.
+2. `input_mode: single_phase_scan_map`
+   - per source: one `.oh5` file + one file-level phase assignment (`phase_name` or `phase_label`).
+   - all accepted pixels from that file inherit that phase label.
 
 Required `.oh5` capabilities for ML prep:
 
@@ -34,7 +37,7 @@ If `Pattern` is missing:
 - `strict_pattern_presence=true` (default): fail fast.
 - `strict_pattern_presence=false`: source is skipped with explicit reason in manifest.
 
-CSV label requirements (configurable column names):
+CSV label requirements (for `oh5_csv_labels`; configurable column names):
 
 - location by either `(x, y)` or `flat_index`,
 - phase by either `phase_name` or numeric `phase_label`.
@@ -43,12 +46,15 @@ CSV label requirements (configurable column names):
 
 ### Dataset Prep Config
 
-Template: `configs/ml/dataset_prepare.default.yml`
+Templates:
+
+- `configs/ml/dataset_prepare.default.yml` (`oh5_csv_labels`)
+- `configs/ml/dataset_prepare.single_phase_scan_map.debug.yml` (`single_phase_scan_map`)
 
 Controls:
 
 - phase name to label mapping,
-- list of `.oh5` + CSV sources,
+- list of sources with mode-specific labeling fields,
 - quality thresholds,
 - split policy (`train/val/test`, seed, stratified),
 - optional pattern resizing (`target_pattern_hw`).
@@ -101,6 +107,7 @@ Prepare dataset:
 
 ```bash
 python scripts/run_ml_dataset_prepare.py --config configs/ml/dataset_prepare.default.yml --debug
+python scripts/run_ml_dataset_prepare.py --config configs/ml/dataset_prepare.single_phase_scan_map.debug.yml --debug
 ```
 
 Train single model:
@@ -114,6 +121,9 @@ Run benchmark suite:
 ```bash
 python scripts/run_ml_benchmark_suite.py --config configs/ml/benchmark_suite.debug.yml --debug
 ```
+
+For platform-specific command notes (Windows/PyCharm, Linux, HPC), see `docs/ml_input_data_runbook.md`.
+For one-command benchmark-to-PPT execution, see `docs/ml_training_inference_workflow.md`.
 
 ## 6. Reporting Standard (Hydra-Inspired, Adapted)
 

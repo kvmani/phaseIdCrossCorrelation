@@ -36,13 +36,13 @@ Deliverables:
 Objectives:
 
 - Build supervised classifier workflow for phase labels from Kikuchi patterns.
-- Ingest multiple `.oh5` + CSV label pairs and combine into one dataset.
+- Ingest multiple `.oh5` sources using either per-pixel CSV labels or single-phase scan-map labels, then combine into one dataset.
 - Apply configurable quality filters and deterministic split policy.
 - Train/evaluate configurable backbones with scratch and pretrained options.
 
 Deliverables:
 
-- ML data preparation CLI (`.oh5` extraction + filtering + split artifacts).
+- ML data preparation CLI (`.oh5` extraction + filtering + split artifacts) with dual source-label modes.
 - ML training CLI (config-driven model, optimizer, reporting, checkpoints).
 - Reproducible run artifacts (`manifest.json`, metrics report, split stats).
 

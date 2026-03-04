@@ -1,4 +1,4 @@
-"""Build ML-ready datasets from `.oh5` + CSV label pairs."""
+"""Build ML-ready datasets from `.oh5` scans under config-driven label modes."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 import subprocess
 import time
-from typing import Any
+from typing import Any, Iterator
 
 import numpy as np
 from PIL import Image
@@ -23,6 +23,11 @@ from .quality import evaluate_quality, thresholds_from_config
 from .split import build_split_assignments, split_config_from_yaml
 
 
+SOURCE_MODE_CSV = "oh5_csv_labels"
+SOURCE_MODE_SINGLE_PHASE = "single_phase_scan_map"
+SUPPORTED_SOURCE_MODES = (SOURCE_MODE_CSV, SOURCE_MODE_SINGLE_PHASE)
+
+
 @dataclass(slots=True)
 class PrepareDatasetResult:
     """Paths to generated ML dataset artifacts."""
@@ -31,6 +36,19 @@ class PrepareDatasetResult:
     manifest_path: Path
     records_csv: Path
     split_npz: dict[str, Path]
+
+
+@dataclass(slots=True)
+class _SourceRow:
+    """Normalized per-pixel source row used across all input modes."""
+
+    row_index: int
+    sample_id: str
+    x: int | None
+    y: int | None
+    flat_index: int | None
+    phase_name: str
+    label: int
 
 
 def _now_iso_utc() -> str:
@@ -121,6 +139,152 @@ def _safe_eta_seconds(*, processed: int, total: int, elapsed: float) -> float | 
     return float((total - processed) / rate)
 
 
+def _parse_input_mode(*, cfg: dict[str, Any], sources: list[Any]) -> str:
+    """Resolve source-label mode from explicit config or source schema."""
+
+    mode_raw = cfg.get("input_mode")
+    if mode_raw is not None:
+        mode = str(mode_raw).strip()
+        if mode not in SUPPORTED_SOURCE_MODES:
+            raise ValueError(
+                f"Unsupported input_mode '{mode}'. "
+                f"Expected one of: {', '.join(SUPPORTED_SOURCE_MODES)}"
+            )
+        return mode
+
+    has_csv = [isinstance(src, dict) and str(src.get("labels_csv_path", "")).strip() != "" for src in sources]
+    has_scan_phase = [
+        isinstance(src, dict)
+        and (
+            str(src.get("phase_name", "")).strip() != ""
+            or str(src.get("phase_label", "")).strip() != ""
+        )
+        for src in sources
+    ]
+
+    if has_csv and all(has_csv):
+        return SOURCE_MODE_CSV
+    if has_scan_phase and all(has_scan_phase) and not any(has_csv):
+        return SOURCE_MODE_SINGLE_PHASE
+
+    raise ValueError(
+        "Could not infer input mode from sources. Set 'input_mode' explicitly to "
+        f"'{SOURCE_MODE_CSV}' or '{SOURCE_MODE_SINGLE_PHASE}'."
+    )
+
+
+def _resolve_source_phase(
+    *,
+    source: dict[str, Any],
+    phase_to_label: dict[str, int],
+    label_to_phase: dict[int, str],
+    where: str,
+) -> tuple[str, int]:
+    """Resolve one source mapping into canonical (phase_name, label)."""
+
+    phase_name: str | None = None
+    phase_label: int | None = None
+
+    raw_name = source.get("phase_name")
+    if raw_name is not None and str(raw_name).strip() != "":
+        phase_name = str(raw_name).strip()
+        if phase_name not in phase_to_label:
+            raise ValueError(
+                f"Unknown phase_name '{phase_name}' in {where}. "
+                f"Configured phase names: {sorted(phase_to_label)}"
+            )
+        phase_label = int(phase_to_label[phase_name])
+
+    raw_label = source.get("phase_label")
+    if raw_label is not None and str(raw_label).strip() != "":
+        parsed_label = int(float(str(raw_label)))
+        if parsed_label not in label_to_phase:
+            raise ValueError(
+                f"Unknown phase_label '{parsed_label}' in {where}. "
+                f"Configured labels: {sorted(label_to_phase)}"
+            )
+        parsed_name = label_to_phase[parsed_label]
+        if phase_name is not None and parsed_name != phase_name:
+            raise ValueError(
+                f"Inconsistent phase mapping in {where}: phase_name='{phase_name}' "
+                f"but phase_label={parsed_label} maps to '{parsed_name}'."
+            )
+        phase_name = parsed_name
+        phase_label = parsed_label
+
+    if phase_name is None or phase_label is None:
+        raise ValueError(
+            f"{where} requires 'phase_name' or 'phase_label' for "
+            f"input_mode='{SOURCE_MODE_SINGLE_PHASE}'."
+        )
+
+    return phase_name, phase_label
+
+
+def _iter_single_phase_rows(
+    *,
+    total_pixels: int,
+    phase_name: str,
+    phase_label: int,
+) -> Iterator[_SourceRow]:
+    """Yield synthetic rows for scans where one file corresponds to one phase."""
+
+    for flat_index in range(total_pixels):
+        yield _SourceRow(
+            row_index=int(flat_index + 1),
+            sample_id=f"pix_{flat_index:09d}",
+            x=None,
+            y=None,
+            flat_index=int(flat_index),
+            phase_name=phase_name,
+            label=int(phase_label),
+        )
+
+
+def _emit_source_progress(
+    *,
+    emit,
+    log: logging.Logger,
+    scan_id: str,
+    processed: int,
+    total: int,
+    accepted: int,
+    rejected: int,
+    source_t0: float,
+) -> None:
+    """Emit periodic progress and ETA for one source."""
+
+    source_elapsed = float(time.monotonic() - source_t0)
+    eta = _safe_eta_seconds(
+        processed=processed,
+        total=total,
+        elapsed=source_elapsed,
+    )
+    pct = (100.0 * processed / total) if total else 100.0
+    log.info(
+        "Source %s progress %.1f%% (%d/%d) accepted=%d rejected=%d elapsed=%.2fs eta=%.2fs",
+        scan_id,
+        pct,
+        processed,
+        total,
+        accepted,
+        rejected,
+        source_elapsed,
+        eta if eta is not None else 0.0,
+    )
+    emit(
+        "SOURCE_PROGRESS",
+        scan_id=scan_id,
+        processed=processed,
+        total=total,
+        progress_pct=pct,
+        accepted=accepted,
+        rejected=rejected,
+        source_elapsed_seconds=source_elapsed,
+        eta_seconds=eta,
+    )
+
+
 def prepare_ml_dataset(
     *,
     config_path: Path,
@@ -169,11 +333,14 @@ def prepare_ml_dataset(
     sources = cfg.get("sources")
     if not isinstance(sources, list) or not sources:
         raise ValueError("Config must provide non-empty 'sources' list")
+    input_mode = _parse_input_mode(cfg=cfg, sources=sources)
+
     emit(
         "RUN_START",
         config_path=rel_path(cfg_path, repo_root),
         output_dir=rel_path(out_dir, repo_root),
         source_count=len(sources),
+        input_mode=input_mode,
         strict_pattern_presence=bool(cfg.get("strict_pattern_presence", True)),
     )
 
@@ -192,35 +359,72 @@ def prepare_ml_dataset(
     for src_idx, source in enumerate(sources, start=1):
         if not isinstance(source, dict):
             raise ValueError("Each source entry must be a mapping")
+        where = f"sources[{src_idx - 1}]"
 
         scan_id = str(source.get("scan_id", f"scan_{src_idx:03d}"))
         oh5_path = resolve_path(
-            get_required(source, "oh5_path", where=f"sources[{src_idx - 1}]"),
+            get_required(source, "oh5_path", where=where),
             base_dir=cfg_dir,
             repo_root=repo_root,
         )
-        labels_csv_path = resolve_path(
-            get_required(source, "labels_csv_path", where=f"sources[{src_idx - 1}]"),
-            base_dir=cfg_dir,
-            repo_root=repo_root,
-        )
+        oh5_path_rel = rel_path(oh5_path, repo_root)
 
-        log.info("Source %s | oh5=%s labels=%s", scan_id, oh5_path, labels_csv_path)
+        labels_csv_path: Path | None = None
+        labels_csv_path_rel = ""
+        source_phase_name: str | None = None
+        source_phase_label: int | None = None
+
+        if input_mode == SOURCE_MODE_CSV:
+            labels_csv_path = resolve_path(
+                get_required(source, "labels_csv_path", where=where),
+                base_dir=cfg_dir,
+                repo_root=repo_root,
+            )
+            labels_csv_path_rel = rel_path(labels_csv_path, repo_root)
+            log.info(
+                "Source %s | mode=%s oh5=%s labels=%s",
+                scan_id,
+                input_mode,
+                oh5_path,
+                labels_csv_path,
+            )
+        else:
+            source_phase_name, source_phase_label = _resolve_source_phase(
+                source=source,
+                phase_to_label=phase_to_label,
+                label_to_phase=label_to_phase,
+                where=where,
+            )
+            log.info(
+                "Source %s | mode=%s oh5=%s phase=%s(%d)",
+                scan_id,
+                input_mode,
+                oh5_path,
+                source_phase_name,
+                source_phase_label,
+            )
+
         source_t0 = time.monotonic()
-        emit(
-            "SOURCE_START",
-            scan_id=scan_id,
-            source_index=src_idx,
-            source_total=len(sources),
-            oh5_path=rel_path(oh5_path, repo_root),
-            labels_csv_path=rel_path(labels_csv_path, repo_root),
-        )
+        source_start_payload: dict[str, Any] = {
+            "scan_id": scan_id,
+            "source_index": src_idx,
+            "source_total": len(sources),
+            "source_mode": input_mode,
+            "oh5_path": oh5_path_rel,
+        }
+        if labels_csv_path_rel:
+            source_start_payload["labels_csv_path"] = labels_csv_path_rel
+        if source_phase_name is not None and source_phase_label is not None:
+            source_start_payload["phase_name"] = source_phase_name
+            source_start_payload["phase_label"] = source_phase_label
+        emit("SOURCE_START", **source_start_payload)
 
         with Oh5ScanReader(oh5_path) as reader:
             meta = reader.meta()
             emit(
                 "OH5_OPEN",
                 scan_id=scan_id,
+                source_mode=input_mode,
                 nx=meta.nx,
                 ny=meta.ny,
                 pattern_present=bool(meta.pattern_present),
@@ -236,8 +440,11 @@ def prepare_ml_dataset(
                 source_summaries.append(
                     {
                         "scan_id": scan_id,
-                        "oh5_path": rel_path(oh5_path, repo_root),
-                        "labels_csv_path": rel_path(labels_csv_path, repo_root),
+                        "source_mode": input_mode,
+                        "oh5_path": oh5_path_rel,
+                        "labels_csv_path": labels_csv_path_rel,
+                        "phase_name": source_phase_name,
+                        "phase_label": source_phase_label,
                         "rows_total": 0,
                         "rows_accepted": 0,
                         "rows_rejected": 0,
@@ -256,28 +463,73 @@ def prepare_ml_dataset(
                 )
                 continue
 
-            label_rows, label_summary = load_label_csv(
-                csv_path=labels_csv_path,
-                phase_to_label=phase_to_label,
-                csv_config=csv_cfg,
-            )
-            raw_rows_total += label_summary.rows_total
-            emit(
-                "LABELS_LOADED",
-                scan_id=scan_id,
-                rows_total=label_summary.rows_total,
-                rows_loaded=label_summary.rows_loaded,
-                phase_counts=label_summary.phase_counts,
-            )
+            if input_mode == SOURCE_MODE_CSV:
+                if labels_csv_path is None:
+                    raise RuntimeError("Internal error: labels_csv_path missing for CSV mode")
+                label_rows, label_summary = load_label_csv(
+                    csv_path=labels_csv_path,
+                    phase_to_label=phase_to_label,
+                    csv_config=csv_cfg,
+                )
+            else:
+                label_rows, label_summary = [], None
+
+            rows_total = 0
+            label_rows_iter: Iterator[_SourceRow]
+            if input_mode == SOURCE_MODE_CSV:
+                if label_summary is None:
+                    raise RuntimeError("Internal error: CSV label summary missing")
+                rows_total = int(label_summary.rows_total)
+                raw_rows_total += rows_total
+                emit(
+                    "LABELS_LOADED",
+                    scan_id=scan_id,
+                    source_mode=input_mode,
+                    rows_total=label_summary.rows_total,
+                    rows_loaded=label_summary.rows_loaded,
+                    phase_counts=label_summary.phase_counts,
+                )
+
+                def _csv_rows_iter() -> Iterator[_SourceRow]:
+                    for row in label_rows:
+                        yield _SourceRow(
+                            row_index=int(row.row_index),
+                            sample_id=str(row.sample_id),
+                            x=row.x,
+                            y=row.y,
+                            flat_index=row.flat_index,
+                            phase_name=str(row.phase_name),
+                            label=int(row.label),
+                        )
+
+                label_rows_iter = _csv_rows_iter()
+            else:
+                if source_phase_name is None or source_phase_label is None:
+                    raise RuntimeError("Internal error: source phase mapping missing")
+                rows_total = int(meta.total_pixels)
+                raw_rows_total += rows_total
+                emit(
+                    "LABELS_LOADED",
+                    scan_id=scan_id,
+                    source_mode=input_mode,
+                    rows_total=rows_total,
+                    rows_loaded=rows_total,
+                    phase_counts={source_phase_name: rows_total},
+                )
+                label_rows_iter = _iter_single_phase_rows(
+                    total_pixels=rows_total,
+                    phase_name=source_phase_name,
+                    phase_label=source_phase_label,
+                )
 
             accepted = 0
             rejected = 0
             phase_counts: dict[str, int] = collections.Counter()
             source_reason_counts: dict[str, int] = collections.Counter()
             processed = 0
-            progress_interval = max(1, label_summary.rows_total // 10) if label_summary.rows_total > 0 else 1
+            progress_interval = max(1, rows_total // 10) if rows_total > 0 else 1
 
-            for row in label_rows:
+            for row in label_rows_iter:
                 processed += 1
                 flat_index = row.flat_index
                 if flat_index is None:
@@ -285,35 +537,16 @@ def prepare_ml_dataset(
                         source_reason_counts["missing_coordinates"] += 1
                         reject_reason_counts["missing_coordinates"] += 1
                         rejected += 1
-                        if processed % progress_interval == 0 or processed == label_summary.rows_total:
-                            source_elapsed = float(time.monotonic() - source_t0)
-                            eta = _safe_eta_seconds(
-                                processed=processed,
-                                total=label_summary.rows_total,
-                                elapsed=source_elapsed,
-                            )
-                            pct = (100.0 * processed / label_summary.rows_total) if label_summary.rows_total else 100.0
-                            log.info(
-                                "Source %s progress %.1f%% (%d/%d) accepted=%d rejected=%d elapsed=%.2fs eta=%.2fs",
-                                scan_id,
-                                pct,
-                                processed,
-                                label_summary.rows_total,
-                                accepted,
-                                rejected,
-                                source_elapsed,
-                                eta if eta is not None else 0.0,
-                            )
-                            emit(
-                                "SOURCE_PROGRESS",
+                        if processed % progress_interval == 0 or processed == rows_total:
+                            _emit_source_progress(
+                                emit=emit,
+                                log=log,
                                 scan_id=scan_id,
                                 processed=processed,
-                                total=label_summary.rows_total,
-                                progress_pct=pct,
+                                total=rows_total,
                                 accepted=accepted,
                                 rejected=rejected,
-                                source_elapsed_seconds=source_elapsed,
-                                eta_seconds=eta,
+                                source_t0=source_t0,
                             )
                         continue
                     flat_index = reader.xy_to_flat(row.x, row.y)
@@ -325,35 +558,16 @@ def prepare_ml_dataset(
                         source_reason_counts[reason] += 1
                         reject_reason_counts[reason] += 1
                     rejected += 1
-                    if processed % progress_interval == 0 or processed == label_summary.rows_total:
-                        source_elapsed = float(time.monotonic() - source_t0)
-                        eta = _safe_eta_seconds(
-                            processed=processed,
-                            total=label_summary.rows_total,
-                            elapsed=source_elapsed,
-                        )
-                        pct = (100.0 * processed / label_summary.rows_total) if label_summary.rows_total else 100.0
-                        log.info(
-                            "Source %s progress %.1f%% (%d/%d) accepted=%d rejected=%d elapsed=%.2fs eta=%.2fs",
-                            scan_id,
-                            pct,
-                            processed,
-                            label_summary.rows_total,
-                            accepted,
-                            rejected,
-                            source_elapsed,
-                            eta if eta is not None else 0.0,
-                        )
-                        emit(
-                            "SOURCE_PROGRESS",
+                    if processed % progress_interval == 0 or processed == rows_total:
+                        _emit_source_progress(
+                            emit=emit,
+                            log=log,
                             scan_id=scan_id,
                             processed=processed,
-                            total=label_summary.rows_total,
-                            progress_pct=pct,
+                            total=rows_total,
                             accepted=accepted,
                             rejected=rejected,
-                            source_elapsed_seconds=source_elapsed,
-                            eta_seconds=eta,
+                            source_t0=source_t0,
                         )
                     continue
 
@@ -365,35 +579,16 @@ def prepare_ml_dataset(
                     source_reason_counts["pattern_not_2d"] += 1
                     reject_reason_counts["pattern_not_2d"] += 1
                     rejected += 1
-                    if processed % progress_interval == 0 or processed == label_summary.rows_total:
-                        source_elapsed = float(time.monotonic() - source_t0)
-                        eta = _safe_eta_seconds(
-                            processed=processed,
-                            total=label_summary.rows_total,
-                            elapsed=source_elapsed,
-                        )
-                        pct = (100.0 * processed / label_summary.rows_total) if label_summary.rows_total else 100.0
-                        log.info(
-                            "Source %s progress %.1f%% (%d/%d) accepted=%d rejected=%d elapsed=%.2fs eta=%.2fs",
-                            scan_id,
-                            pct,
-                            processed,
-                            label_summary.rows_total,
-                            accepted,
-                            rejected,
-                            source_elapsed,
-                            eta if eta is not None else 0.0,
-                        )
-                        emit(
-                            "SOURCE_PROGRESS",
+                    if processed % progress_interval == 0 or processed == rows_total:
+                        _emit_source_progress(
+                            emit=emit,
+                            log=log,
                             scan_id=scan_id,
                             processed=processed,
-                            total=label_summary.rows_total,
-                            progress_pct=pct,
+                            total=rows_total,
                             accepted=accepted,
                             rejected=rejected,
-                            source_elapsed_seconds=source_elapsed,
-                            eta_seconds=eta,
+                            source_t0=source_t0,
                         )
                     continue
 
@@ -411,8 +606,11 @@ def prepare_ml_dataset(
                     {
                         "sample_id": sample_id,
                         "scan_id": scan_id,
-                        "oh5_path": rel_path(oh5_path, repo_root),
-                        "labels_csv_path": rel_path(labels_csv_path, repo_root),
+                        "source_mode": input_mode,
+                        "oh5_path": oh5_path_rel,
+                        "labels_csv_path": labels_csv_path_rel,
+                        "source_phase_name": source_phase_name,
+                        "source_phase_label": source_phase_label,
                         "source_row_index": row.row_index,
                         "x": x,
                         "y": y,
@@ -426,43 +624,27 @@ def prepare_ml_dataset(
                         "split": "",
                     }
                 )
-                if processed % progress_interval == 0 or processed == label_summary.rows_total:
-                    source_elapsed = float(time.monotonic() - source_t0)
-                    eta = _safe_eta_seconds(
-                        processed=processed,
-                        total=label_summary.rows_total,
-                        elapsed=source_elapsed,
-                    )
-                    pct = (100.0 * processed / label_summary.rows_total) if label_summary.rows_total else 100.0
-                    log.info(
-                        "Source %s progress %.1f%% (%d/%d) accepted=%d rejected=%d elapsed=%.2fs eta=%.2fs",
-                        scan_id,
-                        pct,
-                        processed,
-                        label_summary.rows_total,
-                        accepted,
-                        rejected,
-                        source_elapsed,
-                        eta if eta is not None else 0.0,
-                    )
-                    emit(
-                        "SOURCE_PROGRESS",
+                if processed % progress_interval == 0 or processed == rows_total:
+                    _emit_source_progress(
+                        emit=emit,
+                        log=log,
                         scan_id=scan_id,
                         processed=processed,
-                        total=label_summary.rows_total,
-                        progress_pct=pct,
+                        total=rows_total,
                         accepted=accepted,
                         rejected=rejected,
-                        source_elapsed_seconds=source_elapsed,
-                        eta_seconds=eta,
+                        source_t0=source_t0,
                     )
 
             source_summaries.append(
                 {
                     "scan_id": scan_id,
-                    "oh5_path": rel_path(oh5_path, repo_root),
-                    "labels_csv_path": rel_path(labels_csv_path, repo_root),
-                    "rows_total": label_summary.rows_total,
+                    "source_mode": input_mode,
+                    "oh5_path": oh5_path_rel,
+                    "labels_csv_path": labels_csv_path_rel,
+                    "phase_name": source_phase_name,
+                    "phase_label": source_phase_label,
+                    "rows_total": rows_total,
                     "rows_accepted": accepted,
                     "rows_rejected": rejected,
                     "phase_counts": dict(phase_counts),
@@ -477,7 +659,8 @@ def prepare_ml_dataset(
                 "SOURCE_END",
                 scan_id=scan_id,
                 status="completed",
-                rows_total=label_summary.rows_total,
+                source_mode=input_mode,
+                rows_total=rows_total,
                 rows_accepted=accepted,
                 rows_rejected=rejected,
                 elapsed_seconds=float(time.monotonic() - source_t0),
@@ -540,11 +723,13 @@ def prepare_ml_dataset(
     sanity_checks = {
         "phase_label_mapping_defined": bool(phase_to_label),
         "phase_label_mapping_unique": len(phase_to_label) == len(set(phase_to_label.values())),
+        "input_mode_supported": input_mode in SUPPORTED_SOURCE_MODES,
         "source_list_non_empty": len(sources) > 0,
         "pattern_shape_uniform_after_preprocessing": True,
         "all_records_assigned_split": all(bool(rec["split"]) for rec in records),
         "strict_pattern_presence": bool(strict_pattern_presence),
     }
+    source_mode_counts = collections.Counter(summary["source_mode"] for summary in source_summaries)
 
     manifest = {
         "schema_version": "phase_id_xcorr.ml_dataset_manifest.v1",
@@ -554,15 +739,18 @@ def prepare_ml_dataset(
         "config_path": rel_path(cfg_path, repo_root),
         "output_dir": rel_path(out_dir, repo_root),
         "debug": bool(debug),
+        "input_mode": input_mode,
         "phase_to_label": phase_to_label,
         "label_to_phase": {str(k): v for k, v in label_to_phase.items()},
         "source_count": len(source_summaries),
+        "source_mode_counts": dict(source_mode_counts),
         "source_summaries": source_summaries,
         "pattern_shape_hw": list(shape0),
         "num_samples_total": int(len(records)),
         "split_counts": split_counts,
         "split_phase_counts": split_phase_counts,
         "accepted_per_phase": dict(accepted_per_phase),
+        "raw_input_rows_total": int(raw_rows_total),
         "raw_label_rows_total": int(raw_rows_total),
         "rejected_reason_counts": dict(reject_reason_counts),
         "quality_filters": {

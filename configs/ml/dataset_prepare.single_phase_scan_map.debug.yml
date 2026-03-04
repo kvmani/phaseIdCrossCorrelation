@@ -1,6 +1,6 @@
-schema_version: phase_id_xcorr.ml_dataset_prep.v1
-input_mode: oh5_csv_labels
-output_dir: reports/ml/datasets/debug_fixture
+schema_version: phase_id_xcorr.ml_dataset_prep.v2
+input_mode: single_phase_scan_map
+output_dir: reports/ml/datasets/debug_fixture_single_phase_map
 strict_pattern_presence: true
 
 target_pattern_hw: [128, 128]
@@ -10,16 +10,6 @@ phase_labels:
     label: 0
   - name: fe3o4_magnetite
     label: 1
-  - name: feo_wustite
-    label: 2
-
-label_csv:
-  sample_id_col: sample_id
-  x_col: x
-  y_col: y
-  flat_index_col: ""
-  phase_name_col: phase_name
-  phase_label_col: ""
 
 quality_filters:
   confidence_index_min: 0.1
@@ -37,7 +27,7 @@ split:
 sources:
   - scan_id: s001
     oh5_path: data/test/ml_debug/scan_ml_debug_s001.oh5
-    labels_csv_path: data/test/ml_debug/scan_ml_debug_s001_labels.csv
+    phase_name: fe_bcc
   - scan_id: s002
     oh5_path: data/test/ml_debug/scan_ml_debug_s002.oh5
-    labels_csv_path: data/test/ml_debug/scan_ml_debug_s002_labels.csv
+    phase_label: 1

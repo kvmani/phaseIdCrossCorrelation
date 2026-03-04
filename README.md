@@ -12,7 +12,7 @@ This project addresses a practical failure mode in conventional EBSD indexing fo
 The repository now maintains two evidence tracks:
 
 1. NCC track: phase-isolated candidate generation and masked NCC scoring against simulated patterns.
-2. ML track: quality-filtered `.oh5` pattern extraction plus supervised classifier training from ground-truth CSV labels.
+2. ML track: quality-filtered `.oh5` pattern extraction plus supervised classifier training from config-defined labels (per-pixel CSV or single-phase scan mapping).
 
 Both tracks are designed to remain traceable, reproducible, and fusion-ready.
 
@@ -24,7 +24,7 @@ This repository is currently in **baseline NCC/hough implementation + ML classif
 - KikuchiPy Hough-space comparison workflow is implemented and runnable.
 - ML classifier branch is now in active implementation:
   - modular package scaffold,
-  - config-driven `.oh5` + CSV dataset prep,
+  - config-driven dataset prep (`.oh5` + CSV or single-phase scan-map),
   - config-driven training/evaluation workflow.
 
 ## Documentation Map
@@ -40,7 +40,8 @@ This repository is currently in **baseline NCC/hough implementation + ML classif
 - `docs/mcc_vs_hough_full_cycle_runbook.md`: one-go command sequence to run G0 + curated NCC + Hough comparison and print headline metrics.
 - `docs/oh5_structure.md`: dedicated guide for TSL `.oh5` layout and data access.
 - `docs/ml_classifier_workflow.md`: ML classifier architecture and end-to-end workflow.
-- `docs/ml_input_data_runbook.md`: detailed ML input-data contract, CSV-to-`.oh5` mapping, sanity checks, logging events, and manifests.
+- `docs/ml_input_data_runbook.md`: detailed ML input-data contract (CSV labels + single-phase scan-map mode), sanity checks, logging events, manifests, and platform run commands.
+- `docs/ml_training_inference_workflow.md`: practical run sequence for training/evaluation ("inference"), benchmarking, and auto-generating lab-meeting PPTX summaries.
 - `docs/ml_model_selection.md`: candidate model shortlist (>=5), pretrained options, and selection rationale.
 - `docs/test_data_setup_plan.md`: canonical test data acquisition, naming, and manifest specification.
 - `todo_list.md`: operational task list (living document).
@@ -74,7 +75,7 @@ phaseIdCrossCorrelation/
 
 - TSL indexing and EMSoft/TSL simulation are external inputs to this pipeline.
 - TSL analysis outputs are expected as `.oh5` (HDF5) files.
-- Ground-truth labels for ML workflows are expected as CSV files (schema defined by YAML config).
+- Ground-truth labels for ML workflows are config-defined (per-pixel CSV or single-phase file mapping).
 - See `docs/oh5_structure.md` for canonical field paths and access patterns.
 
 ## Reference Repositories

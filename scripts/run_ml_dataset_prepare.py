@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build ML-ready dataset from `.oh5` + CSV labels."""
+"""Build ML-ready dataset from `.oh5` scans using configured label mode."""
 
 from __future__ import annotations
 
@@ -17,7 +17,9 @@ from phase_id_xcorr.ml import prepare_ml_dataset
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Prepare ML dataset from .oh5 + CSV labels")
+    parser = argparse.ArgumentParser(
+        description="Prepare ML dataset from .oh5 scans (CSV labels or single-phase scan map mode)."
+    )
     parser.add_argument(
         "--config",
         type=Path,

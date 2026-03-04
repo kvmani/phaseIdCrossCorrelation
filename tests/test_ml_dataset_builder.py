@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 
 import h5py
@@ -54,6 +55,45 @@ def _write_fixture(oh5_path: Path, csv_path: Path) -> None:
             idx = y * nx + x
             lines.append(f"r{idx},{x},{y},{phases[idx % 3]}\n")
     csv_path.write_text("".join(lines), encoding="utf-8")
+
+
+def _write_single_phase_fixture(
+    oh5_path: Path,
+    *,
+    ci_bad_idx: int,
+    pattern_base: int,
+) -> None:
+    nx, ny = 4, 3
+    n = nx * ny
+    h, w = 16, 16
+
+    with h5py.File(oh5_path, "w") as f:
+        f.create_dataset("Manufacturer", data=np.asarray([b"EDAX"]))
+        f.create_dataset("Version", data=np.asarray([b"TEST"]))
+        g = f.create_group("scan")
+        ebsd = g.create_group("EBSD")
+        header = ebsd.create_group("Header")
+        data = ebsd.create_group("Data")
+
+        header.create_dataset("nColumns", data=np.asarray([nx], dtype=np.int32))
+        header.create_dataset("nRows", data=np.asarray([ny], dtype=np.int32))
+
+        patt = np.zeros((n, h, w), dtype=np.uint16)
+        ci = np.full((n,), 0.9, dtype=np.float32)
+        iq = np.full((n,), 35.0, dtype=np.float32)
+        fit = np.full((n,), 1.0, dtype=np.float32)
+        valid = np.ones((n,), dtype=np.int8)
+
+        for i in range(n):
+            patt[i, 3:13, 3:13] = np.uint16(pattern_base + 500 * (i % 3))
+
+        ci[ci_bad_idx] = 0.01  # quality reject
+
+        data.create_dataset("Pattern", data=patt)
+        data.create_dataset("CI", data=ci)
+        data.create_dataset("IQ", data=iq)
+        data.create_dataset("Fit", data=fit)
+        data.create_dataset("Valid", data=valid)
 
 
 def test_prepare_ml_dataset_end_to_end(tmp_path: Path) -> None:
@@ -116,6 +156,7 @@ def test_prepare_ml_dataset_end_to_end(tmp_path: Path) -> None:
     assert result.split_npz["test"].exists()
 
     manifest = read_json(result.manifest_path)
+    assert manifest["input_mode"] == "oh5_csv_labels"
     assert manifest["num_samples_total"] == 10  # 12 input - 2 filtered
     assert manifest["split_counts"]["train"] > 0
     assert manifest["split_counts"]["val"] > 0
@@ -127,3 +168,118 @@ def test_prepare_ml_dataset_end_to_end(tmp_path: Path) -> None:
     assert event_log.exists()
     lines = [line for line in event_log.read_text(encoding="utf-8").splitlines() if line.strip()]
     assert lines
+
+
+def test_prepare_ml_dataset_single_phase_scan_map_mode(tmp_path: Path) -> None:
+    repo_root = tmp_path
+    oh5_a = tmp_path / "scan_a.oh5"
+    oh5_b = tmp_path / "scan_b.oh5"
+    _write_single_phase_fixture(oh5_a, ci_bad_idx=1, pattern_base=10000)
+    _write_single_phase_fixture(oh5_b, ci_bad_idx=9, pattern_base=20000)
+
+    cfg = {
+        "input_mode": "single_phase_scan_map",
+        "output_dir": "reports/ml/dataset_single_phase_test",
+        "strict_pattern_presence": True,
+        "target_pattern_hw": [24, 24],
+        "phase_labels": [
+            {"name": "fe_bcc", "label": 0},
+            {"name": "feo_wustite", "label": 1},
+        ],
+        "quality_filters": {
+            "confidence_index_min": 0.1,
+            "fit_max": 2.0,
+            "valid_required": True,
+        },
+        "split": {
+            "train": 0.6,
+            "val": 0.2,
+            "test": 0.2,
+            "seed": 17,
+            "stratified": True,
+        },
+        "sources": [
+            {
+                "scan_id": "s001",
+                "oh5_path": str(oh5_a),
+                "phase_name": "fe_bcc",
+            },
+            {
+                "scan_id": "s002",
+                "oh5_path": str(oh5_b),
+                "phase_label": 1,
+            },
+        ],
+    }
+
+    cfg_path = tmp_path / "config_single_phase.yml"
+    cfg_path.write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
+
+    result = prepare_ml_dataset(
+        config_path=cfg_path,
+        repo_root=repo_root,
+        debug=True,
+    )
+
+    manifest = read_json(result.manifest_path)
+    assert manifest["input_mode"] == "single_phase_scan_map"
+    assert manifest["source_mode_counts"]["single_phase_scan_map"] == 2
+    assert manifest["raw_input_rows_total"] == 24
+    assert manifest["num_samples_total"] == 22  # 24 input - 2 filtered by CI
+    assert manifest["accepted_per_phase"]["fe_bcc"] == 11
+    assert manifest["accepted_per_phase"]["feo_wustite"] == 11
+    assert manifest["split_counts"]["train"] > 0
+    assert manifest["split_counts"]["val"] > 0
+    assert manifest["split_counts"]["test"] > 0
+
+    with result.records_csv.open("r", encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+    assert rows
+    assert all(row["source_mode"] == "single_phase_scan_map" for row in rows)
+    assert all(row["labels_csv_path"] == "" for row in rows)
+    assert {row["phase_name"] for row in rows} == {"fe_bcc", "feo_wustite"}
+
+
+def test_prepare_ml_dataset_single_phase_mode_inferred_from_sources(tmp_path: Path) -> None:
+    repo_root = tmp_path
+    oh5 = tmp_path / "scan_single.oh5"
+    _write_single_phase_fixture(oh5, ci_bad_idx=0, pattern_base=9000)
+
+    cfg = {
+        "output_dir": "reports/ml/dataset_single_phase_infer",
+        "strict_pattern_presence": True,
+        "phase_labels": [
+            {"name": "fe_bcc", "label": 0},
+        ],
+        "quality_filters": {
+            "confidence_index_min": 0.1,
+            "fit_max": 2.0,
+            "valid_required": True,
+        },
+        "split": {
+            "train": 0.6,
+            "val": 0.2,
+            "test": 0.2,
+            "seed": 3,
+            "stratified": True,
+        },
+        "sources": [
+            {
+                "scan_id": "s001",
+                "oh5_path": str(oh5),
+                "phase_name": "fe_bcc",
+            }
+        ],
+    }
+
+    cfg_path = tmp_path / "config_single_phase_infer.yml"
+    cfg_path.write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
+
+    result = prepare_ml_dataset(
+        config_path=cfg_path,
+        repo_root=repo_root,
+        debug=True,
+    )
+    manifest = read_json(result.manifest_path)
+    assert manifest["input_mode"] == "single_phase_scan_map"
+    assert manifest["num_samples_total"] == 11

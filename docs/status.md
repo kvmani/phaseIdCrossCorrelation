@@ -1,6 +1,6 @@
 # Project Status Snapshot
 
-Last updated: 2026-03-02
+Last updated: 2026-03-04
 
 ## Purpose
 
@@ -16,7 +16,10 @@ Build a modular EBSD phase-identification workflow that improves discrimination 
 - Test data packet and G0 validation tooling are implemented.
 - `.oh5` structure guide is documented (`docs/oh5_structure.md`).
 - ML classifier expansion has been formally approved and moved into implementation scope.
-- Dedicated ML architecture and workflow documentation is being added with config-first contracts.
+- ML dataset preparation is implemented with two label-input modes:
+  - `.oh5` + per-pixel CSV labels,
+  - single-phase scan-map (`.oh5` file-level phase mapping).
+- ML runbooks now include platform-specific execution guidance for Linux/macOS, Windows (PyCharm terminal), and SLURM-based HPC environments.
 
 ## Confirmed Constraints
 
@@ -35,11 +38,11 @@ Build a modular EBSD phase-identification workflow that improves discrimination 
 
 ## Immediate Next Steps
 
-1. Finalize ML docs/config contracts and dedicated module scaffold.
-2. Implement `.oh5` + CSV dataset preparation with quality filters and deterministic splits.
-3. Implement configurable training/evaluation runner with scratch/pretrained options.
-4. Add tests for extraction, filtering, split determinism, and training smoke path.
-5. Run first debug benchmark and publish run artifacts in `reports/`.
+1. Complete NCC-vs-ML benchmark protocol on manually verified cases.
+2. Harden training/evaluation defaults and publish baseline benchmark reports.
+3. Add explicit scan-aware split options to reduce leakage risk in small-data regimes.
+4. Expand robustness checks and uncertainty calibration reporting.
+5. Freeze a reproducible baseline config bundle for comparative runs.
 
 ## Future Work Summary
 

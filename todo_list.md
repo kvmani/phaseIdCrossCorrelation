@@ -6,7 +6,7 @@ Operational task list for this repository. Keep this file updated as priorities 
 
 - [x] Synchronize mission/roadmap/status docs for dual-track EBSD phase ID (NCC + ML).
 - [x] Define dedicated ML classifier module boundaries and configuration-first workflow scope.
-- [ ] Implement ML `.oh5` + CSV dataset preparation runner with quality filters and deterministic splits.
+- [x] Implement ML dataset preparation runner with quality filters, deterministic splits, and dual input modes (`.oh5` + CSV labels, single-phase scan map).
 - [ ] Implement ML classifier training runner with scratch/pretrained support and reproducible reports.
 - [ ] Define the first benchmark set of manually verified pixels/cases for NCC-vs-ML comparison.
 
@@ -47,11 +47,11 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 ## ML Classifier Track (Phase 1B)
 
 - [x] M0: Define ML scope, repository layout, and documentation contract.
-- [ ] M1: Add `.oh5` pattern extractor with robust field aliasing and pattern-presence checks.
-- [ ] M2: Add CSV label ingestor supporting configurable phase-name/label columns.
-- [ ] M3: Add quality gating (CI/IQ/Fit/Valid) with YAML thresholds and per-file stats.
-- [ ] M4: Build combined dataset artifact across multiple `.oh5` + CSV pairs.
-- [ ] M5: Add deterministic stratified train/val/test splitting with seed control.
+- [x] M1: Add `.oh5` pattern extractor with robust field aliasing and pattern-presence checks.
+- [x] M2: Add label ingestor modes supporting configurable CSV per-pixel labels and scan-level phase mapping.
+- [x] M3: Add quality gating (CI/IQ/Fit/Valid) with YAML thresholds and per-file stats.
+- [x] M4: Build combined dataset artifacts across multiple configured sources.
+- [x] M5: Add deterministic stratified train/val/test splitting with seed control.
 - [ ] M6: Implement configurable classifier training/evaluation runner (timm backbones).
 - [ ] M7: Add scratch vs pretrained initialization mode and checkpoint/report artifacts.
 - [ ] M8: Publish model-selection rationale for at least five open-source backbones.
@@ -68,7 +68,7 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [x] Add curated image-vs-hough workflow integration test (`tests/test_curated_hough_vs_ncc.py`).
 - [ ] Unit tests for `.oh5` dataset-path discovery and shape handling.
 - [ ] Integration test for debug pipeline end-to-end.
-- [ ] ML unit tests for `.oh5` pattern extraction, label merge, and split determinism.
+- [x] ML unit tests for `.oh5` pattern extraction, label merge, split determinism, and single-phase scan-map input mode.
 - [ ] ML training smoke test on tiny deterministic dataset.
 
 ## Documentation and Reporting
@@ -80,7 +80,7 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [ ] Add results baseline document with case-level evidence tables.
 - [x] Add phase-gated execution plan for post-data implementation (`docs/action_plan_post_data_intake.md`).
 - [x] Add G0 validation usage documentation (`docs/g0_data_intake_validation.md`).
-- [ ] Add ML workflow usage docs (dataset prep, training, benchmark suite).
+- [x] Add ML workflow usage docs (dataset prep, training, benchmark suite, and auto-PPT reporting).
 - [ ] Add ML model-catalog doc with pretrained provenance and citations.
 
 ## Later

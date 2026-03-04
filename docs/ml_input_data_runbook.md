@@ -1,104 +1,98 @@
 # ML Input Data and Pipeline Runbook
 
-This is the operational, no-ambiguity guide for preparing `.oh5` + CSV inputs and running the ML classifier pipeline.
+Operational guide for preparing ML datasets from `.oh5` scans and running training/suite workflows.
 
-Use this document when creating new datasets for training.
+## 1. End-to-End Flow
 
-## 1. End-to-End Flow (What Happens)
-
-1. `run_ml_dataset_prepare.py` reads YAML config.
-2. For each source pair (`.oh5` + CSV):
-   - loads scan grid and pattern/quality fields from `.oh5`,
-   - loads labels from CSV,
-   - maps each CSV row to one `.oh5` pixel,
-   - applies quality filters,
-   - keeps accepted samples with full trace metadata.
-3. Combines accepted samples across all sources.
+1. `run_ml_dataset_prepare.py` reads one YAML config.
+2. For each source:
+   - opens `.oh5`,
+   - resolves labels using the configured input mode,
+   - applies quality filters (`CI`, `IQ`, `Fit`, `Valid`),
+   - stores accepted pattern + label + trace metadata.
+3. Merges accepted samples across all sources.
 4. Creates deterministic train/val/test splits.
-5. Writes dataset artifacts and `manifest.json` for downstream training.
-6. `run_ml_train_classifier.py` consumes the dataset manifest and trains/evaluates.
-7. `run_ml_benchmark_suite.py` runs multiple training configs and writes comparative summaries.
+5. Writes dataset artifacts (`manifest.json`, `records.csv`, split `.npz`, `events.jsonl`).
+6. `run_ml_train_classifier.py` trains/evaluates from dataset manifest.
+7. `run_ml_benchmark_suite.py` runs repeated model experiments.
 
-## 2. Required Input Files
+## 2. Supported Dataset Input Modes
 
-Per source scan:
+Dataset prep supports two modes:
 
-- one `.oh5` file,
-- one CSV label file.
+1. `input_mode: oh5_csv_labels`
+   - each source has one `.oh5` + one CSV with per-pixel labels.
+2. `input_mode: single_phase_scan_map`
+   - each source has one `.oh5` + one file-level phase assignment (`phase_name` or `phase_label`).
+   - all accepted pixels from that file inherit the same phase label.
 
-### 2.1 `.oh5` Requirements
+If `input_mode` is omitted, mode is inferred from source fields.
 
-Minimum required paths:
+## 3. `.oh5` Requirements
+
+Required fields:
 
 - `/<scan>/EBSD/Header/nColumns`
 - `/<scan>/EBSD/Header/nRows`
-- `/<scan>/EBSD/Data/Pattern` (or alias `Patterns`)
+- `/<scan>/EBSD/Data/Pattern` (alias `Patterns` supported)
 
-Optional but strongly recommended quality fields:
+Quality fields (optional but recommended):
 
 - `CI` or `Confidence Index`
 - `IQ` or `Image Quality`
 - `Fit`
 - `Valid`
 
-Supported pattern layout:
+Supported pattern layouts:
 
 - flattened stack: `(nRows*nColumns, H, W)`
 - gridded stack: `(nRows, nColumns, H, W)`
 
-If `Pattern` is missing:
+Pattern-missing behavior:
 
-- `strict_pattern_presence: true` -> run fails,
-- `strict_pattern_presence: false` -> source is skipped and recorded.
+- `strict_pattern_presence: true` -> fail
+- `strict_pattern_presence: false` -> skip source with recorded reason
 
-## 3. CSV Label Contract
+## 4. Label Contract Per Mode
 
-Column names are configurable (`label_csv` section in YAML).
+### 4.1 `oh5_csv_labels`
+
+CSV columns are configurable via `label_csv`.
 
 Each row must provide:
 
-- sample location: either `flat_index` OR both `x` and `y`,
-- phase assignment: either `phase_name` OR numeric `phase_label`.
+- location: `flat_index` OR both `x` and `y`
+- class: `phase_name` OR `phase_label`
 
-### 3.1 Coordinate-Based CSV Example
+CSV example:
 
 ```csv
 sample_id,x,y,phase_name
 s001_r00c00,0,0,fe_bcc
 s001_r00c01,1,0,fe3o4_magnetite
-s001_r00c02,2,0,feo_wustite
 ```
 
-### 3.2 Flat-Index CSV Example
+### 4.2 `single_phase_scan_map`
 
-```csv
-sample_id,flat_index,phase_label
-s001_i000000,0,0
-s001_i000001,1,1
-s001_i000002,2,2
-```
+Each source entry must include:
 
-## 4. How CSV Rows Map to `.oh5` Pixels
+- `oh5_path`
+- `phase_name` OR `phase_label`
 
-Mapping algorithm used in code:
+Pixel sampling in this mode:
 
-1. Resolve pixel index:
-   - if `flat_index` is present, use it directly,
-   - else compute `flat_index = y * nColumns + x`.
-2. Read quality values at that same pixel index.
-3. Apply quality thresholds.
-4. If accepted, read pattern at that same pixel index.
-5. Convert pattern to float32 in `[0, 1]`.
-6. Assign label using YAML phase mapping.
-7. Store sample with ID: `"{scan_id}__{sample_id}"`.
+- iterate all pixels in the scan,
+- apply quality filters per pixel,
+- assign the same source phase label to each accepted pixel.
 
-This guarantees that pattern, quality, and label refer to exactly the same pixel.
+## 5. YAML Examples
 
-## 5. YAML Data-Prep Example (Minimal)
+### 5.1 CSV-Label Mode (`oh5_csv_labels`)
 
 ```yaml
 schema_version: phase_id_xcorr.ml_dataset_prep.v1
-output_dir: reports/ml/datasets/my_run
+input_mode: oh5_csv_labels
+output_dir: reports/ml/datasets/my_run_csv
 strict_pattern_presence: true
 
 target_pattern_hw: [128, 128]
@@ -141,150 +135,137 @@ sources:
     labels_csv_path: data/incoming/s002_labels.csv
 ```
 
-## 6. Sanity Checks Performed
+### 5.2 Single-Phase Scan Map Mode (`single_phase_scan_map`)
 
-### 6.1 Dataset Preparation
+```yaml
+schema_version: phase_id_xcorr.ml_dataset_prep.v2
+input_mode: single_phase_scan_map
+output_dir: reports/ml/datasets/my_run_single_phase
+strict_pattern_presence: true
 
-- phase mapping exists and labels are unique,
-- source list is non-empty,
-- each source has `oh5_path` and `labels_csv_path`,
-- CSV rows have valid location and valid phase assignment,
-- `.oh5` has valid scan group and grid dimensions,
-- pattern presence policy enforced (`strict_pattern_presence`),
-- per-sample quality thresholds applied,
-- all accepted patterns are 2D,
-- final pattern shape is uniform across all accepted samples,
-- every record gets an assigned split.
+target_pattern_hw: [128, 128]
 
-### 6.2 Training
+phase_labels:
+  - name: fe_bcc
+    label: 0
+  - name: fe3o4_magnetite
+    label: 1
+  - name: feo_wustite
+    label: 2
 
-- dataset manifest exists,
-- class count and label mapping are valid,
-- train/val/test splits are non-empty,
-- history and checkpoints are written.
+quality_filters:
+  confidence_index_min: 0.10
+  image_quality_min: 0.0
+  fit_max: 4.0
+  valid_required: true
 
-### 6.3 Benchmark Suite
+split:
+  train: 0.70
+  val: 0.15
+  test: 0.15
+  seed: 42
+  stratified: true
 
-- base train config exists,
-- experiment list is non-empty,
-- suite summaries are written.
+sources:
+  - scan_id: s001
+    oh5_path: data/incoming/s001_fe_bcc.oh5
+    phase_name: fe_bcc
+  - scan_id: s002
+    oh5_path: data/incoming/s002_fe3o4.oh5
+    phase_label: 1
+```
 
-## 7. Logging and Progress Contract
+## 6. Running Commands by Environment
 
-All ML operations now emit:
+Use repository root as working directory for all commands.
 
-- human-readable logs (`INFO` level),
-- structured event timeline (`events.jsonl`),
-- elapsed time for each event,
-- progress percentage and ETA for long loops.
-
-### 7.1 Dataset Prep Events
-
-Main events:
-
-- `RUN_START`, `SOURCE_START`, `OH5_OPEN`, `LABELS_LOADED`,
-- `SOURCE_PROGRESS` (with `progress_pct`, `eta_seconds`),
-- `SOURCE_END`, `SPLIT_ASSIGNMENT_COMPLETE`, `SPLIT_WRITE_COMPLETE`,
-- `RECORDS_WRITE_COMPLETE`, `RUN_END`.
-
-### 7.2 Training Events
-
-Main events:
-
-- `RUN_START`, `SPLITS_LOADED`, `PATTERN_PREPROCESS_COMPLETE`,
-- `DATALOADERS_READY`, `MODEL_READY`, `TRAIN_LOOP_START`,
-- `EPOCH_START`, `EPOCH_END` (with `progress_pct`, `eta_seconds`),
-- `BEST_CHECKPOINT_UPDATED`, `LAST_CHECKPOINT_SAVED`,
-- `TEST_EVAL_COMPLETE`, `REPORT_WRITE_COMPLETE`, `MANIFEST_WRITE_COMPLETE`, `RUN_END`.
-
-### 7.3 Suite Events
-
-Main events:
-
-- `RUN_START`,
-- `EXPERIMENT_START` (with suite progress + ETA),
-- `EXPERIMENT_END`,
-- `RUN_END`.
-
-## 8. Manifest Contract (For Downstream Ingestion)
-
-### 8.1 Dataset Prep Manifest
-
-Path: `<output_dir>/manifest.json`
-
-Used by training script via `dataset_manifest_path`.
-
-Includes:
-
-- source summaries,
-- split counts and per-phase counts,
-- quality filter policy,
-- sanity checks,
-- artifact pointers (`records.csv`, split `.npz`, `events.jsonl`).
-
-### 8.2 Training Manifest
-
-Path: `<training_output_dir>/manifest.json`
-
-Includes:
-
-- model/device/config provenance,
-- timing and sanity checks,
-- artifact pointers (`report.json`, checkpoints, `epoch_history.jsonl`, `events.jsonl`).
-
-### 8.3 Benchmark Suite Manifest
-
-Path: `<suite_output_root>/manifest.json`
-
-Includes:
-
-- suite config provenance,
-- run-level timing and sanity checks,
-- artifact pointers (`suite_summary.json`, `suite_summary.md`, `events.jsonl`).
-
-## 9. Scientific Rationale for Key Choices
-
-- **Quality filtering before training:** low-CI/invalid patterns can inject label noise and destabilize learned decision boundaries.
-- **Deterministic stratified split:** preserves class balance and makes benchmark runs reproducible and comparable.
-- **Pattern normalization to `[0,1]` + optional resizing:** enables consistent model input scale across mixed bit-depth scans.
-- **Circular mask option at training:** suppresses non-physical border/background artifacts common in EBSD detector frames.
-- **Traceable manifests/events:** supports scientific auditability and prevents silent pipeline drift.
-
-## 10. Assumptions and Constraints
-
-- Source `.oh5` files are read-only.
-- CSV ground truth quality is the limiting factor for supervised performance.
-- Phase names are not hard-coded; they must be declared in YAML.
-- Current classifier path assumes single-channel grayscale patterns.
-- This branch is EBSD-only; LRS integration remains later-phase.
-
-## 11. Run Commands (Recommended Order)
-
-1. Prepare dataset:
+### 6.1 Linux/macOS Terminal
 
 ```bash
 python scripts/run_ml_dataset_prepare.py --config configs/ml/dataset_prepare.default.yml --debug
-```
-
-2. Train single model:
-
-```bash
-python scripts/run_ml_train_classifier.py --config configs/ml/train.simple_cnn.debug.yml --debug
-```
-
-3. Run multi-model suite:
-
-```bash
+python scripts/run_ml_dataset_prepare.py --config configs/ml/dataset_prepare.single_phase_scan_map.debug.yml --debug
+python scripts/run_ml_train_classifier.py --config configs/ml/train.convnextv2_nano.pretrained.debug.yml --debug
 python scripts/run_ml_benchmark_suite.py --config configs/ml/benchmark_suite.debug.yml --debug
 ```
 
-## 12. Quick Troubleshooting
+### 6.2 Windows (PyCharm Terminal)
 
-- `Pattern dataset missing`:
-  - verify `.oh5` contains `EBSD/Data/Pattern`, or set `strict_pattern_presence: false` to skip that source.
-- `Unknown phase_name` in CSV:
-  - add that phase to `phase_labels` mapping.
-- `Pattern shapes differ after preprocessing`:
-  - set `target_pattern_hw` in dataset prep config.
-- Too few accepted samples:
-  - relax `quality_filters` thresholds and inspect `rejected_reason_counts` in manifest.
+PowerShell in PyCharm:
+
+```powershell
+python .\scripts\run_ml_dataset_prepare.py --config .\configs\ml\dataset_prepare.default.yml --debug
+python .\scripts\run_ml_dataset_prepare.py --config .\configs\ml\dataset_prepare.single_phase_scan_map.debug.yml --debug
+python .\scripts\run_ml_train_classifier.py --config .\configs\ml\train.convnextv2_nano.pretrained.debug.yml --debug
+python .\scripts\run_ml_benchmark_suite.py --config .\configs\ml\benchmark_suite.debug.yml --debug
+```
+
+`cmd.exe` equivalent:
+
+```bat
+python scripts\run_ml_dataset_prepare.py --config configs\ml\dataset_prepare.default.yml --debug
+```
+
+### 6.3 HPC (SLURM Example)
+
+Example batch script:
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=phaseid-ml-debug
+#SBATCH --partition=compute
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=16G
+#SBATCH --time=02:00:00
+#SBATCH --output=logs/%x-%j.out
+
+set -euo pipefail
+cd "$SLURM_SUBMIT_DIR"
+
+# Activate your prebuilt environment here.
+# Example:
+# source /path/to/venv/bin/activate
+
+python scripts/run_ml_dataset_prepare.py --config configs/ml/dataset_prepare.single_phase_scan_map.debug.yml --debug
+python scripts/run_ml_train_classifier.py --config configs/ml/train.simple_cnn.debug.yml --debug
+```
+
+Submit:
+
+```bash
+sbatch run_ml_debug.slurm
+```
+
+## 7. Outputs and Manifest Contract
+
+Dataset prep writes:
+
+- `<output_dir>/manifest.json`
+- `<output_dir>/records.csv`
+- `<output_dir>/splits/train.npz`
+- `<output_dir>/splits/val.npz`
+- `<output_dir>/splits/test.npz`
+- `<output_dir>/events.jsonl`
+
+Dataset manifest includes:
+
+- `input_mode`
+- `phase_to_label`, `label_to_phase`
+- `source_summaries` and per-source reject reasons
+- split counts and per-phase split counts
+- quality filter policy and sanity checks
+
+Training and suite runs also emit `manifest.json` + `events.jsonl` plus their reports/checkpoints.
+
+## 8. Reliability Notes
+
+- Source `.oh5` files are read-only.
+- Deterministic seeds are mandatory for reproducible comparisons.
+- Quality filtering occurs before sample inclusion.
+- Phase names/labels are config-defined, never hard-coded.
+- Single-phase scan-map mode assumes each `.oh5` file represents one ground-truth phase.
+
+For a practical training/evaluation/benchmark/PPT sequence, see:
+
+- `docs/ml_training_inference_workflow.md`

@@ -38,11 +38,13 @@ For each EBSD pixel `(x, y)`:
 
 For supervised phase classification from experimental patterns:
 
-1. Ingest one or more `.oh5` scan files plus corresponding ground-truth CSV label files.
+1. Ingest one or more `.oh5` scan files with config-defined labels:
+   - per-pixel CSV labels, or
+   - single-phase scan mapping (one `.oh5` file corresponds to one phase).
 2. Extract Kikuchi patterns and scan quality fields from `.oh5` using robust field aliasing (`CI` vs `Confidence Index`, `IQ` vs `Image Quality`).
 3. Filter low-quality patterns using configurable thresholds (for example CI/IQ/Fit/Valid gates).
 4. Map phase names to class labels from YAML configuration (no hard-coded material names).
-5. Build a combined dataset across all input file pairs.
+5. Build a combined dataset across all configured sources.
 6. Create deterministic train/val/test splits from YAML policy.
 7. Train and evaluate configurable classifier backbones with optional pretrained initialization.
 8. Persist run metadata and metrics for traceability (`manifest.json`, report artifacts, split/evidence tables).
@@ -83,13 +85,13 @@ Supporting criteria:
 
 - Stable reproducible runs on debug data.
 - Clear confidence reporting and per-class performance summaries.
-- Traceable lineage from raw `.oh5` / CSV labels to trained model artifacts.
+- Traceable lineage from raw `.oh5` + label-source configs to trained model artifacts.
 - Clean, maintainable documentation synchronized with implementation.
 
 ## Deliverables for Current Stage
 
 - Mission/governance/task documents synchronized with ML expansion.
 - Dedicated modular ML package scaffold under `src/phase_id_xcorr/ml`.
-- Config-driven dataset preparation workflow from `.oh5` + CSV labels.
+- Config-driven dataset preparation workflow from `.oh5` sources with dual label modes (CSV labels and single-phase scan map).
 - Config-driven classifier training workflow with pretrained/scratch options.
 - Run-level reporting artifacts and deterministic debug tests.
