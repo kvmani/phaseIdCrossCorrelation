@@ -279,6 +279,19 @@ def train_classifier(
         resize_hw = (int(resize_hw_raw[0]), int(resize_hw_raw[1]))
 
     apply_circular_mask = bool(input_cfg.get("apply_circular_mask", False))
+    prep_policy = dataset_manifest.get("preprocessing_policy") if isinstance(dataset_manifest.get("preprocessing_policy"), dict) else None
+    if prep_policy is not None:
+        prep_resize = prep_policy.get("resize_hw")
+        prep_mask = bool(prep_policy.get("apply_circular_mask", False))
+        if isinstance(prep_resize, list) and len(prep_resize) == 2:
+            prep_resize_t = (int(prep_resize[0]), int(prep_resize[1]))
+            if resize_hw is not None and resize_hw != prep_resize_t:
+                raise ValueError("Training input.resize_hw conflicts with dataset preprocessing_policy.resize_hw")
+        if apply_circular_mask != prep_mask and bool(input_cfg.get("apply_circular_mask", False)):
+            raise ValueError("Training input.apply_circular_mask conflicts with dataset preprocessing_policy")
+        resize_hw = None
+        apply_circular_mask = False
+
     mean = float((input_cfg.get("normalize", {}) or {}).get("mean", [0.5])[0])
     std = float((input_cfg.get("normalize", {}) or {}).get("std", [0.25])[0])
 
@@ -536,6 +549,8 @@ def train_classifier(
             "resize_hw": list(resize_hw) if resize_hw else None,
             "apply_circular_mask": apply_circular_mask,
             "normalize": {"mean": mean, "std": std},
+            "dataset_preprocessing_policy": dataset_manifest.get("preprocessing_policy"),
+            "dataset_preprocessing_fingerprint": dataset_manifest.get("preprocessing_fingerprint"),
         },
         "dataset_counts": {
             "train": int(len(train_ds)),

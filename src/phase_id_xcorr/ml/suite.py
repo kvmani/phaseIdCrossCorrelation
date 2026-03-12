@@ -12,6 +12,7 @@ from typing import Any
 
 from .config import apply_overrides, dump_yaml, load_yaml, resolve_path
 from .dataset_io import rel_path, write_json
+from .html_report import generate_suite_html_report
 from .training import train_classifier
 
 
@@ -263,6 +264,12 @@ def run_benchmark_suite(
         )
     summary_md.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
+    html_report = generate_suite_html_report(
+        summary_json_path=summary_json,
+        output_html=output_root / "suite_report.html",
+        repo_root=repo_root,
+    )
+
     manifest_json = output_root / "manifest.json"
     write_json(
         manifest_json,
@@ -285,6 +292,7 @@ def run_benchmark_suite(
             "artifacts": {
                 "suite_summary_json": rel_path(summary_json, repo_root),
                 "suite_summary_md": rel_path(summary_md, repo_root),
+                "suite_report_html": rel_path(html_report, repo_root),
                 "event_log_jsonl": rel_path(event_log, repo_root),
             },
         },

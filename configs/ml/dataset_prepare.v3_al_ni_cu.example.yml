@@ -1,0 +1,40 @@
+schema_version: phase_id_xcorr.ml_dataset_prep.v3
+input_mode: single_phase_scan_map
+output_dir: reports/ml/datasets/al_ni_cu_v3
+
+data_source_folder: data/al_ni_cu
+allow_filename_phase_fallback: true
+
+phase_to_label:
+  al: 0
+  ni: 1
+  cu: 2
+
+listOfFiles:
+  - file: al_scan_001__al.oh5
+    scan_id: al001
+  - file: ni_scan_001__ni.oh5
+    scan_id: ni001
+  - file: cu_scan_001__cu.oh5
+    scan_id: cu001
+
+quality_filters:
+  expression: "CI > 0.5 && Fit < 0.5"
+  aliases:
+    CI: confidence_index
+    Fit: fit
+
+preprocessing:
+  resize_hw: [128, 128]
+  apply_circular_mask: true
+  normalize_mode: per_pattern_minmax
+
+split:
+  train: 0.7
+  val: 0.15
+  test: 0.15
+  seed: 42
+  stratified: true
+  group_key: scan_id
+  max_val_samples: 2000
+  max_test_samples: 2000
