@@ -223,6 +223,43 @@ class Oh5ScanReader:
 
         return row
 
+
+    def discover_scalar_fields(self) -> list[str]:
+        """Discover scalar-compatible fields in the Data group."""
+
+        out: list[str] = []
+        for key in self.data_group.keys():
+            ds = self.data_group[key]
+            if not isinstance(ds, h5py.Dataset):
+                continue
+            if ds.ndim == 1 and int(ds.shape[0]) == int(self.total_pixels):
+                out.append(str(key))
+            elif ds.ndim == 2 and tuple(ds.shape) == (self.ny, self.nx):
+                out.append(str(key))
+        return sorted(out)
+
+    def read_scalar_field_value(self, field_name: str, *, flat_index: int) -> float | bool | None:
+        """Read one scalar value by field name for a pixel."""
+
+        if field_name not in self.data_group:
+            return None
+        ds = self.data_group[field_name]
+        if not isinstance(ds, h5py.Dataset):
+            return None
+        value = self._read_scalar_point(ds, int(flat_index))
+        if _normalize_key(field_name) == _normalize_key("Valid"):
+            return bool(round(float(value)) != 0)
+        return float(value)
+
+    def read_scalar_row_all(self, *, flat_index: int, field_names: list[str] | None = None) -> dict[str, float | bool | None]:
+        """Read all discovered scalar values for one pixel."""
+
+        names = field_names or self.discover_scalar_fields()
+        out: dict[str, float | bool | None] = {}
+        for name in names:
+            out[str(name)] = self.read_scalar_field_value(str(name), flat_index=int(flat_index))
+        return out
+
     def _resolve_flat_index(self, *, flat_index: int | None, x: int | None, y: int | None) -> int:
         if flat_index is not None:
             idx = int(flat_index)
