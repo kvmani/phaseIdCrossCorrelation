@@ -12,9 +12,19 @@ import numpy as np
 
 
 def rel_path(path: Path, root: Path) -> str:
-    """Convert path to root-relative POSIX representation."""
+    """Convert path to root-relative POSIX representation when possible.
 
-    return Path(os.path.relpath(path.resolve(), root.resolve())).as_posix()
+    On Windows, input data may live on a different drive than the repository.
+    In that case `os.path.relpath()` raises `ValueError`; fall back to the
+    absolute path so persisted manifests remain usable.
+    """
+
+    resolved_path = path.resolve()
+    resolved_root = root.resolve()
+    try:
+        return Path(os.path.relpath(resolved_path, resolved_root)).as_posix()
+    except ValueError:
+        return resolved_path.as_posix()
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
