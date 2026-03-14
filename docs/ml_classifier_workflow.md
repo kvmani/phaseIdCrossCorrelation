@@ -11,20 +11,24 @@ For detailed input preparation examples (CSV labels and single-phase scan-map mo
 Build a reproducible supervised classifier pipeline that:
 
 1. ingests one or more `.oh5` scan files with config-defined labels,
-2. filters low-quality pixels using configurable metrics,
-3. prepares deterministic train/val/test datasets,
+2. filters low-quality pixels using configurable thresholds and safe logical expressions,
+3. prepares deterministic train/val/test datasets with optional leakage-safe grouping and split caps,
 4. trains configurable classifier backbones (scratch or pretrained),
 5. emits machine-readable run artifacts for auditability.
 
 ## 2. Input Data Contract
 
-Supported dataset-prep modes:
+Supported dataset-prep modes and schema contracts:
 
-1. `input_mode: oh5_csv_labels`
+1. `input_mode: oh5_csv_labels` (legacy/backward compatible)
    - per source: one `.oh5` file + one CSV with per-pixel labels.
-2. `input_mode: single_phase_scan_map`
+2. `input_mode: single_phase_scan_map` (legacy/backward compatible)
    - per source: one `.oh5` file + one file-level phase assignment (`phase_name` or `phase_label`).
    - all accepted pixels from that file inherit that phase label.
+
+3. `schema_version: phase_id_xcorr.ml_dataset_prep.v3` (new concise contract)
+   - top-level `data_source_folder` + `listOfFiles` entries, optional per-file metadata (`scan_id`, `phase_name`, `phase_label`).
+   - optional `allow_filename_phase_fallback` to infer phase token from filename when explicitly enabled.
 
 Required `.oh5` capabilities for ML prep:
 
@@ -55,9 +59,9 @@ Controls:
 
 - phase name to label mapping,
 - list of sources with mode-specific labeling fields,
-- quality thresholds,
-- split policy (`train/val/test`, seed, stratified),
-- optional pattern resizing (`target_pattern_hw`).
+- quality policy (thresholds and optional logical expression, with alias mapping),
+- dataset-stage preprocessing policy (`preprocessing.resize_hw`, masking, normalization),
+- split policy (`train/val/test`, seed, stratified, `group_key`, `max_val_samples`, `max_test_samples`).
 
 ### Training Config
 
@@ -92,8 +96,9 @@ Controls:
 
 - `oh5_reader.py`: robust `.oh5` access, field aliasing, pattern/quality extraction.
 - `labels.py`: CSV label normalization and validation.
-- `quality.py`: threshold gates and rejection reasons.
-- `split.py`: deterministic split assignment.
+- `quality.py`: threshold gates plus safe expression evaluation and alias resolution.
+- `split.py`: deterministic split assignment with optional grouping and val/test caps.
+- `preprocessing_policy.py`: dataset-stage preprocessing contract + fingerprinting.
 - `dataset_builder.py`: end-to-end prep orchestration and artifact writing.
 - `dataset_io.py`: NPZ/JSON/CSV helpers.
 - `models.py`: classifier factory (`timm` + local `simple_cnn`).
@@ -122,8 +127,21 @@ Run benchmark suite:
 python scripts/run_ml_benchmark_suite.py --config configs/ml/benchmark_suite.debug.yml --debug
 ```
 
+Run one-go full cycle (dataset prep -> suite -> HTML + optional PPTX):
+
+```bash
+python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.debug.yml --debug
+```
+
+Run raw-data phase explorer GUI:
+
+```bash
+python scripts/run_ml_phase_explorer.py --config configs/ml/dataset_prepare.v3_al_ni_cu.example.yml --debug
+```
+
 For platform-specific command notes (Windows/PyCharm, Linux, HPC), see `docs/ml_input_data_runbook.md`.
 For one-command benchmark-to-PPT execution, see `docs/ml_training_inference_workflow.md`.
+For raw `.oh5` exploratory GUI analytics (histograms/CDF/interactive intensity masks), see `docs/ml_phase_explorer_gui.md`.
 
 ## 6. Reporting Standard (Hydra-Inspired, Adapted)
 
@@ -151,6 +169,7 @@ Suite outputs:
 - `events.jsonl`
 - `suite_summary.json`
 - `suite_summary.md`
+- `suite_report.html` (interactive, artifact-linked analytics)
 
 Required reporting content:
 

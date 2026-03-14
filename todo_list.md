@@ -52,10 +52,13 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [x] M3: Add quality gating (CI/IQ/Fit/Valid) with YAML thresholds and per-file stats.
 - [x] M4: Build combined dataset artifacts across multiple configured sources.
 - [x] M5: Add deterministic stratified train/val/test splitting with seed control.
-- [ ] M6: Implement configurable classifier training/evaluation runner (timm backbones).
-- [ ] M7: Add scratch vs pretrained initialization mode and checkpoint/report artifacts.
+- [x] M6: Implement configurable classifier training/evaluation runner (timm backbones).
+- [x] M7: Add scratch vs pretrained initialization mode and checkpoint/report artifacts.
 - [ ] M8: Publish model-selection rationale for at least five open-source backbones.
-- [ ] M9: Add benchmark-suite runner for repeated multi-model experiments.
+- [x] M9: Add benchmark-suite runner for repeated multi-model experiments.
+- [x] M10: Upgrade dataset-prep/training contract to v3 schema with expression quality filters, preprocessing fingerprints, leakage-safe capped splits, and HTML benchmark analytics.
+- [x] M11: Add native desktop raw `.oh5` exploratory GUI for phase-wise cumulative histograms/CDF, discovered field distributions, and interactive intensity-band pixel highlighting.
+- [x] M12: Add one-go ML full-cycle workflow with robust error checking, extensive logs, machine-ingestible manifests, concise HTML summary, and optional PPTX generation.
 
 ## Testing and Validation
 

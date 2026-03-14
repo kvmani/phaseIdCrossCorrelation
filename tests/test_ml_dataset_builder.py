@@ -283,3 +283,51 @@ def test_prepare_ml_dataset_single_phase_mode_inferred_from_sources(tmp_path: Pa
     manifest = read_json(result.manifest_path)
     assert manifest["input_mode"] == "single_phase_scan_map"
     assert manifest["num_samples_total"] == 11
+
+
+def test_prepare_ml_dataset_v3_list_of_files_with_caps_and_provenance(tmp_path: Path) -> None:
+    repo_root = tmp_path
+    data_dir = tmp_path / "scan_folder"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    oh5_a = data_dir / "scan_a__fe_bcc.oh5"
+    oh5_b = data_dir / "scan_b__feo_wustite.oh5"
+    _write_single_phase_fixture(oh5_a, ci_bad_idx=0, pattern_base=10000)
+    _write_single_phase_fixture(oh5_b, ci_bad_idx=1, pattern_base=15000)
+
+    cfg = {
+        "schema_version": "phase_id_xcorr.ml_dataset_prep.v3",
+        "output_dir": "reports/ml/dataset_v3",
+        "data_source_folder": str(data_dir),
+        "allow_filename_phase_fallback": True,
+        "phase_to_label": {"fe_bcc": 0, "feo_wustite": 1},
+        "quality_filters": {"expression": "CI > 0.05 && Fit < 2.0"},
+        "preprocessing": {"resize_hw": [20, 20], "apply_circular_mask": True, "normalize_mode": "per_pattern_minmax"},
+        "split": {
+            "train": 0.6,
+            "val": 0.2,
+            "test": 0.2,
+            "seed": 5,
+            "stratified": True,
+            "group_key": "scan_id",
+            "max_val_samples": 3,
+            "max_test_samples": 4,
+        },
+        "listOfFiles": [
+            {"file": "scan_a__fe_bcc.oh5", "scan_id": "scan_a"},
+            {"file": "scan_b__feo_wustite.oh5", "scan_id": "scan_b"},
+        ],
+    }
+
+    cfg_path = tmp_path / "config_v3.yml"
+    cfg_path.write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
+
+    result = prepare_ml_dataset(config_path=cfg_path, repo_root=repo_root, debug=True)
+    manifest = read_json(result.manifest_path)
+
+    assert manifest["split_policy"]["group_key"] == "scan_id"
+    assert manifest["split_counts"]["val"] <= 3
+    assert manifest["split_counts"]["test"] <= 4
+    assert manifest["preprocessing_policy"]["resize_hw"] == [20, 20]
+    assert manifest["quality_filters"]["resolved_expression"]
+    assert manifest["provenance"]["input_file_hashes"]
+    assert manifest["artifacts"]["resolved_config_json"].endswith("resolved_config.json")

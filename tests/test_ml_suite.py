@@ -119,5 +119,8 @@ def test_ml_benchmark_suite_smoke(tmp_path: Path) -> None:
     manifest = read_json(result.manifest_json)
     assert manifest["sanity_checks"]["suite_summary_written"] is True
     assert manifest["artifacts"]["event_log_jsonl"].endswith("events.jsonl")
+    assert manifest["artifacts"]["suite_report_html"].endswith("suite_report.html")
     events_path = tmp_path / manifest["artifacts"]["event_log_jsonl"]
+    html_path = tmp_path / manifest["artifacts"]["suite_report_html"]
     assert events_path.exists()
+    assert html_path.exists()

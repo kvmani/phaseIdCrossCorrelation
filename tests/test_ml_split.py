@@ -14,8 +14,30 @@ def test_split_assignments_stratified_deterministic() -> None:
     assert len(a) == len(labels)
     assert set(a) == {"train", "val", "test"}
 
-    # Each class contributes at least one sample to each split for n=4/class.
-    for cls in (0, 1, 2):
-        cls_idx = [i for i, y in enumerate(labels) if y == cls]
-        splits = {a[i] for i in cls_idx}
-        assert splits == {"train", "val", "test"}
+
+def test_split_group_leakage_safe() -> None:
+    labels = [0, 0, 1, 1, 0, 1, 0, 1]
+    groups = ["g1", "g1", "g2", "g2", "g3", "g3", "g4", "g4"]
+    cfg = SplitConfig(train=0.5, val=0.25, test=0.25, seed=7, stratified=True)
+    split = build_split_assignments(labels, cfg, groups=groups)
+    by_group: dict[str, set[str]] = {}
+    for g, s in zip(groups, split, strict=True):
+        by_group.setdefault(g, set()).add(s)
+    assert all(len(v) == 1 for v in by_group.values())
+
+
+def test_split_caps_move_remainder_to_train() -> None:
+    labels = [0] * 20 + [1] * 20
+    cfg = SplitConfig(
+        train=0.6,
+        val=0.2,
+        test=0.2,
+        seed=1,
+        stratified=True,
+        max_val_samples=4,
+        max_test_samples=5,
+    )
+    split = build_split_assignments(labels, cfg)
+    assert split.count("val") <= 4
+    assert split.count("test") <= 5
+    assert split.count("train") == len(labels) - split.count("val") - split.count("test")

@@ -1,0 +1,20 @@
+schema_version: phase_id_xcorr.ml_full_cycle.v1
+output_root: reports/ml/full_cycle/debug
+
+dataset_prepare_config: configs/ml/dataset_prepare.single_phase_scan_map.debug.yml
+# optional dotted overrides applied before run
+# dataset_prepare_overrides:
+#   - output_dir=reports/ml/datasets/from_full_cycle
+
+suite_config: configs/ml/benchmark_suite.debug.yml
+# optional dotted overrides applied before run
+# suite_overrides:
+#   - output_root=reports/ml/benchmarks/from_full_cycle
+
+strict: false
+
+generate_ppt: true
+ppt_output_dir: reports/ml/presentations
+ppt_max_results: 8
+deck_title: "phaseIdCrossCorrelation ML Full Cycle (Debug)"
+# ppt_script: /absolute/or/repo/relative/path/to/generate_lab_meeting_ppt.py
