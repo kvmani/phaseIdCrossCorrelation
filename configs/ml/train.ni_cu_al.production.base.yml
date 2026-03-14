@@ -17,8 +17,8 @@ input:
   resize_hw: [128, 128]
   apply_circular_mask: true
   normalize:
-    mean: [0.5]
-    std: [0.25]
+    mean: [0.0]
+    std: [1.0]
 
 model:
   family: simple_cnn

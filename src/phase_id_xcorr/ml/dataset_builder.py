@@ -102,6 +102,33 @@ def _safe_float(value: object) -> float | None:
         return None
 
 
+def _format_pct(numerator: int, denominator: int) -> float:
+    if denominator <= 0:
+        return 0.0
+    return float(numerator / denominator)
+
+
+def _summarize_numeric(values: list[float]) -> dict[str, float | int | None]:
+    if not values:
+        return {
+            "count": 0,
+            "mean": None,
+            "median": None,
+            "std": None,
+            "min": None,
+            "max": None,
+        }
+    arr = np.asarray(values, dtype=np.float64)
+    return {
+        "count": int(arr.size),
+        "mean": float(np.mean(arr)),
+        "median": float(np.median(arr)),
+        "std": float(np.std(arr)),
+        "min": float(np.min(arr)),
+        "max": float(np.max(arr)),
+    }
+
+
 def _append_event(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as f:
@@ -329,6 +356,9 @@ def _write_dataset_html_summary(
     rejected = max(0, raw_total - accepted)
     accept_frac = (accepted / raw_total) if raw_total > 0 else 0.0
     reject_frac = (rejected / raw_total) if raw_total > 0 else 0.0
+    split_counts = manifest.get("split_counts") or {}
+    split_percentages = manifest.get("split_phase_percentages") or {}
+    phase_stats = manifest.get("phase_statistics") or {}
 
     source_rows = []
     for summary in manifest.get("source_summaries", []):
@@ -341,6 +371,7 @@ def _write_dataset_html_summary(
             f"<td>{summary.get('rows_total', 0)}</td>"
             f"<td>{summary.get('rows_accepted', 0)}</td>"
             f"<td>{summary.get('rows_rejected', 0)}</td>"
+            f"<td>{float(summary.get('accept_fraction', 0.0)):.3f}</td>"
             f"<td>{summary.get('oh5_path', '')}</td>"
             "</tr>"
         )
@@ -348,6 +379,64 @@ def _write_dataset_html_summary(
     reason_rows = []
     for reason, count in sorted((manifest.get("rejected_reason_counts") or {}).items()):
         reason_rows.append(f"<tr><td>{reason}</td><td>{count}</td></tr>")
+
+    phase_rows = []
+    for phase_name, stats in phase_stats.items():
+        if not isinstance(stats, dict):
+            continue
+        ci = stats.get("confidence_index") or {}
+        fit = stats.get("fit") or {}
+        iq = stats.get("image_quality") or {}
+        intensity = stats.get("intensity_distribution") or {}
+        ci_mean = "" if ci.get("mean") is None else f"{float(ci['mean']):.4f}"
+        ci_median = "" if ci.get("median") is None else f"{float(ci['median']):.4f}"
+        ci_std = "" if ci.get("std") is None else f"{float(ci['std']):.4f}"
+        fit_mean = "" if fit.get("mean") is None else f"{float(fit['mean']):.4f}"
+        fit_median = "" if fit.get("median") is None else f"{float(fit['median']):.4f}"
+        fit_std = "" if fit.get("std") is None else f"{float(fit['std']):.4f}"
+        iq_mean = "" if iq.get("mean") is None else f"{float(iq['mean']):.4f}"
+        iq_median = "" if iq.get("median") is None else f"{float(iq['median']):.4f}"
+        iq_std = "" if iq.get("std") is None else f"{float(iq['std']):.4f}"
+        phase_rows.append(
+            "<tr>"
+            f"<td>{phase_name}</td>"
+            f"<td>{stats.get('accepted_count', 0)}</td>"
+            f"<td>{float(stats.get('accepted_fraction_of_dataset', 0.0)):.3f}</td>"
+            f"<td>{stats.get('train_count', 0)}</td>"
+            f"<td>{float(stats.get('train_fraction_within_split', 0.0)):.3f}</td>"
+            f"<td>{stats.get('val_count', 0)}</td>"
+            f"<td>{float(stats.get('val_fraction_within_split', 0.0)):.3f}</td>"
+            f"<td>{stats.get('test_count', 0)}</td>"
+            f"<td>{float(stats.get('test_fraction_within_split', 0.0)):.3f}</td>"
+            f"<td>{ci_mean}</td>"
+            f"<td>{ci_median}</td>"
+            f"<td>{ci_std}</td>"
+            f"<td>{fit_mean}</td>"
+            f"<td>{fit_median}</td>"
+            f"<td>{fit_std}</td>"
+            f"<td>{iq_mean}</td>"
+            f"<td>{iq_median}</td>"
+            f"<td>{iq_std}</td>"
+            f"<td>{intensity.get('mode_intensity_value', '')}</td>"
+            f"<td>{intensity.get('mode_pixel_count', '')}</td>"
+            "</tr>"
+        )
+
+    split_rows = []
+    for split_name in ("train", "val", "test"):
+        counts = manifest.get("split_phase_counts", {}).get(split_name, {})
+        pct_map = split_percentages.get(split_name, {})
+        if not isinstance(counts, dict):
+            continue
+        for phase_name, count in counts.items():
+            split_rows.append(
+                "<tr>"
+                f"<td>{split_name}</td>"
+                f"<td>{phase_name}</td>"
+                f"<td>{count}</td>"
+                f"<td>{float(pct_map.get(phase_name, 0.0)):.3f}</td>"
+                "</tr>"
+            )
 
     artifacts = manifest.get("artifacts", {})
     html = f"""<!DOCTYPE html>
@@ -372,19 +461,46 @@ def _write_dataset_html_summary(
   <p><strong>Config:</strong> <code>{manifest.get('config_path', '')}</code></p>
   <p><strong>Filter:</strong> <code>{((manifest.get('quality_filters') or {}).get('expression')) or 'threshold-only policy'}</code></p>
   <div class="metric-grid">
-    <div class="metric"><div>Raw pixels</div><div class="value">{raw_total}</div></div>
+    <div class="metric"><div>Raw scan pixels</div><div class="value">{raw_total}</div></div>
     <div class="metric"><div>Accepted</div><div class="value">{accepted}</div></div>
     <div class="metric"><div>Rejected</div><div class="value">{rejected}</div></div>
     <div class="metric"><div>Accepted fraction</div><div class="value">{accept_frac:.3f}</div></div>
   </div>
   <p><strong>Rejected fraction:</strong> {reject_frac:.3f}</p>
   <p><strong>Pattern shape:</strong> {manifest.get('pattern_shape_hw')}</p>
-  <p><strong>Split counts:</strong> {manifest.get('split_counts')}</p>
+  <p><strong>Split counts:</strong> {split_counts}</p>
+
+  <h2>Phase-Wise Accepted Dataset Statistics</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Phase</th><th>Accepted</th><th>Accepted frac</th>
+        <th>Train</th><th>Train frac</th><th>Val</th><th>Val frac</th><th>Test</th><th>Test frac</th>
+        <th>CI mean</th><th>CI median</th><th>CI std</th>
+        <th>Fit mean</th><th>Fit median</th><th>Fit std</th>
+        <th>IQ mean</th><th>IQ median</th><th>IQ std</th>
+        <th>Mode intensity</th><th>Mode pixel count</th>
+      </tr>
+    </thead>
+    <tbody>
+      {''.join(phase_rows) if phase_rows else '<tr><td colspan="20">No phase statistics available</td></tr>'}
+    </tbody>
+  </table>
+
+  <h2>Split Composition</h2>
+  <table>
+    <thead>
+      <tr><th>Split</th><th>Phase</th><th>Count</th><th>Fraction within split</th></tr>
+    </thead>
+    <tbody>
+      {''.join(split_rows) if split_rows else '<tr><td colspan="4">No split composition available</td></tr>'}
+    </tbody>
+  </table>
 
   <h2>Per-Source Summary</h2>
   <table>
     <thead>
-      <tr><th>Scan ID</th><th>Phase</th><th>Raw pixels</th><th>Accepted</th><th>Rejected</th><th>OH5 path</th></tr>
+      <tr><th>Scan ID</th><th>Phase</th><th>Raw pixels</th><th>Accepted</th><th>Rejected</th><th>Accepted fraction</th><th>OH5 path</th></tr>
     </thead>
     <tbody>
       {''.join(source_rows)}
@@ -413,6 +529,7 @@ def _write_dataset_html_summary(
       <tr><td>Val split</td><td>{artifacts.get('val_npz', '')}</td></tr>
       <tr><td>Test split</td><td>{artifacts.get('test_npz', '')}</td></tr>
       <tr><td>Event log</td><td>{artifacts.get('event_log_jsonl', '')}</td></tr>
+      <tr><td>Resolved config</td><td>{artifacts.get('resolved_config_json', '')}</td></tr>
     </tbody>
   </table>
 </body>
@@ -494,6 +611,8 @@ def prepare_ml_dataset(
 
     reject_reason_counts: dict[str, int] = collections.Counter()
     accepted_per_phase: dict[str, int] = collections.Counter()
+    phase_intensity_counts: dict[str, np.ndarray] = {}
+    phase_intensity_bit_depth: dict[str, int] = {}
     raw_rows_total = 0
 
     for src_idx, source in enumerate(sources, start=1):
@@ -712,6 +831,24 @@ def prepare_ml_dataset(
                     continue
 
                 pattern = reader.read_pattern(flat_index=flat_index)
+                if reader.pattern_bit_depth is not None:
+                    bit_depth = int(reader.pattern_bit_depth)
+                    intensity_levels = int((2 ** bit_depth) - 1)
+                    phase_intensity_bit_depth[row.phase_name] = max(
+                        int(phase_intensity_bit_depth.get(row.phase_name, 0)),
+                        bit_depth,
+                    )
+                    if row.phase_name not in phase_intensity_counts:
+                        phase_intensity_counts[row.phase_name] = np.zeros((intensity_levels + 1,), dtype=np.int64)
+                    quantized = np.clip(
+                        np.rint(pattern * float(intensity_levels)),
+                        0,
+                        intensity_levels,
+                    ).astype(np.int32, copy=False)
+                    phase_intensity_counts[row.phase_name] += np.bincount(
+                        quantized.ravel(),
+                        minlength=intensity_levels + 1,
+                    )
                 pattern = apply_preprocessing(pattern, preprocessing_policy)
 
                 if pattern.ndim != 2:
@@ -786,6 +923,7 @@ def prepare_ml_dataset(
                     "rows_total": rows_total,
                     "rows_accepted": accepted,
                     "rows_rejected": rejected,
+                    "accept_fraction": _format_pct(accepted, rows_total),
                     "phase_counts": dict(phase_counts),
                     "reject_reason_counts": dict(source_reason_counts),
                     "elapsed_seconds": float(time.monotonic() - source_t0),
@@ -861,9 +999,66 @@ def prepare_ml_dataset(
             phase_counts=split_phase_counts[split_name],
         )
 
+    split_phase_percentages: dict[str, dict[str, float]] = {}
+    for split_name, phase_counts in split_phase_counts.items():
+        total = int(split_counts.get(split_name, 0))
+        split_phase_percentages[split_name] = {
+            str(phase_name): _format_pct(int(count), total)
+            for phase_name, count in phase_counts.items()
+        }
+
     records_csv = out_dir / "records.csv"
     write_records_csv(records_csv, records)
     emit("RECORDS_WRITE_COMPLETE", records_csv=rel_path(records_csv, repo_root), count=len(records))
+
+    per_phase_metric_values: dict[str, dict[str, list[float]]] = {
+        phase_name: {
+            "confidence_index": [],
+            "image_quality": [],
+            "fit": [],
+        }
+        for phase_name in phase_to_label
+    }
+    for rec in records:
+        phase_name = str(rec.get("phase_name", ""))
+        if phase_name not in per_phase_metric_values:
+            per_phase_metric_values[phase_name] = {
+                "confidence_index": [],
+                "image_quality": [],
+                "fit": [],
+            }
+        for metric_name in ("confidence_index", "image_quality", "fit"):
+            value = _safe_float(rec.get(metric_name))
+            if value is not None:
+                per_phase_metric_values[phase_name][metric_name].append(value)
+
+    phase_statistics: dict[str, dict[str, Any]] = {}
+    for phase_name in sorted(accepted_per_phase):
+        hist = phase_intensity_counts.get(phase_name)
+        mode_intensity_value = None
+        mode_pixel_count = None
+        if hist is not None and hist.size:
+            mode_idx = int(np.argmax(hist))
+            mode_intensity_value = mode_idx
+            mode_pixel_count = int(hist[mode_idx])
+        phase_statistics[phase_name] = {
+            "accepted_count": int(accepted_per_phase.get(phase_name, 0)),
+            "accepted_fraction_of_dataset": _format_pct(int(accepted_per_phase.get(phase_name, 0)), len(records)),
+            "train_count": int(split_phase_counts.get("train", {}).get(phase_name, 0)),
+            "train_fraction_within_split": float(split_phase_percentages.get("train", {}).get(phase_name, 0.0)),
+            "val_count": int(split_phase_counts.get("val", {}).get(phase_name, 0)),
+            "val_fraction_within_split": float(split_phase_percentages.get("val", {}).get(phase_name, 0.0)),
+            "test_count": int(split_phase_counts.get("test", {}).get(phase_name, 0)),
+            "test_fraction_within_split": float(split_phase_percentages.get("test", {}).get(phase_name, 0.0)),
+            "confidence_index": _summarize_numeric(per_phase_metric_values.get(phase_name, {}).get("confidence_index", [])),
+            "image_quality": _summarize_numeric(per_phase_metric_values.get(phase_name, {}).get("image_quality", [])),
+            "fit": _summarize_numeric(per_phase_metric_values.get(phase_name, {}).get("fit", [])),
+            "intensity_distribution": {
+                "bit_depth": int(phase_intensity_bit_depth.get(phase_name, 0)) or None,
+                "mode_intensity_value": mode_intensity_value,
+                "mode_pixel_count": mode_pixel_count,
+            },
+        }
 
     resolved_config_path = out_dir / "resolved_config.json"
     write_json(resolved_config_path, cfg)
@@ -897,7 +1092,9 @@ def prepare_ml_dataset(
         "num_samples_total": int(len(records)),
         "split_counts": split_counts,
         "split_phase_counts": split_phase_counts,
+        "split_phase_percentages": split_phase_percentages,
         "accepted_per_phase": dict(accepted_per_phase),
+        "phase_statistics": phase_statistics,
         "raw_input_rows_total": int(raw_rows_total),
         "raw_label_rows_total": int(raw_rows_total),
         "rejected_reason_counts": dict(reject_reason_counts),

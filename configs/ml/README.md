@@ -16,6 +16,7 @@ Files:
 - `full_cycle.ni_cu_al.production.yml`: production full-cycle template using the Windows `Ni-Cu-Al` scan folder.
 - `dataset_prepare.classiication_training_data.filtered.yml`: local `Al/Ni/Cu` cropped `.oh5` prep with `CI > 0.4 && Fit < 1.5`.
 - `dataset_prepare.ni_cu_al.production.yml`: production dataset-prep template pointing at `F:\PhaseID_Training_Data\Ni-Cu-Al_Scans`.
+- `phase_explorer.ni_cu_al.production.yml`: production explorer GUI config for `Al-1.oh5`, `Ni.oh`, and `Cu-1.oh5`.
 - `train.classiication_training_data.smoke.yml`: smoke single-run training config on the filtered local dataset.
 - `train.ni_cu_al.production.base.yml`: production baseline train config for the filtered Windows dataset.
 
@@ -30,8 +31,9 @@ python scripts/run_ml_benchmark_suite.py --config configs/ml/benchmark_suite.deb
 python scripts/run_ml_benchmark_suite.py --config configs/ml/benchmark_suite.classiication_training_data.smoke.yml --debug
 python scripts/run_ml_benchmark_suite.py --config configs/ml/benchmark_suite.ni_cu_al.production.yml --debug
 python scripts/run_ml_phase_explorer.py --config configs/ml/dataset_prepare.v3_al_ni_cu.example.yml --debug
+python scripts/run_ml_phase_explorer.py --config configs/ml/phase_explorer.ni_cu_al.production.yml --debug
 python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.debug.yml --debug
 python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.ni_cu_al.production.yml --debug
 ```
 
-Each workflow writes both `manifest.json` and `events.jsonl` under its output directory.
+Each workflow writes both `manifest.json` and `events.jsonl` under its output directory. Dataset HTML summaries also include phase-wise split composition, CI/Fit/IQ statistics, and modal intensity values. Benchmark HTML summaries include best-model selection, confusion matrices, per-class metrics, and links to per-run artifacts.

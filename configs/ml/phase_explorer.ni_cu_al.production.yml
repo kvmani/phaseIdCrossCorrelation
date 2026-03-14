@@ -1,7 +1,6 @@
 schema_version: phase_id_xcorr.ml_dataset_prep.v3
 input_mode: single_phase_scan_map
-output_dir: reports/ml/datasets/ni_cu_al_production
-strict_pattern_presence: true
+output_dir: reports/ml/datasets/ni_cu_al_production_explorer
 
 data_source_folder: 'F:\PhaseID_Training_Data\Ni-Cu-Al_Scans'
 allow_filename_phase_fallback: false
@@ -22,19 +21,14 @@ listOfFiles:
     scan_id: cu_1
     phase_name: Cu
 
-quality_filters:
-  expression: "CI > 0.4 && Fit < 1.5"
-
-preprocessing:
-  resize_hw: [128, 128]
-  apply_circular_mask: true
-  normalize_mode: none
-
-split:
-  train: 0.7
-  val: 0.15
-  test: 0.15
-  seed: 42
-  stratified: true
-  val_samples_per_phase: 1000
-  test_samples_per_phase: 1000
+explorer:
+  intensity_plot:
+    bins: 512
+    x_min: 0
+    x_max: 65535
+    show_cdf: false
+  attribute_plot:
+    bins: 80
+    field_ranges:
+      CI: [0, 1]
+      Fit: [0, 2]

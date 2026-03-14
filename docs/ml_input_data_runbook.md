@@ -15,6 +15,8 @@ Operational guide for preparing ML datasets from `.oh5` scans and launching the 
 5. Writes dataset artifacts (`manifest.json`, `records.csv`, split `.npz`, `events.jsonl`).
 6. `run_ml_train_classifier.py` trains/evaluates from dataset manifest.
 7. `run_ml_benchmark_suite.py` runs repeated model experiments.
+8. Dataset summaries include per-phase split composition, CI/Fit/IQ mean-median-std, and modal intensity statistics.
+9. Suite summaries include best-model selection, confusion matrices, per-class metrics, and links to per-run configs and reports.
 
 ## 2. Input Modes
 
