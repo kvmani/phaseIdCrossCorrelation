@@ -64,7 +64,7 @@ Controls:
 - list of sources with mode-specific labeling fields,
 - quality policy (thresholds and optional logical expression, with alias mapping),
 - dataset-stage preprocessing policy (`preprocessing.resize_hw`, masking, normalization),
-- split policy (`train/val/test`, seed, stratified, `group_key`, `max_val_samples`, `max_test_samples`).
+- split policy (`train/val/test`, seed, stratified, `group_key`, `max_val_samples`, `max_test_samples`, optional `val_samples_per_phase`, optional `test_samples_per_phase`).
 
 ### Training Config
 

@@ -96,6 +96,7 @@ class Oh5ScanReader:
         self._data: h5py.Group | None = None
         self.nx = 0
         self.ny = 0
+        self.header_total_pixels = 0
         self.total_pixels = 0
         self.pattern_key: str | None = None
         self.pattern_shape: tuple[int, int] | None = None
@@ -136,11 +137,13 @@ class Oh5ScanReader:
 
         self.nx = int(_read_scalar(self.header_group["nColumns"][()]))
         self.ny = int(_read_scalar(self.header_group["nRows"][()]))
-        self.total_pixels = int(self.nx * self.ny)
+        self.header_total_pixels = int(self.nx * self.ny)
+        self.total_pixels = int(self.header_total_pixels)
 
         self.pattern_key = self._find_dataset_key(PATTERN_ALIASES)
         if self.pattern_key is not None:
             ds = self.data_group[self.pattern_key]
+            self.total_pixels = self._resolve_effective_total_pixels(ds)
             h, w = self._pattern_hw(ds)
             self.pattern_shape = (h, w)
             self.pattern_bit_depth = _infer_bit_depth(np.asarray(ds[(0,) + (slice(None),) * (ds.ndim - 1)]))
@@ -232,7 +235,7 @@ class Oh5ScanReader:
             ds = self.data_group[key]
             if not isinstance(ds, h5py.Dataset):
                 continue
-            if ds.ndim == 1 and int(ds.shape[0]) == int(self.total_pixels):
+            if ds.ndim == 1 and int(ds.shape[0]) >= int(self.total_pixels):
                 out.append(str(key))
             elif ds.ndim == 2 and tuple(ds.shape) == (self.ny, self.nx):
                 out.append(str(key))
@@ -250,6 +253,20 @@ class Oh5ScanReader:
         if _normalize_key(field_name) == _normalize_key("Valid"):
             return bool(round(float(value)) != 0)
         return float(value)
+
+    def read_scalar_field_array(self, field_name: str) -> np.ndarray | None:
+        """Read a full scalar field array when present."""
+
+        if field_name not in self.data_group:
+            return None
+        ds = self.data_group[field_name]
+        if not isinstance(ds, h5py.Dataset):
+            return None
+        if ds.ndim == 1 and int(ds.shape[0]) >= int(self.header_total_pixels):
+            return np.asarray(ds[: self.header_total_pixels], dtype=np.float32)
+        if ds.ndim == 2 and tuple(ds.shape) == (self.ny, self.nx):
+            return np.asarray(ds, dtype=np.float32).reshape(-1)
+        return None
 
     def read_scalar_row_all(self, *, flat_index: int, field_names: list[str] | None = None) -> dict[str, float | bool | None]:
         """Read all discovered scalar values for one pixel."""
@@ -293,6 +310,14 @@ class Oh5ScanReader:
             return int(ds.shape[-2]), int(ds.shape[-1])
         if ds.ndim >= 4 and tuple(ds.shape[:2]) == (self.ny, self.nx):
             return int(ds.shape[-2]), int(ds.shape[-1])
+        raise ValueError(f"Unsupported pattern dataset shape: {tuple(ds.shape)}")
+
+    def _resolve_effective_total_pixels(self, ds: h5py.Dataset) -> int:
+        header_total = int(self.nx * self.ny)
+        if ds.ndim >= 4 and tuple(ds.shape[:2]) == (self.ny, self.nx):
+            return header_total
+        if ds.ndim >= 3 and int(ds.shape[0]) <= header_total:
+            return int(ds.shape[0])
         raise ValueError(f"Unsupported pattern dataset shape: {tuple(ds.shape)}")
 
     @staticmethod

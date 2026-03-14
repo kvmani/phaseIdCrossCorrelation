@@ -318,6 +318,109 @@ def _emit_source_progress(
     )
 
 
+def _write_dataset_html_summary(
+    *,
+    path: Path,
+    manifest: dict[str, Any],
+    repo_root: Path,
+) -> None:
+    raw_total = int(manifest.get("raw_input_rows_total", 0))
+    accepted = int(manifest.get("num_samples_total", 0))
+    rejected = max(0, raw_total - accepted)
+    accept_frac = (accepted / raw_total) if raw_total > 0 else 0.0
+    reject_frac = (rejected / raw_total) if raw_total > 0 else 0.0
+
+    source_rows = []
+    for summary in manifest.get("source_summaries", []):
+        if not isinstance(summary, dict):
+            continue
+        source_rows.append(
+            "<tr>"
+            f"<td>{summary.get('scan_id', '')}</td>"
+            f"<td>{summary.get('phase_name', '')}</td>"
+            f"<td>{summary.get('rows_total', 0)}</td>"
+            f"<td>{summary.get('rows_accepted', 0)}</td>"
+            f"<td>{summary.get('rows_rejected', 0)}</td>"
+            f"<td>{summary.get('oh5_path', '')}</td>"
+            "</tr>"
+        )
+
+    reason_rows = []
+    for reason, count in sorted((manifest.get("rejected_reason_counts") or {}).items()):
+        reason_rows.append(f"<tr><td>{reason}</td><td>{count}</td></tr>")
+
+    artifacts = manifest.get("artifacts", {})
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ML Dataset Preparation Summary</title>
+  <style>
+    body {{ font-family: Arial, sans-serif; margin: 24px; color: #222; }}
+    h1, h2 {{ margin-bottom: 8px; }}
+    table {{ border-collapse: collapse; width: 100%; margin: 12px 0 24px; }}
+    th, td {{ border: 1px solid #d0d0d0; padding: 8px; text-align: left; }}
+    th {{ background: #f5f5f5; }}
+    .metric-grid {{ display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 12px; margin: 16px 0 24px; }}
+    .metric {{ border: 1px solid #d0d0d0; padding: 12px; border-radius: 6px; background: #fafafa; }}
+    .metric .value {{ font-size: 24px; font-weight: 700; }}
+    code {{ background: #f4f4f4; padding: 2px 4px; border-radius: 4px; }}
+  </style>
+</head>
+<body>
+  <h1>ML Dataset Preparation Summary</h1>
+  <p><strong>Config:</strong> <code>{manifest.get('config_path', '')}</code></p>
+  <p><strong>Filter:</strong> <code>{((manifest.get('quality_filters') or {}).get('expression')) or 'threshold-only policy'}</code></p>
+  <div class="metric-grid">
+    <div class="metric"><div>Raw pixels</div><div class="value">{raw_total}</div></div>
+    <div class="metric"><div>Accepted</div><div class="value">{accepted}</div></div>
+    <div class="metric"><div>Rejected</div><div class="value">{rejected}</div></div>
+    <div class="metric"><div>Accepted fraction</div><div class="value">{accept_frac:.3f}</div></div>
+  </div>
+  <p><strong>Rejected fraction:</strong> {reject_frac:.3f}</p>
+  <p><strong>Pattern shape:</strong> {manifest.get('pattern_shape_hw')}</p>
+  <p><strong>Split counts:</strong> {manifest.get('split_counts')}</p>
+
+  <h2>Per-Source Summary</h2>
+  <table>
+    <thead>
+      <tr><th>Scan ID</th><th>Phase</th><th>Raw pixels</th><th>Accepted</th><th>Rejected</th><th>OH5 path</th></tr>
+    </thead>
+    <tbody>
+      {''.join(source_rows)}
+    </tbody>
+  </table>
+
+  <h2>Reject Reasons</h2>
+  <table>
+    <thead>
+      <tr><th>Reason</th><th>Count</th></tr>
+    </thead>
+    <tbody>
+      {''.join(reason_rows) if reason_rows else '<tr><td colspan="2">None</td></tr>'}
+    </tbody>
+  </table>
+
+  <h2>Artifacts</h2>
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Path</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Manifest JSON</td><td>{rel_path(path.with_name('manifest.json'), repo_root)}</td></tr>
+      <tr><td>Records CSV</td><td>{artifacts.get('records_csv', '')}</td></tr>
+      <tr><td>Train split</td><td>{artifacts.get('train_npz', '')}</td></tr>
+      <tr><td>Val split</td><td>{artifacts.get('val_npz', '')}</td></tr>
+      <tr><td>Test split</td><td>{artifacts.get('test_npz', '')}</td></tr>
+      <tr><td>Event log</td><td>{artifacts.get('event_log_jsonl', '')}</td></tr>
+    </tbody>
+  </table>
+</body>
+</html>"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(html, encoding="utf-8")
+
+
 def prepare_ml_dataset(
     *,
     config_path: Path,
@@ -820,6 +923,8 @@ def prepare_ml_dataset(
             "group_key": split_cfg.group_key,
             "max_val_samples": split_cfg.max_val_samples,
             "max_test_samples": split_cfg.max_test_samples,
+            "val_samples_per_phase": split_cfg.val_samples_per_phase,
+            "test_samples_per_phase": split_cfg.test_samples_per_phase,
         },
         "timing": {
             "total_elapsed_seconds": float(time.monotonic() - run_t0),
@@ -845,12 +950,17 @@ def prepare_ml_dataset(
 
     manifest_path = out_dir / "manifest.json"
     write_json(manifest_path, manifest)
+    summary_html = out_dir / "summary.html"
+    _write_dataset_html_summary(path=summary_html, manifest=manifest, repo_root=repo_root)
+    manifest["artifacts"]["summary_html"] = rel_path(summary_html, repo_root)
+    write_json(manifest_path, manifest)
     emit(
         "RUN_END",
         status="completed",
         total_records=len(records),
         split_counts=split_counts,
         manifest_path=rel_path(manifest_path, repo_root),
+        summary_html=rel_path(summary_html, repo_root),
         total_elapsed_seconds=float(time.monotonic() - run_t0),
     )
 

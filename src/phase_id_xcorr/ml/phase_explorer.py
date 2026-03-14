@@ -31,6 +31,7 @@ class PhaseExplorerData:
     phase_name: str
     pattern_refs: list[PatternRef] = field(default_factory=list)
     intensity_values: np.ndarray = field(default_factory=lambda: np.zeros((0,), dtype=np.float32))
+    intensity_max_value: float = 1.0
     scalar_fields: dict[str, np.ndarray] = field(default_factory=dict)
 
 
@@ -39,6 +40,7 @@ class ExplorerDataset:
     config_path: Path
     phase_names: list[str]
     phases: dict[str, PhaseExplorerData]
+    explorer_config: dict[str, Any] = field(default_factory=dict)
 
     def pattern_count(self, phase_name: str) -> int:
         return len(self.phases[phase_name].pattern_refs)
@@ -158,6 +160,7 @@ def load_explorer_dataset(
     phase_to_label = _parse_phase_map(cfg)
     input_mode = _parse_input_mode(cfg, sources)
     csv_cfg = cfg.get("label_csv") if isinstance(cfg.get("label_csv"), dict) else {}
+    explorer_cfg = cfg.get("explorer") if isinstance(cfg.get("explorer"), dict) else {}
 
     phases: dict[str, PhaseExplorerData] = {}
 
@@ -178,6 +181,21 @@ def load_explorer_dataset(
             if input_mode == SOURCE_MODE_SINGLE_PHASE:
                 phase_name = _resolve_source_phase_name(src, phase_to_label=phase_to_label)
                 rows = [(phase_name, i) for i in range(reader.total_pixels)]
+                phase = _get_phase(phase_name)
+                for field_name in scalar_fields:
+                    values = reader.read_scalar_field_array(field_name)
+                    if values is None or values.size == 0:
+                        continue
+                    arr = phase.scalar_fields.get(field_name)
+                    phase.scalar_fields[field_name] = values.copy() if arr is None else np.concatenate((arr, values))
+                    if phase.scalar_fields[field_name].size > max_scalar_points_per_phase:
+                        rng = np.random.default_rng(42)
+                        idx = rng.choice(
+                            phase.scalar_fields[field_name].size,
+                            size=max_scalar_points_per_phase,
+                            replace=False,
+                        )
+                        phase.scalar_fields[field_name] = phase.scalar_fields[field_name][idx]
             else:
                 labels_csv_path = resolve_path(
                     get_required(src, "labels_csv_path", where=f"sources[{src_idx}]"),
@@ -195,6 +213,8 @@ def load_explorer_dataset(
 
             for phase_name, flat_index in rows:
                 phase = _get_phase(phase_name)
+                intensity_max_value = float((2 ** int(reader.pattern_bit_depth)) - 1) if reader.pattern_bit_depth else 1.0
+                phase.intensity_max_value = max(float(phase.intensity_max_value), intensity_max_value)
                 phase.pattern_refs.append(
                     PatternRef(
                         phase_name=phase_name,
@@ -205,7 +225,7 @@ def load_explorer_dataset(
                 )
 
                 pattern = reader.read_pattern(flat_index=flat_index)
-                flat = pattern.reshape(-1).astype(np.float32, copy=False)
+                flat = (pattern.reshape(-1).astype(np.float32, copy=False) * intensity_max_value).astype(np.float32, copy=False)
                 if phase.intensity_values.size == 0:
                     phase.intensity_values = flat.copy()
                 else:
@@ -215,21 +235,22 @@ def load_explorer_dataset(
                     idx = rng.choice(phase.intensity_values.size, size=max_intensity_points_per_phase, replace=False)
                     phase.intensity_values = phase.intensity_values[idx]
 
-                scalar_row = reader.read_scalar_row_all(flat_index=flat_index, field_names=scalar_fields)
-                for field_name, value in scalar_row.items():
-                    if value is None:
-                        continue
-                    arr = phase.scalar_fields.get(field_name)
-                    v = np.asarray([float(value)], dtype=np.float32)
-                    phase.scalar_fields[field_name] = v if arr is None else np.concatenate((arr, v))
-                    if phase.scalar_fields[field_name].size > max_scalar_points_per_phase:
-                        rng = np.random.default_rng(42)
-                        idx = rng.choice(
-                            phase.scalar_fields[field_name].size,
-                            size=max_scalar_points_per_phase,
-                            replace=False,
-                        )
-                        phase.scalar_fields[field_name] = phase.scalar_fields[field_name][idx]
+                if input_mode != SOURCE_MODE_SINGLE_PHASE:
+                    scalar_row = reader.read_scalar_row_all(flat_index=flat_index, field_names=scalar_fields)
+                    for field_name, value in scalar_row.items():
+                        if value is None:
+                            continue
+                        arr = phase.scalar_fields.get(field_name)
+                        v = np.asarray([float(value)], dtype=np.float32)
+                        phase.scalar_fields[field_name] = v if arr is None else np.concatenate((arr, v))
+                        if phase.scalar_fields[field_name].size > max_scalar_points_per_phase:
+                            rng = np.random.default_rng(42)
+                            idx = rng.choice(
+                                phase.scalar_fields[field_name].size,
+                                size=max_scalar_points_per_phase,
+                                replace=False,
+                            )
+                            phase.scalar_fields[field_name] = phase.scalar_fields[field_name][idx]
 
     if not phases:
         raise RuntimeError("No phase data loaded from provided configuration")
@@ -238,19 +259,19 @@ def load_explorer_dataset(
         config_path=cfg_path,
         phase_names=sorted(phases.keys()),
         phases=phases,
+        explorer_config=explorer_cfg,
     )
 
 
-def histogram(values: np.ndarray, *, bins: int, x_min: float, x_max: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return (counts, cumulative_counts, bin_edges)."""
+def histogram(values: np.ndarray, *, bins: int, x_min: float, x_max: float) -> tuple[np.ndarray, np.ndarray]:
+    """Return (counts, bin_edges)."""
 
     if bins <= 0:
         raise ValueError("bins must be positive")
     if x_max <= x_min:
         raise ValueError("x_max must be greater than x_min")
     counts, edges = np.histogram(values, bins=bins, range=(x_min, x_max))
-    cumulative = np.cumsum(counts)
-    return counts.astype(np.float64), cumulative.astype(np.float64), edges.astype(np.float64)
+    return counts.astype(np.float64), edges.astype(np.float64)
 
 
 def cdf_from_counts(cumulative_counts: np.ndarray) -> np.ndarray:

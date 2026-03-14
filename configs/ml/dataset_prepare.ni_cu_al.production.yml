@@ -1,0 +1,40 @@
+schema_version: phase_id_xcorr.ml_dataset_prep.v3
+input_mode: single_phase_scan_map
+output_dir: reports/ml/datasets/ni_cu_al_production
+strict_pattern_presence: true
+
+data_source_folder: 'F:\PhaseID_Training_Data\Ni-Cu-Al_Scans'
+allow_filename_phase_fallback: false
+
+phase_to_label:
+  Al: 0
+  Ni: 1
+  Cu: 2
+
+listOfFiles:
+  - file: Al_full_data.oh5
+    scan_id: al_full
+    phase_name: Al
+  - file: Ni_full_data.oh5
+    scan_id: ni_full
+    phase_name: Ni
+  - file: Cu_full_data.oh5
+    scan_id: cu_full
+    phase_name: Cu
+
+quality_filters:
+  expression: "CI > 0.4 && Fit < 1.5"
+
+preprocessing:
+  resize_hw: [128, 128]
+  apply_circular_mask: true
+  normalize_mode: per_pattern_minmax
+
+split:
+  train: 0.7
+  val: 0.15
+  test: 0.15
+  seed: 42
+  stratified: true
+  val_samples_per_phase: 100
+  test_samples_per_phase: 100

@@ -10,7 +10,14 @@ Files:
 - `train.convnextv2_nano.pretrained.debug.yml`: debug training run with ConvNeXtV2 pretrained init.
 - `train.simple_cnn.debug.yml`: minimal fast smoke training run.
 - `benchmark_suite.debug.yml`: multi-model debug benchmark suite.
+- `benchmark_suite.classiication_training_data.smoke.yml`: smoke benchmark suite on local `Al/Ni/Cu` cropped `.oh5` data.
+- `benchmark_suite.ni_cu_al.production.yml`: production benchmark suite template for the Windows `Ni-Cu-Al` scan folder.
 - `full_cycle.debug.yml`: one-go orchestration config (dataset prep -> suite -> HTML + PPTX).
+- `full_cycle.ni_cu_al.production.yml`: production full-cycle template using the Windows `Ni-Cu-Al` scan folder.
+- `dataset_prepare.classiication_training_data.filtered.yml`: local `Al/Ni/Cu` cropped `.oh5` prep with `CI > 0.4 && Fit < 1.5`.
+- `dataset_prepare.ni_cu_al.production.yml`: production dataset-prep template pointing at `F:\PhaseID_Training_Data\Ni-Cu-Al_Scans`.
+- `train.classiication_training_data.smoke.yml`: smoke single-run training config on the filtered local dataset.
+- `train.ni_cu_al.production.base.yml`: production baseline train config for the filtered Windows dataset.
 
 Run commands:
 
@@ -20,8 +27,11 @@ python scripts/run_ml_dataset_prepare.py --config configs/ml/dataset_prepare.sin
 python scripts/run_ml_dataset_prepare.py --config configs/ml/dataset_prepare.v3_al_ni_cu.example.yml --debug
 python scripts/run_ml_train_classifier.py --config configs/ml/train.convnextv2_nano.pretrained.debug.yml --debug
 python scripts/run_ml_benchmark_suite.py --config configs/ml/benchmark_suite.debug.yml --debug
+python scripts/run_ml_benchmark_suite.py --config configs/ml/benchmark_suite.classiication_training_data.smoke.yml --debug
+python scripts/run_ml_benchmark_suite.py --config configs/ml/benchmark_suite.ni_cu_al.production.yml --debug
 python scripts/run_ml_phase_explorer.py --config configs/ml/dataset_prepare.v3_al_ni_cu.example.yml --debug
 python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.debug.yml --debug
+python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.ni_cu_al.production.yml --debug
 ```
 
 Each workflow writes both `manifest.json` and `events.jsonl` under its output directory.

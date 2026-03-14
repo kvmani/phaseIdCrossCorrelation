@@ -166,6 +166,8 @@ def test_prepare_ml_dataset_end_to_end(tmp_path: Path) -> None:
     assert "event_log_jsonl" in manifest["artifacts"]
     event_log = tmp_path / manifest["artifacts"]["event_log_jsonl"]
     assert event_log.exists()
+    summary_html = tmp_path / manifest["artifacts"]["summary_html"]
+    assert summary_html.exists()
     lines = [line for line in event_log.read_text(encoding="utf-8").splitlines() if line.strip()]
     assert lines
 

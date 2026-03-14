@@ -41,3 +41,24 @@ def test_split_caps_move_remainder_to_train() -> None:
     assert split.count("val") <= 4
     assert split.count("test") <= 5
     assert split.count("train") == len(labels) - split.count("val") - split.count("test")
+
+
+def test_split_exact_samples_per_phase_move_remainder_to_train() -> None:
+    labels = [0] * 10 + [1] * 11 + [2] * 12
+    cfg = SplitConfig(
+        train=0.7,
+        val=0.15,
+        test=0.15,
+        seed=5,
+        stratified=True,
+        val_samples_per_phase=3,
+        test_samples_per_phase=3,
+    )
+    split = build_split_assignments(labels, cfg)
+
+    for label in (0, 1, 2):
+        idxs = [i for i, y in enumerate(labels) if y == label]
+        label_splits = [split[i] for i in idxs]
+        assert label_splits.count("val") == 3
+        assert label_splits.count("test") == 3
+        assert label_splits.count("train") == len(idxs) - 6

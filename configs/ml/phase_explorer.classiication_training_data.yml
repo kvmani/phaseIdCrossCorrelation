@@ -1,0 +1,35 @@
+schema_version: phase_id_xcorr.ml_dataset_prep.v3
+input_mode: single_phase_scan_map
+output_dir: reports/ml/datasets/classiication_training_data_explorer
+
+data_source_folder: data/classiication_training_data
+allow_filename_phase_fallback: false
+
+phase_to_label:
+  Al: 0
+  Ni: 1
+  Cu: 2
+
+listOfFiles:
+  - file: Al_cropped.oh5
+    scan_id: al_cropped
+    phase_name: Al
+  - file: Ni_cropped.oh5
+    scan_id: ni_cropped
+    phase_name: Ni
+  - file: Cu_cropped.oh5
+    scan_id: cu_cropped
+    phase_name: Cu
+
+explorer:
+  intensity_plot:
+    bins: 256
+    x_min: 0
+    x_max: 65535
+    show_cdf: false
+  attribute_plot:
+    bins: 48
+    field_ranges:
+      CI: [0, 1]
+      IQ: [0, 6000]
+      Fit: [0, 2]

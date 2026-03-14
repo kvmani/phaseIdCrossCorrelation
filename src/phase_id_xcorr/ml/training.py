@@ -285,7 +285,9 @@ def train_classifier(
     if prep_policy is not None:
         prep_resize = prep_policy.get("resize_hw")
         prep_mask = bool(prep_policy.get("apply_circular_mask", False))
-        if requested_resize_hw is not None or requested_apply_circular_mask != prep_mask:
+        resize_conflicts = requested_resize_hw is not None and requested_resize_hw != prep_resize
+        mask_conflicts = bool(input_cfg.get("apply_circular_mask", False)) and requested_apply_circular_mask != prep_mask
+        if resize_conflicts or mask_conflicts:
             log.warning(
                 "Ignoring training input preprocessing overrides because dataset manifest already records preprocessing_policy "
                 "(requested resize=%s mask=%s | dataset resize=%s mask=%s)",

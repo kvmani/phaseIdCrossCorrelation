@@ -125,6 +125,9 @@ split:
   test: 0.15
   seed: 42
   stratified: true
+  # optional exact per-phase holdout sizes; remainder goes to train
+  # val_samples_per_phase: 3
+  # test_samples_per_phase: 3
 
 sources:
   - scan_id: s001
@@ -165,6 +168,9 @@ split:
   test: 0.15
   seed: 42
   stratified: true
+  # optional exact per-phase holdout sizes; for example use 100 each in larger runs
+  # val_samples_per_phase: 100
+  # test_samples_per_phase: 100
 
 sources:
   - scan_id: s001

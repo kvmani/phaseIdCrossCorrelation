@@ -57,3 +57,34 @@ def test_oh5_reader_pattern_and_quality_aliases(tmp_path: Path) -> None:
         assert q["image_quality"] is not None
         assert q["fit"] is not None
         assert q["valid"] is True
+
+
+def test_oh5_reader_accepts_cropped_flat_pattern_stack(tmp_path: Path) -> None:
+    oh5 = tmp_path / "cropped.oh5"
+
+    with h5py.File(oh5, "w") as f:
+        f.create_dataset("Manufacturer", data=np.asarray([b"EDAX"]))
+        f.create_dataset("Version", data=np.asarray([b"OH5_TEST"]))
+
+        g = f.create_group("scan_test")
+        ebsd = g.create_group("EBSD")
+        header = ebsd.create_group("Header")
+        data = ebsd.create_group("Data")
+
+        header.create_dataset("nColumns", data=np.asarray([4], dtype=np.int32))
+        header.create_dataset("nRows", data=np.asarray([3], dtype=np.int32))
+
+        patt = np.zeros((10, 8, 8), dtype=np.uint16)
+        patt[9, 1:7, 1:7] = 40000
+        data.create_dataset("Pattern", data=patt)
+        data.create_dataset("CI", data=np.linspace(0.1, 0.9, num=12, dtype=np.float32))
+
+    with Oh5ScanReader(oh5) as reader:
+        meta = reader.meta()
+        assert meta.nx == 4
+        assert meta.ny == 3
+        assert meta.total_pixels == 10
+        assert "CI" in reader.discover_scalar_fields()
+        pattern = reader.read_pattern(flat_index=9)
+        assert pattern.shape == (8, 8)
+        assert float(pattern.max()) <= 1.0

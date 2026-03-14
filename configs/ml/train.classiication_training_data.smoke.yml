@@ -1,0 +1,26 @@
+schema_version: phase_id_xcorr.ml_train.v1
+
+dataset_manifest_path: reports/ml/datasets/classiication_training_data_filtered/manifest.json
+output_dir: reports/ml/runs/classiication_training_data_smoke/base
+
+seed: 42
+device: cpu
+amp: false
+
+batch_size: 8
+num_workers: 0
+epochs: 2
+learning_rate: 0.001
+weight_decay: 0.0001
+
+input:
+  resize_hw: [128, 128]
+  apply_circular_mask: true
+  normalize:
+    mean: [0.5]
+    std: [0.25]
+
+model:
+  family: simple_cnn
+  width: 16
+  in_chans: 1

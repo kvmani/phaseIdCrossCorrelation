@@ -50,10 +50,9 @@ def _write_single_phase_fixture(
 
 def test_histogram_and_cdf_shapes() -> None:
     values = np.asarray([0.0, 0.2, 0.4, 0.6, 0.9], dtype=np.float32)
-    counts, cumulative, edges = histogram(values, bins=5, x_min=0.0, x_max=1.0)
-    cdf = cdf_from_counts(cumulative)
+    counts, edges = histogram(values, bins=5, x_min=0.0, x_max=1.0)
+    cdf = cdf_from_counts(np.cumsum(counts))
     assert counts.shape == (5,)
-    assert cumulative.shape == (5,)
     assert edges.shape == (6,)
     assert cdf[-1] == 1.0
 
@@ -89,3 +88,5 @@ def test_load_explorer_dataset_single_phase(tmp_path: Path) -> None:
     assert ds.pattern_count("fe_bcc") == 12
     assert ds.pattern_count("feo_wustite") == 12
     assert ds.phases["fe_bcc"].intensity_values.size > 0
+    assert "CI" in ds.phases["fe_bcc"].scalar_fields
+    assert ds.phases["fe_bcc"].scalar_fields["CI"].size == 12
