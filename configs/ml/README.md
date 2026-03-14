@@ -10,6 +10,7 @@ Files:
 - `train.convnextv2_nano.pretrained.debug.yml`: debug training run with ConvNeXtV2 pretrained init.
 - `train.simple_cnn.debug.yml`: minimal fast smoke training run.
 - `benchmark_suite.debug.yml`: multi-model debug benchmark suite.
+- `full_cycle.debug.yml`: one-go orchestration config (dataset prep -> suite -> HTML + PPTX).
 
 Run commands:
 
@@ -20,6 +21,7 @@ python scripts/run_ml_dataset_prepare.py --config configs/ml/dataset_prepare.v3_
 python scripts/run_ml_train_classifier.py --config configs/ml/train.convnextv2_nano.pretrained.debug.yml --debug
 python scripts/run_ml_benchmark_suite.py --config configs/ml/benchmark_suite.debug.yml --debug
 python scripts/run_ml_phase_explorer.py --config configs/ml/dataset_prepare.v3_al_ni_cu.example.yml --debug
+python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.debug.yml --debug
 ```
 
 Each workflow writes both `manifest.json` and `events.jsonl` under its output directory.

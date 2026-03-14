@@ -20,6 +20,7 @@ In this repository, "inference" is currently delivered as evaluation on validati
 2. Train one model and inspect metrics/checkpoints.
 3. Run benchmark suite across model variants.
 4. Auto-generate a lab-meeting PPTX from suite artifacts.
+5. Prefer one-go execution with full-cycle orchestration for reproducible and machine-ingestible reporting.
 
 ## 3. Commands
 
@@ -83,6 +84,20 @@ By default this script:
 - writes slide artifacts to `reports/ml/presentations`
 
 Use `--skip-ppt` if you only want suite execution.
+
+### 3.5 One-Go Full Cycle (Recommended for local conflict-free reproducibility)
+
+```bash
+python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.debug.yml --debug
+```
+
+This one-go workflow performs:
+
+1. dataset prep from raw `.oh5` config,
+2. benchmark suite training across configured model variants,
+3. suite-level JSON/Markdown/HTML outputs,
+4. optional PPTX generation,
+5. full-cycle manifest + event log + concise HTML big-picture summary linking drill-down artifacts.
 
 ## 4. Platform-Specific Notes
 

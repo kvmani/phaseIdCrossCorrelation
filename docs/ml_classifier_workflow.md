@@ -127,6 +127,12 @@ Run benchmark suite:
 python scripts/run_ml_benchmark_suite.py --config configs/ml/benchmark_suite.debug.yml --debug
 ```
 
+Run one-go full cycle (dataset prep -> suite -> HTML + optional PPTX):
+
+```bash
+python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.debug.yml --debug
+```
+
 Run raw-data phase explorer GUI:
 
 ```bash
