@@ -1,6 +1,6 @@
 # Project Status Snapshot
 
-Last updated: 2026-03-04
+Last updated: 2026-03-12
 
 ## Purpose
 
@@ -11,15 +11,12 @@ Build a modular EBSD phase-identification workflow that improves discrimination 
 
 ## Current State
 
-- Repository scaffold, governance docs, and baseline NCC workflows are in place.
-- Curated NCC and image-vs-Hough comparison workflows are implemented and runnable.
-- Test data packet and G0 validation tooling are implemented.
-- `.oh5` structure guide is documented (`docs/oh5_structure.md`).
-- ML classifier expansion has been formally approved and moved into implementation scope.
-- ML dataset preparation is implemented with two label-input modes:
-  - `.oh5` + per-pixel CSV labels,
-  - single-phase scan-map (`.oh5` file-level phase mapping).
-- ML runbooks now include platform-specific execution guidance for Linux/macOS, Windows (PyCharm terminal), and SLURM-based HPC environments.
+- Curated NCC baseline is implemented and runnable.
+- Curated image-vs-Hough comparison is implemented and runnable.
+- G0 intake validation and `.oh5` structure guidance are in place.
+- ML dataset preparation, training, benchmark suite, and reporting are implemented.
+- A native raw `.oh5` phase explorer GUI is implemented for exploratory analysis before dataset freezing.
+- Debug-scale tests cover NCC, Hough, `.oh5` ingestion, dataset prep, splitting, quality gating, training smoke, and suite orchestration.
 
 ## Confirmed Constraints
 
@@ -38,11 +35,11 @@ Build a modular EBSD phase-identification workflow that improves discrimination 
 
 ## Immediate Next Steps
 
-1. Complete NCC-vs-ML benchmark protocol on manually verified cases.
-2. Harden training/evaluation defaults and publish baseline benchmark reports.
-3. Add explicit scan-aware split options to reduce leakage risk in small-data regimes.
-4. Expand robustness checks and uncertainty calibration reporting.
-5. Freeze a reproducible baseline config bundle for comparative runs.
+1. Define and freeze the first manually verified NCC-vs-ML benchmark set.
+2. Publish baseline comparative reports instead of workflow-only docs.
+3. Finish remaining scan-scale NCC candidate ingestion and integrated decision logic.
+4. Expand calibration and robustness reporting for small-data ML runs.
+5. Freeze a reproducible baseline config bundle for comparative reruns.
 
 ## Future Work Summary
 

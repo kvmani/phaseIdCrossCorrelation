@@ -1,10 +1,12 @@
 # ML Classifier Workflow
 
-This document defines the ML branch for EBSD phase classification from experimental Kikuchi patterns.
+This is the overview doc for the ML branch. It summarizes the pipeline, module boundaries, and artifact contract.
 
-For detailed input preparation examples (CSV labels and single-phase scan-map mode), sanity checks, event logging, and manifest contracts, see:
+Use the companion docs for details:
 
-- `docs/ml_input_data_runbook.md`
+- `docs/ml_input_data_runbook.md`: dataset inputs and platform-specific commands
+- `docs/ml_training_inference_workflow.md`: recommended experiment flow
+- `docs/ml_phase_explorer_gui.md`: raw `.oh5` exploration GUI
 
 ## 1. Objective
 
@@ -41,7 +43,7 @@ If `Pattern` is missing:
 - `strict_pattern_presence=true` (default): fail fast.
 - `strict_pattern_presence=false`: source is skipped with explicit reason in manifest.
 
-CSV label requirements (for `oh5_csv_labels`; configurable column names):
+CSV label requirements:
 
 - location by either `(x, y)` or `flat_index`,
 - phase by either `phase_name` or numeric `phase_label`.
@@ -52,8 +54,9 @@ CSV label requirements (for `oh5_csv_labels`; configurable column names):
 
 Templates:
 
-- `configs/ml/dataset_prepare.default.yml` (`oh5_csv_labels`)
-- `configs/ml/dataset_prepare.single_phase_scan_map.debug.yml` (`single_phase_scan_map`)
+- `configs/ml/dataset_prepare.default.yml`
+- `configs/ml/dataset_prepare.single_phase_scan_map.debug.yml`
+- `configs/ml/dataset_prepare.v3_al_ni_cu.example.yml`
 
 Controls:
 
@@ -78,10 +81,11 @@ Controls:
 - pretrained on/off,
 - optimizer and runtime settings,
 - input preprocessing for training (`resize_hw`, mask policy, normalization).
+- if the dataset manifest already includes `preprocessing_policy`, that dataset-stage preprocessing is treated as authoritative and any training-side resize/mask overrides are ignored with an explicit warning/event.
 
 ### Benchmark Suite Config
 
-Template: `configs/ml/benchmark_suite.debug.yml`
+- `configs/ml/benchmark_suite.debug.yml`
 
 Controls:
 
@@ -106,7 +110,7 @@ Controls:
 - `training.py`: training/evaluation/checkpoint/report workflow.
 - `suite.py`: multi-model benchmark orchestration.
 
-## 5. Workflow Commands
+## 5. Main Commands
 
 Prepare dataset:
 
@@ -143,7 +147,7 @@ For platform-specific command notes (Windows/PyCharm, Linux, HPC), see `docs/ml_
 For one-command benchmark-to-PPT execution, see `docs/ml_training_inference_workflow.md`.
 For raw `.oh5` exploratory GUI analytics (histograms/CDF/interactive intensity masks), see `docs/ml_phase_explorer_gui.md`.
 
-## 6. Reporting Standard (Hydra-Inspired, Adapted)
+## 6. Artifact Contract
 
 Each run writes machine-readable artifacts first, human-readable summaries second.
 
@@ -170,6 +174,15 @@ Suite outputs:
 - `suite_summary.json`
 - `suite_summary.md`
 - `suite_report.html` (interactive, artifact-linked analytics)
+
+Full-cycle outputs:
+
+- `manifest.json`
+- `events.jsonl`
+- `full_cycle_summary.json`
+- `full_cycle_summary.html`
+- resolved dataset/suite/train configs
+- optional `.pptx`
 
 Required reporting content:
 

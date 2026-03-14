@@ -1,36 +1,39 @@
 schema_version: phase_id_xcorr.ml_benchmark_suite.v1
 
-output_root: reports/ml/benchmarks/top5_pretrained_debug
-base_train_config: configs/ml/train.base_timm.debug.yml
+output_root: reports/ml/benchmarks/debug_suite
+base_train_config: configs/ml/train.simple_cnn.debug.yml
 
 experiments:
-  - name: convnextv2_nano_pretrained
+  - name: simple_cnn_w8
     overrides:
-      - output_dir=reports/ml/benchmarks/top5_pretrained_debug/convnextv2_nano_pretrained
-      - model.model_name=convnextv2_nano.fcmae_ft_in22k_in1k
-      - model.pretrained=true
+      - output_dir=reports/ml/benchmarks/debug_suite/simple_cnn_w8
+      - epochs=2
+      - model.family=simple_cnn
+      - model.width=8
+      - seed=11
 
-  - name: efficientnetv2_s_pretrained
+  - name: simple_cnn_w16
     overrides:
-      - output_dir=reports/ml/benchmarks/top5_pretrained_debug/efficientnetv2_s_pretrained
-      - model.model_name=tf_efficientnetv2_s.in21k_ft_in1k
-      - model.pretrained=true
+      - output_dir=reports/ml/benchmarks/debug_suite/simple_cnn_w16
+      - epochs=2
+      - model.family=simple_cnn
+      - model.width=16
+      - seed=13
 
-  - name: mobilenetv4_medium_pretrained
+  - name: resnet18_scratch
     overrides:
-      - output_dir=reports/ml/benchmarks/top5_pretrained_debug/mobilenetv4_medium_pretrained
-      - model.model_name=mobilenetv4_conv_medium.e500_r224_in1k
-      - model.pretrained=true
+      - output_dir=reports/ml/benchmarks/debug_suite/resnet18_scratch
+      - epochs=1
+      - model.family=timm
+      - model.model_name=resnet18
+      - model.pretrained=false
+      - seed=17
 
-  - name: coatnet0_pretrained
+  - name: mobilenetv3_small_scratch
     overrides:
-      - output_dir=reports/ml/benchmarks/top5_pretrained_debug/coatnet0_pretrained
-      - model.model_name=coatnet_0_rw_224.sw_in1k
-      - model.pretrained=true
-
-  - name: maxvit_rmlp_tiny_pretrained
-    overrides:
-      - output_dir=reports/ml/benchmarks/top5_pretrained_debug/maxvit_rmlp_tiny_pretrained
-      - model.model_name=maxvit_rmlp_tiny_rw_256.sw_in1k
-      - model.pretrained=true
-      - input.resize_hw=[256,256]
+      - output_dir=reports/ml/benchmarks/debug_suite/mobilenetv3_small_scratch
+      - epochs=1
+      - model.family=timm
+      - model.model_name=mobilenetv3_small_100
+      - model.pretrained=false
+      - seed=19

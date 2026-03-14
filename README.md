@@ -1,52 +1,53 @@
 # phaseIdCrossCorrelation
 
-Accuracy-first EBSD phase identification for multi-phase scans using two complementary tracks:
+Accuracy-first EBSD phase identification for mixed-phase scans using two evidence tracks:
 
-- phase-isolated indexing + normalized cross-correlation (NCC),
-- supervised ML classification on experimental Kikuchi patterns.
+- masked NCC against externally simulated patterns,
+- supervised ML classification from experimental Kikuchi patterns.
 
-## Mission
+## What This Repo Does
 
-This project addresses a practical failure mode in conventional EBSD indexing for mixed microstructures containing similar phases (currently: magnetite, wustite, and iron). In these cases, standard Hough/dictionary indexing can return unstable or incorrect phase labels, especially for magnetite vs wustite.
+The current target problem is phase discrimination among magnetite, wustite, and iron when conventional indexing is unstable. The repository keeps both evidence tracks reproducible and traceable so they can later be compared or fused.
 
-The repository now maintains two evidence tracks:
+Implemented today:
 
-1. NCC track: phase-isolated candidate generation and masked NCC scoring against simulated patterns.
-2. ML track: quality-filtered `.oh5` pattern extraction plus supervised classifier training from config-defined labels (per-pixel CSV or single-phase scan mapping).
+- curated NCC workflow,
+- curated image-vs-Hough comparison workflow,
+- ML dataset preparation from `.oh5`,
+- ML training and benchmark-suite runners,
+- raw `.oh5` phase explorer GUI.
 
-Both tracks are designed to remain traceable, reproducible, and fusion-ready.
+## Start Here
 
-## Current Project Phase
+- New to the project: `docs/README.md`
+- Scientific scope and success criteria: `docs/mission_statement.md`
+- Current state and near-term risks: `docs/status.md`
+- Active task list: `todo_list.md`
+- Repo working rules: `AGENTS.md`
 
-This repository is currently in **baseline NCC/hough implementation + ML classifier scaffold implementation** mode.
+## Common Entry Points
 
-- Curated masked-NCC baseline is implemented and runnable.
-- KikuchiPy Hough-space comparison workflow is implemented and runnable.
-- ML classifier branch is now in active implementation:
-  - modular package scaffold,
-  - config-driven dataset prep (`.oh5` + CSV or single-phase scan-map),
-  - config-driven training/evaluation workflow.
+### NCC and Hough
 
-## Documentation Map
+- `docs/curated_ncc_workflow.md`
+- `docs/curated_hough_vs_ncc_workflow.md`
+- `docs/mcc_vs_hough_full_cycle_runbook.md`
 
-- `docs/mission_statement.md`: scientific objective, assumptions, and success criteria.
-- `AGENTS.md`: canonical engineering and agent workflow rules.
-- `docs/roadmap.md`: phased delivery plan.
-- `docs/status.md`: read-only snapshot of current state.
-- `docs/action_plan_post_data_intake.md`: phase-gated implementation playbook after data intake.
-- `docs/g0_data_intake_validation.md`: how to run G0 data-intake gate checks.
-- `docs/curated_ncc_workflow.md`: curated experimental-vs-simulated NCC workflow and artifacts.
-- `docs/curated_hough_vs_ncc_workflow.md`: curated image-NCC vs KikuchiPy Hough-NCC comparison workflow.
-- `docs/mcc_vs_hough_full_cycle_runbook.md`: one-go command sequence to run G0 + curated NCC + Hough comparison and print headline metrics.
-- `docs/oh5_structure.md`: dedicated guide for TSL `.oh5` layout and data access.
-- `docs/ml_classifier_workflow.md`: ML classifier architecture and end-to-end workflow.
-- `docs/ml_input_data_runbook.md`: detailed ML input-data contract (CSV labels + single-phase scan-map mode), sanity checks, logging events, manifests, and platform run commands.
-- `docs/ml_training_inference_workflow.md`: practical run sequence for training/evaluation ("inference"), benchmarking, and auto-generating lab-meeting PPTX summaries.
-- `docs/ml_model_selection.md`: candidate model shortlist (>=5), pretrained options, and selection rationale.
-- `docs/test_data_setup_plan.md`: canonical test data acquisition, naming, and manifest specification.
-- `todo_list.md`: operational task list (living document).
+### ML
 
-## Intended Repository Layout
+- `docs/ml_classifier_workflow.md`
+- `docs/ml_input_data_runbook.md`
+- `docs/ml_training_inference_workflow.md`
+- `docs/ml_phase_explorer_gui.md`
+- `docs/ml_model_selection.md`
+
+### Data Contracts
+
+- `docs/oh5_structure.md`
+- `docs/g0_data_intake_validation.md`
+- `configs/ml/README.md`
+
+## Repository Layout
 
 ```text
 phaseIdCrossCorrelation/
@@ -56,29 +57,22 @@ phaseIdCrossCorrelation/
 ├─ docs/
 ├─ configs/
 ├─ data/
-│  └─ test/
 ├─ scripts/
 ├─ src/
 ├─ tests/
 └─ reports/
 ```
 
-## Design Principles
+## Working Principles
 
-- Correctness and scientific defensibility over throughput.
-- Reproducibility over convenience.
-- Modular architecture with explicit interfaces.
-- CPU-first deterministic debug workflows.
-- Documentation-first changes with synchronized task tracking.
+- correctness over speed,
+- reproducibility over convenience,
+- explicit artifacts and manifests for runnable workflows,
+- thin CLIs and modular `src/` code,
+- docs updated with behavior changes.
 
-## External Dependencies and Interfaces
+## External Interfaces
 
-- TSL indexing and EMSoft/TSL simulation are external inputs to this pipeline.
-- TSL analysis outputs are expected as `.oh5` (HDF5) files.
-- Ground-truth labels for ML workflows are config-defined (per-pixel CSV or single-phase file mapping).
-- See `docs/oh5_structure.md` for canonical field paths and access patterns.
-
-## Reference Repositories
-
-- DeepImageDeconvolution (format inspiration): [kvmani/DeepImageDeconvolution](https://github.com/kvmani/DeepImageDeconvolution)
-- OH5 handling reference: [kvmani/kikuchiBandAnalyzer](https://github.com/kvmani/kikuchiBandAnalyzer)
+- `.oh5` files are the source-of-truth EBSD container.
+- TSL indexing and external simulation stay outside this repository.
+- ML labels come from config-defined CSV labels or single-phase scan mapping.

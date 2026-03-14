@@ -1,8 +1,8 @@
-# ML Training, Inference, and Lab-Meeting Workflow
+# ML Training and Benchmark Workflow
 
-This workflow is the recommended path to run classifier experiments and produce discussion-ready outputs.
+This is the shortest path from prepared dataset to experiment review.
 
-## 1. What "Inference" Means in Current Pipeline
+## 1. Current Meaning of "Inference"
 
 Current ML CLI support includes:
 
@@ -10,9 +10,9 @@ Current ML CLI support includes:
 - model training + held-out test evaluation (`run_ml_train_classifier.py`)
 - multi-model benchmark suite (`run_ml_benchmark_suite.py`)
 
-In this repository, "inference" is currently delivered as evaluation on validation/test splits during training runs and suite runs. A separate standalone unseen-scan inference CLI is not yet implemented.
+In this repository, "inference" currently means evaluation on validation and test splits during training or suite runs. A standalone unseen-scan inference CLI is not implemented yet.
 
-## 2. Standard End-to-End Flow
+## 2. Recommended Flow
 
 1. Prepare dataset from `.oh5` scans:
    - use `oh5_csv_labels` mode (per-pixel labels), or
@@ -40,13 +40,13 @@ Single-phase scan-map mode:
 python scripts/run_ml_dataset_prepare.py --config configs/ml/dataset_prepare.single_phase_scan_map.debug.yml --debug
 ```
 
-### 3.2 Single-Model Training (+ Test Inference/Evaluation)
+### 3.2 Single-Model Training
 
 ```bash
 python scripts/run_ml_train_classifier.py --config configs/ml/train.convnextv2_nano.pretrained.debug.yml --debug
 ```
 
-Main outputs are written under configured `output_dir` (example: `reports/ml/runs/...`):
+Main outputs under configured `output_dir`:
 
 - `report.json` (test metrics, confusion matrix, model metadata)
 - `manifest.json`
@@ -65,7 +65,7 @@ Main outputs under suite `output_root`:
 - `suite_summary.md`
 - per-experiment run folders with training artifacts
 
-### 3.4 Auto PPTX Generation (Recommended)
+### 3.4 Auto PPTX Generation
 
 One command to run suite and build slides:
 
@@ -76,12 +76,7 @@ python scripts/run_ml_suite_with_ppt.py \
   --deck-title "phaseIdCrossCorrelation ML Benchmark - Lab Meeting"
 ```
 
-By default this script:
-
-- runs the suite
-- scans the suite output directory
-- uses the `ml-results-presentation` skill script to draft a manifest and build `.pptx`
-- writes slide artifacts to `reports/ml/presentations`
+By default this script runs the suite, scans the suite output, builds a `.pptx`, and writes presentation artifacts to `reports/ml/presentations`.
 
 Use `--skip-ppt` if you only want suite execution.
 
@@ -105,7 +100,7 @@ Detailed platform command variants (Linux/macOS, Windows PyCharm terminal, HPC/S
 
 - `docs/ml_input_data_runbook.md`
 
-## 5. Suggested Lab-Meeting Rhythm
+## 5. Suggested Review Rhythm
 
 1. Run one baseline training config and verify test metrics are stable.
 2. Run benchmark suite with 3-5 model variants or preprocessing ablations.

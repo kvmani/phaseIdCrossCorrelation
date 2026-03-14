@@ -7,7 +7,7 @@ Operational task list for this repository. Keep this file updated as priorities 
 - [x] Synchronize mission/roadmap/status docs for dual-track EBSD phase ID (NCC + ML).
 - [x] Define dedicated ML classifier module boundaries and configuration-first workflow scope.
 - [x] Implement ML dataset preparation runner with quality filters, deterministic splits, and dual input modes (`.oh5` + CSV labels, single-phase scan map).
-- [ ] Implement ML classifier training runner with scratch/pretrained support and reproducible reports.
+- [x] Implement ML classifier training runner with scratch/pretrained support and reproducible reports.
 - [ ] Define the first benchmark set of manually verified pixels/cases for NCC-vs-ML comparison.
 
 ## Post-Data Intake Gates (NCC Track)
@@ -72,10 +72,11 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [ ] Unit tests for `.oh5` dataset-path discovery and shape handling.
 - [ ] Integration test for debug pipeline end-to-end.
 - [x] ML unit tests for `.oh5` pattern extraction, label merge, split determinism, and single-phase scan-map input mode.
-- [ ] ML training smoke test on tiny deterministic dataset.
+- [x] ML training smoke test on tiny deterministic dataset.
 
 ## Documentation and Reporting
 
+- [x] Add documentation hub and tighten top-level navigation for workflow discovery.
 - [ ] Add methods doc for exact preprocessing + masked NCC formula used in code.
 - [x] Add usage doc for curated NCC CLI workflow (`docs/curated_ncc_workflow.md`).
 - [x] Add usage doc for curated image-vs-hough workflow (`docs/curated_hough_vs_ncc_workflow.md`).

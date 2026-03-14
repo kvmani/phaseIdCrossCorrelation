@@ -1,81 +1,100 @@
-# ML Phase Explorer GUI (Raw `.oh5` Data)
+# ML Phase Explorer GUI
 
-This document defines the native desktop exploratory GUI for raw `.oh5` sources used in ML dataset preparation.
+This GUI is the raw `.oh5` exploration tool for the ML branch. It is intended for quick phase-wise inspection before committing to dataset-prep thresholds, preprocessing choices, or training runs.
 
-## Objective
+## 1. Purpose
 
-Enable phase-wise, leakage-safe, reproducible data exploration for:
+The explorer loads `.oh5` scan sources from the same YAML-style configs used by dataset preparation and groups patterns by phase. It then exposes:
 
-- cumulative Kikuchi intensity histograms,
-- CDF overlays,
-- discovered scalar field histograms (for example `IQ`, `Fit`, `CI`, `Valid`),
-- interactive intensity-band selection with highlighted pixels on a selected Kikuchi pattern.
+- phase-wise cumulative intensity histograms,
+- optional CDF overlays,
+- discovered scalar-field histograms from the `.oh5` file,
+- interactive intensity-band selection that highlights pixels inside the selected range on a chosen pattern.
 
-## Entry Point
+This tool is for exploratory analysis only. It does not write training datasets or modify `.oh5` files.
+
+## 2. Supported Inputs
+
+The explorer reuses the ML dataset config conventions implemented in [`src/phase_id_xcorr/ml/phase_explorer.py`](/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/src/phase_id_xcorr/ml/phase_explorer.py):
+
+- `input_mode: oh5_csv_labels`
+  - one `.oh5` plus one per-pixel label CSV per source.
+- `input_mode: single_phase_scan_map`
+  - one `.oh5` per source with a file-level `phase_name` or `phase_label`.
+- `schema_version: phase_id_xcorr.ml_dataset_prep.v3`
+  - concise `data_source_folder` + `listOfFiles` contract, with optional filename-based phase fallback.
+
+Required `.oh5` content:
+
+- scan dimensions (`nColumns`, `nRows`)
+- pattern dataset (`Pattern` or alias-compatible equivalent)
+
+Optional but useful scalar fields:
+
+- `CI` or `Confidence Index`
+- `IQ` or `Image Quality`
+- `Fit`
+- `Valid`
+- any additional scalar datasets discoverable by the reader
+
+## 3. Main Command
 
 ```bash
 python scripts/run_ml_phase_explorer.py --config configs/ml/dataset_prepare.v3_al_ni_cu.example.yml --debug
 ```
 
-## Input Contract
+Use a config that points at real local `.oh5` inputs. For quick validation, the phase-explorer tests cover the single-phase scan-map path on small fixtures in [`tests/test_ml_phase_explorer.py`](/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/tests/test_ml_phase_explorer.py).
 
-The GUI accepts the same YAML contract as dataset preparation:
+## 4. GUI Layout
 
-- legacy `sources[].oh5_path` style,
-- concise v3 `data_source_folder` + `listOfFiles` style,
-- `single_phase_scan_map` and `oh5_csv_labels` modes.
+Each phase gets its own column. A column contains:
 
-For v3 mode, optional `allow_filename_phase_fallback` is honored.
+- a phase header,
+- a pattern selector,
+- an intensity cumulative histogram panel,
+- an attribute histogram panel,
+- a pattern viewer with highlighted intensity-band selections.
 
-## Layout and Interactions
+Intensity panel controls:
 
-- **Phase columns** in 3-column grid for widescreen comparison.
-- **Top plot per phase**: cumulative intensity histogram with optional CDF overlay.
-- **Second plot per phase**: cumulative histogram for selected discovered scalar field.
-- **Pattern panel per phase**: select `Pattern ID` (index over all phase patterns), view Kikuchi pattern, and highlighted pixels for selected intensity ranges.
-- **Bottom log window**: detailed run/event diagnostics.
+- `+ range`: add a movable selection region
+- `Clear`: remove all intensity ranges
+- gear button: change bin count, x-range, y-range, and CDF visibility
 
-### Range Selection
+Attribute panel controls:
 
-- Use `+ range` to add multiple x-range selectors on the intensity plot.
-- `Clear` removes all selectors.
-- Only x-range is used (y ignored by design).
-- Highlight mask on the current pattern is the union of selected ranges.
+- scalar-field dropdown populated from discovered `.oh5` scalar datasets
+- gear button for plot settings
 
-### Plot Gear Settings (Synced Across Phases)
+Pattern viewer behavior:
 
-A gear icon is provided for each plot type:
+- selected intensity ranges are unioned,
+- matching pixels are highlighted in red on top of the grayscale pattern,
+- switching pattern id refreshes the overlay immediately.
 
-- intensity plot settings (bins/x/y/CDF),
-- attribute plot settings (bins/x/y/CDF).
+## 5. Analytical Use Cases
 
-Settings are globally synchronized across phase panels to support direct visual comparison.
+Use the explorer to answer questions such as:
 
-## Discoverable Scalar Fields
+- whether phases separate cleanly in raw intensity distribution,
+- whether quality fields differ strongly by phase before thresholding,
+- whether a proposed intensity mask is excluding obvious Kikuchi structure,
+- whether filename-based phase fallback is assigning scans as expected.
 
-The explorer auto-discovers scalar-compatible datasets in `.oh5` Data group:
+This should inform dataset-prep config edits, not replace them.
 
-- 1D arrays of length `nPixels`,
-- 2D arrays with shape `(nRows, nColumns)`.
+## 6. Relation To The ML Pipeline
 
-These fields are available in the attribute histogram selector.
+Recommended order:
 
-## Reliability and Reproducibility Notes
+1. Inspect raw `.oh5` sources in the explorer.
+2. Adjust dataset-prep config fields such as source mapping, quality gates, and preprocessing.
+3. Run dataset prep.
+4. Run model training or the benchmark suite.
+5. Use the one-go full-cycle workflow when you want a single reproducible command from `.oh5` inputs to reports and slides.
 
-- `.oh5` files are read-only.
-- Logging includes source loading and scalar-field discovery.
-- Sampling caps are used internally for large datasets to keep GUI responsive while preserving representative distributions.
+See also:
 
-## Implementation Modules
-
-- `src/phase_id_xcorr/ml/phase_explorer.py`: config compatibility, phase aggregation, histogram/CDF/mask utilities.
-- `src/phase_id_xcorr/ml/phase_explorer_gui.py`: PySide6/PyQtGraph application.
-- `scripts/run_ml_phase_explorer.py`: thin CLI launcher.
-
-## Dependencies
-
-Install desktop GUI dependencies in your Python environment:
-
-- `PySide6`
-- `pyqtgraph`
-- existing project requirements (`numpy`, `h5py`, `pyyaml`, etc.)
+- [`docs/ml_classifier_workflow.md`](/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/docs/ml_classifier_workflow.md)
+- [`docs/ml_training_inference_workflow.md`](/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/docs/ml_training_inference_workflow.md)
+- [`configs/ml/README.md`](/Users/anantatamukalaamrutha/python_projects/phaseIdCrossCorrelation/configs/ml/README.md)

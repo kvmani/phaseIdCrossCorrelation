@@ -1,9 +1,9 @@
-# Proposed Architecture (Implementation Blueprint)
+# Architecture
 
-This is the active blueprint for EBSD phase identification with two coordinated tracks:
+Current implementation is organized around two EBSD evidence tracks:
 
-- NCC evidence track (existing baseline)
-- ML classifier track (new supervised branch)
+- NCC and Hough-based curated evaluation,
+- ML dataset preparation, training, and experiment reporting.
 
 ## Module Map
 
@@ -27,53 +27,59 @@ src/
       run_manifest.py
     ml/
       config.py
-      oh5_reader.py
-      labels.py
-      quality.py
-      split.py
       dataset_builder.py
       dataset_io.py
-      models.py
+      html_report.py
+      labels.py
       metrics.py
-      training.py
+      models.py
+      oh5_reader.py
+      phase_explorer.py
+      phase_explorer_gui.py
+      preprocessing_policy.py
+      quality.py
+      split.py
       suite.py
+      training.py
 ```
-
-## ML Data Contracts
-
-Input contracts:
-
-- YAML data-prep config:
-  - phase definitions (`name`, `label`),
-  - one or more `.oh5` + CSV label pairs,
-  - quality thresholds,
-  - split policy.
-- CSV label table (per `.oh5`):
-  - row coordinates (`x`, `y`) or `flat_index`,
-  - phase assignment (`phase_name` or numeric label),
-  - optional sample metadata columns.
-
-Output contracts:
-
-- `records.csv`: one row per accepted sample with source paths, coordinates, quality values, phase mapping, and split.
-- `splits/{train,val,test}.npz`: pattern tensors + labels.
-- `dataset_manifest.json`: run settings, field mappings, acceptance/rejection counts.
 
 ## Workflow Boundaries
 
-1. `scripts/run_ml_dataset_prepare.py`
-- Thin CLI wrapper.
-- Resolves paths and config.
-- Calls `phase_id_xcorr.ml.dataset_builder.prepare_ml_dataset(...)`.
+- `scripts/`: thin CLIs only.
+- `src/phase_id_xcorr/`: reusable logic, data contracts, and artifact writing.
+- `configs/`: versioned YAML templates.
+- `tests/`: debug-scale unit and integration coverage.
+- `reports/`: generated outputs, never canonical inputs.
 
-2. `scripts/run_ml_train_classifier.py`
-- Thin CLI wrapper.
-- Loads training config + prepared dataset manifest.
-- Calls `phase_id_xcorr.ml.training.train_classifier(...)`.
+## Main Data Contracts
 
-3. `phase_id_xcorr.ml.suite`
-- Optional benchmark orchestration over multiple model configs.
-- Writes model-comparison summary reports.
+Dataset prep inputs:
+
+- YAML config with phase mapping, source list, quality policy, preprocessing policy, and split policy.
+- `.oh5` sources with pattern arrays and optional quality fields.
+- Optional per-pixel CSV labels, or file-level phase mapping for single-phase scans.
+
+Dataset prep outputs:
+
+- `records.csv`
+- `splits/train.npz`, `splits/val.npz`, `splits/test.npz`
+- `manifest.json`
+- `events.jsonl`
+
+Training outputs:
+
+- `report.json`
+- `report.md`
+- `manifest.json`
+- `events.jsonl`
+- checkpoints and epoch history
+
+Suite outputs:
+
+- `suite_summary.json`
+- `suite_summary.md`
+- `suite_report.html`
+- per-run training artifacts
 
 ## Design Constraints
 
@@ -81,4 +87,4 @@ Output contracts:
 - Robust `.oh5` field aliasing and clear failure modes when `Pattern` is absent.
 - Deterministic split generation and reproducible seed control.
 - Machine-readable run artifacts for every workflow run.
-- Keep scripts orchestration-only; core logic stays in `src/` modules.
+- Keep scripts orchestration-only.

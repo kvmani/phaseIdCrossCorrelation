@@ -1,6 +1,7 @@
 """ML dataset preparation, training, and benchmark orchestration."""
 
 from .dataset_builder import PrepareDatasetResult, prepare_ml_dataset
+from .full_cycle import FullCycleResult, run_full_cycle
 from .suite import SuiteResult, run_benchmark_suite
 from .training import TrainResult, train_classifier
 from .phase_explorer import ExplorerDataset, load_explorer_dataset
@@ -9,6 +10,8 @@ from .full_cycle import FullCycleResult, run_full_cycle
 __all__ = [
     "PrepareDatasetResult",
     "prepare_ml_dataset",
+    "FullCycleResult",
+    "run_full_cycle",
     "TrainResult",
     "train_classifier",
     "SuiteResult",

@@ -1,6 +1,6 @@
-# ML Input Data and Pipeline Runbook
+# ML Input Data Runbook
 
-Operational guide for preparing ML datasets from `.oh5` scans and running training/suite workflows.
+Operational guide for preparing ML datasets from `.oh5` scans and launching the training workflows.
 
 ## 1. End-to-End Flow
 
@@ -16,7 +16,7 @@ Operational guide for preparing ML datasets from `.oh5` scans and running traini
 6. `run_ml_train_classifier.py` trains/evaluates from dataset manifest.
 7. `run_ml_benchmark_suite.py` runs repeated model experiments.
 
-## 2. Supported Dataset Input Modes
+## 2. Input Modes
 
 Dataset prep supports two modes:
 
@@ -53,7 +53,7 @@ Pattern-missing behavior:
 - `strict_pattern_presence: true` -> fail
 - `strict_pattern_presence: false` -> skip source with recorded reason
 
-## 4. Label Contract Per Mode
+## 4. Label Contract
 
 ### 4.1 `oh5_csv_labels`
 
@@ -87,7 +87,7 @@ Pixel sampling in this mode:
 
 ## 5. YAML Examples
 
-### 5.1 CSV-Label Mode (`oh5_csv_labels`)
+### 5.1 CSV-Label Mode
 
 ```yaml
 schema_version: phase_id_xcorr.ml_dataset_prep.v1
@@ -135,7 +135,7 @@ sources:
     labels_csv_path: data/incoming/s002_labels.csv
 ```
 
-### 5.2 Single-Phase Scan Map Mode (`single_phase_scan_map`)
+### 5.2 Single-Phase Scan Map Mode
 
 ```yaml
 schema_version: phase_id_xcorr.ml_dataset_prep.v2
@@ -175,7 +175,7 @@ sources:
     phase_label: 1
 ```
 
-## 6. Running Commands by Environment
+## 6. Commands by Environment
 
 Use repository root as working directory for all commands.
 
@@ -188,7 +188,7 @@ python scripts/run_ml_train_classifier.py --config configs/ml/train.convnextv2_n
 python scripts/run_ml_benchmark_suite.py --config configs/ml/benchmark_suite.debug.yml --debug
 ```
 
-### 6.2 Windows (PyCharm Terminal)
+### 6.2 Windows
 
 PowerShell in PyCharm:
 
@@ -205,7 +205,7 @@ python .\scripts\run_ml_benchmark_suite.py --config .\configs\ml\benchmark_suite
 python scripts\run_ml_dataset_prepare.py --config configs\ml\dataset_prepare.default.yml --debug
 ```
 
-### 6.3 HPC (SLURM Example)
+### 6.3 HPC
 
 Example batch script:
 
@@ -237,7 +237,7 @@ Submit:
 sbatch run_ml_debug.slurm
 ```
 
-## 7. Outputs and Manifest Contract
+## 7. Outputs
 
 Dataset prep writes:
 
@@ -248,7 +248,7 @@ Dataset prep writes:
 - `<output_dir>/splits/test.npz`
 - `<output_dir>/events.jsonl`
 
-Dataset manifest includes:
+Manifest highlights:
 
 - `input_mode`
 - `phase_to_label`, `label_to_phase`
@@ -256,7 +256,7 @@ Dataset manifest includes:
 - split counts and per-phase split counts
 - quality filter policy and sanity checks
 
-Training and suite runs also emit `manifest.json` + `events.jsonl` plus their reports/checkpoints.
+Training and suite runs also emit `manifest.json`, `events.jsonl`, and their model-specific reports.
 
 ## 8. Reliability Notes
 

@@ -91,7 +91,7 @@ Supporting criteria:
 ## Deliverables for Current Stage
 
 - Mission/governance/task documents synchronized with ML expansion.
-- Dedicated modular ML package scaffold under `src/phase_id_xcorr/ml`.
+- Dedicated modular ML package under `src/phase_id_xcorr/ml`.
 - Config-driven dataset preparation workflow from `.oh5` sources with dual label modes (CSV labels and single-phase scan map).
 - Config-driven classifier training workflow with pretrained/scratch options.
 - Run-level reporting artifacts and deterministic debug tests.

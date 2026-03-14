@@ -279,16 +279,28 @@ def train_classifier(
         resize_hw = (int(resize_hw_raw[0]), int(resize_hw_raw[1]))
 
     apply_circular_mask = bool(input_cfg.get("apply_circular_mask", False))
+    requested_resize_hw = list(resize_hw) if resize_hw is not None else None
+    requested_apply_circular_mask = bool(apply_circular_mask)
     prep_policy = dataset_manifest.get("preprocessing_policy") if isinstance(dataset_manifest.get("preprocessing_policy"), dict) else None
     if prep_policy is not None:
         prep_resize = prep_policy.get("resize_hw")
         prep_mask = bool(prep_policy.get("apply_circular_mask", False))
-        if isinstance(prep_resize, list) and len(prep_resize) == 2:
-            prep_resize_t = (int(prep_resize[0]), int(prep_resize[1]))
-            if resize_hw is not None and resize_hw != prep_resize_t:
-                raise ValueError("Training input.resize_hw conflicts with dataset preprocessing_policy.resize_hw")
-        if apply_circular_mask != prep_mask and bool(input_cfg.get("apply_circular_mask", False)):
-            raise ValueError("Training input.apply_circular_mask conflicts with dataset preprocessing_policy")
+        if requested_resize_hw is not None or requested_apply_circular_mask != prep_mask:
+            log.warning(
+                "Ignoring training input preprocessing overrides because dataset manifest already records preprocessing_policy "
+                "(requested resize=%s mask=%s | dataset resize=%s mask=%s)",
+                requested_resize_hw,
+                requested_apply_circular_mask,
+                prep_resize,
+                prep_mask,
+            )
+            emit(
+                "INPUT_PREPROCESSING_OVERRIDES_IGNORED",
+                requested_resize_hw=requested_resize_hw,
+                requested_apply_circular_mask=requested_apply_circular_mask,
+                dataset_resize_hw=prep_resize,
+                dataset_apply_circular_mask=prep_mask,
+            )
         resize_hw = None
         apply_circular_mask = False
 
@@ -549,6 +561,8 @@ def train_classifier(
             "resize_hw": list(resize_hw) if resize_hw else None,
             "apply_circular_mask": apply_circular_mask,
             "normalize": {"mean": mean, "std": std},
+            "requested_resize_hw": requested_resize_hw,
+            "requested_apply_circular_mask": requested_apply_circular_mask,
             "dataset_preprocessing_policy": dataset_manifest.get("preprocessing_policy"),
             "dataset_preprocessing_fingerprint": dataset_manifest.get("preprocessing_fingerprint"),
         },

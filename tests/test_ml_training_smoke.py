@@ -100,3 +100,78 @@ def test_ml_training_simple_cnn_smoke(tmp_path: Path) -> None:
     manifest = read_json(result.out_dir / "manifest.json")
     assert manifest["sanity_checks"]["history_written"] is True
     assert manifest["sanity_checks"]["non_empty_train_split"] is True
+
+
+def test_ml_training_uses_dataset_preprocessing_policy_authoritatively(tmp_path: Path) -> None:
+    repo_root = tmp_path
+    out_dataset = tmp_path / "dataset"
+    out_dataset.mkdir(parents=True, exist_ok=True)
+
+    train_p, train_y = _make_patterns(12, 24, 24, seed=11)
+    val_p, val_y = _make_patterns(6, 24, 24, seed=12)
+    test_p, test_y = _make_patterns(6, 24, 24, seed=13)
+
+    train_npz = out_dataset / "train.npz"
+    val_npz = out_dataset / "val.npz"
+    test_npz = out_dataset / "test.npz"
+
+    save_split_npz(train_npz, patterns=train_p, labels=train_y, sample_ids=[f"tr_{i}" for i in range(len(train_y))])
+    save_split_npz(val_npz, patterns=val_p, labels=val_y, sample_ids=[f"va_{i}" for i in range(len(val_y))])
+    save_split_npz(test_npz, patterns=test_p, labels=test_y, sample_ids=[f"te_{i}" for i in range(len(test_y))])
+
+    manifest = {
+        "schema_version": "phase_id_xcorr.ml_dataset_manifest.v1",
+        "phase_to_label": {"fe_bcc": 0, "fe3o4_magnetite": 1, "feo_wustite": 2},
+        "preprocessing_policy": {
+            "resize_hw": [24, 24],
+            "apply_circular_mask": False,
+        },
+        "preprocessing_fingerprint": "test-fingerprint",
+        "artifacts": {
+            "train_npz": "dataset/train.npz",
+            "val_npz": "dataset/val.npz",
+            "test_npz": "dataset/test.npz",
+        },
+    }
+    manifest_path = tmp_path / "dataset_manifest.json"
+    write_json(manifest_path, manifest)
+
+    train_cfg = {
+        "dataset_manifest_path": "dataset_manifest.json",
+        "output_dir": "runs/policy_authoritative",
+        "seed": 7,
+        "device": "cpu",
+        "amp": False,
+        "batch_size": 4,
+        "epochs": 1,
+        "learning_rate": 0.001,
+        "weight_decay": 0.0001,
+        "input": {
+            "resize_hw": [32, 32],
+            "apply_circular_mask": True,
+            "normalize": {"mean": [0.5], "std": [0.25]},
+        },
+        "model": {
+            "family": "simple_cnn",
+            "width": 8,
+            "in_chans": 1,
+        },
+    }
+    cfg_path = tmp_path / "train.yml"
+    cfg_path.write_text(yaml.safe_dump(train_cfg, sort_keys=False), encoding="utf-8")
+
+    result = train_classifier(
+        config_path=cfg_path,
+        repo_root=repo_root,
+        debug=True,
+    )
+
+    report = read_json(result.report_path)
+    assert report["status"] == "completed"
+    assert report["input"]["resize_hw"] is None
+    assert report["input"]["apply_circular_mask"] is False
+    assert report["input"]["requested_resize_hw"] == [32, 32]
+    assert report["input"]["requested_apply_circular_mask"] is True
+
+    events = (result.out_dir / "events.jsonl").read_text(encoding="utf-8")
+    assert "INPUT_PREPROCESSING_OVERRIDES_IGNORED" in events

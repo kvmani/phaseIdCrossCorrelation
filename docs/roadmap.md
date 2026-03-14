@@ -3,7 +3,7 @@
 This roadmap is the long-horizon plan. For daily execution, use `todo_list.md`.
 For post-data phase-gated implementation detail, use `docs/action_plan_post_data_intake.md`.
 
-## Phase 0: Documentation and Architecture Sync (Current)
+## Phase 0: Documentation and Architecture Sync
 
 Objectives:
 
@@ -14,7 +14,7 @@ Objectives:
 Deliverables:
 
 - Updated: `README.md`, `AGENTS.md`, `docs/mission_statement.md`, `todo_list.md`, `docs/status.md`.
-- New ML design docs and YAML config templates.
+- ML design docs and YAML config templates.
 
 ## Phase 1A: EBSD Baseline Pipeline (NCC)
 
@@ -31,7 +31,7 @@ Deliverables:
 - Unit tests for `.oh5` read layer and NCC scoring.
 - CLI workflow for curated single-case and batch-case evaluation.
 
-## Phase 1B: EBSD ML Classifier Pipeline (New)
+## Phase 1B: EBSD ML Classifier Pipeline
 
 Objectives:
 
