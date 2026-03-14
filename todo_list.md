@@ -60,6 +60,7 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [x] M11: Add native desktop raw `.oh5` exploratory GUI for phase-wise cumulative histograms/CDF, discovered field distributions, and interactive intensity-band pixel highlighting.
 - [x] M12: Add one-go ML full-cycle workflow with robust error checking, extensive logs, machine-ingestible manifests, concise HTML summary, and optional PPTX generation.
 - [x] M13: Add production Ni-Cu-Al run scaffolding with richer dataset/suite analytics, Windows runbook, and lab-meeting-ready reporting.
+- [x] M14: Add lightweight benchmark-suite packaging for mail-friendly transfer of summaries and manifests without checkpoints.
 
 ## Testing and Validation
 

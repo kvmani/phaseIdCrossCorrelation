@@ -80,7 +80,21 @@ By default this script runs the suite, scans the suite output, builds a `.pptx`,
 
 Use `--skip-ppt` if you only want suite execution.
 
-### 3.5 One-Go Full Cycle (Recommended for local conflict-free reproducibility)
+### 3.5 Lightweight Transfer Bundle
+
+After the suite finishes, package only the lightweight artifacts for email or cross-machine review:
+
+```bash
+python scripts/package_ml_benchmark_suite.py \
+  --suite-root reports/ml/benchmarks/classiication_training_data_smoke \
+  --output-zip reports/ml/benchmarks/classiication_training_data_smoke/classiication_training_data_smoke_lightweight_bundle.zip \
+  --extra-path reports/ml/presentations/classification-training-data-smoke-lab-meeting.pptx \
+  --extra-path reports/ml/presentations/classification-training-data-smoke-lab-meeting_manifest.json
+```
+
+The bundle preserves the repo folder structure, keeps lightweight summaries such as `.json`, `.jsonl`, `.html`, `.md`, `.yml`, `.yaml`, `.csv`, and `.pptx`, excludes heavy checkpoints and tensor bundles, and auto-includes the referenced dataset manifest and dataset summary artifacts used by the suite.
+
+### 3.6 One-Go Full Cycle (Recommended for local conflict-free reproducibility)
 
 ```bash
 python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.debug.yml --debug
