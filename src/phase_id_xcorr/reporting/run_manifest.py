@@ -14,7 +14,10 @@ def _now_iso_utc() -> str:
 
 
 def _rel(path: Path, root: Path) -> str:
-    return Path(os.path.relpath(path.resolve(), root.resolve())).as_posix()
+    try:
+        return Path(os.path.relpath(path.resolve(), root.resolve())).as_posix()
+    except ValueError:
+        return path.resolve().as_posix()
 
 
 def _git_commit(root: Path) -> str:

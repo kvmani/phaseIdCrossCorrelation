@@ -1,0 +1,26 @@
+schema_version: phase_id_xcorr.ml_oh5_inference.v1
+
+run_dir: reports/ml/benchmarks/ni_cu_al_production/simple_cnn_w32
+checkpoint: best_checkpoint.pt
+device: auto
+
+output_dir: reports/ml/oh5_inference/ni_different_condition
+input_root: F:/PhaseID_Training_Data/Data_March2026
+
+scan_discovery:
+  glob: Different_Condition/Ni/*.oh5
+
+sampling:
+  samples_per_scan: 25
+  seed: 42
+
+quality_filters:
+  expression: "CI > 0.5 && Fit < 1.0"
+
+strict_sampling: false
+
+scans:
+  - file: Different_Condition/Ni/WD14.oh5
+    expected_phase: Ni
+  - file: Different_Condition/Ni/WD18.oh5
+    expected_phase: Ni

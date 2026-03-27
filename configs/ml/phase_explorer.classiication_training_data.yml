@@ -33,3 +33,7 @@ explorer:
       CI: [0, 1]
       IQ: [0, 6000]
       Fit: [0, 2]
+  export:
+    dpi: 300
+    figure_size_inches: [6.5, 4.5]
+    attributes: [CI, IQ, Fit]

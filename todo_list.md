@@ -58,9 +58,12 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [x] M9: Add benchmark-suite runner for repeated multi-model experiments.
 - [x] M10: Upgrade dataset-prep/training contract to v3 schema with expression quality filters, preprocessing fingerprints, leakage-safe capped splits, and HTML benchmark analytics.
 - [x] M11: Add native desktop raw `.oh5` exploratory GUI for phase-wise cumulative histograms/CDF, discovered field distributions, and interactive intensity-band pixel highlighting.
+- [x] M11b: Export publication-quality phase explorer histogram PNGs and a machine-readable JSON manifest with synchronized axes for intensity/IQ/Fit/CI comparisons.
 - [x] M12: Add one-go ML full-cycle workflow with robust error checking, extensive logs, machine-ingestible manifests, concise HTML summary, and optional PPTX generation.
 - [x] M13: Add production Ni-Cu-Al run scaffolding with richer dataset/suite analytics, Windows runbook, and lab-meeting-ready reporting.
 - [x] M14: Add lightweight benchmark-suite packaging for mail-friendly transfer of summaries and manifests without checkpoints.
+- [x] M15: Add saved-model inference CLI and desktop GUI for unknown-image phase prediction.
+- [x] M16: Add sampled unseen-scan `.oh5` CNN inference runner with YAML-configured quality filtering, random per-scan sampling, and per-pattern/per-scan summary outputs.
 
 ## Testing and Validation
 

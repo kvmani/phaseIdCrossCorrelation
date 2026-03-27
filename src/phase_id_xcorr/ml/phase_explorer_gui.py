@@ -11,7 +11,14 @@ import numpy as np
 import pyqtgraph as pg
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from .phase_explorer import ExplorerDataset, build_intensity_mask, cdf_from_counts, histogram, load_explorer_dataset
+from .phase_explorer import (
+    ExplorerDataset,
+    build_intensity_mask,
+    cdf_from_counts,
+    export_phase_explorer_artifacts,
+    histogram,
+    load_explorer_dataset,
+)
 
 
 @dataclass(slots=True)
@@ -414,6 +421,7 @@ def run_phase_explorer_app(*, config_path: Path, repo_root: Path, debug: bool = 
     log.setLevel(logging.DEBUG if debug else logging.INFO)
 
     dataset = load_explorer_dataset(config_path=config_path, repo_root=repo_root, logger=log)
+    export_manifest_path = export_phase_explorer_artifacts(dataset=dataset, repo_root=repo_root, logger=log)
 
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     pg.setConfigOptions(antialias=True)
@@ -426,4 +434,5 @@ def run_phase_explorer_app(*, config_path: Path, repo_root: Path, debug: bool = 
 
     win.show()
     log.info("Loaded config=%s | phases=%s", dataset.config_path, ",".join(dataset.phase_names))
+    log.info("Export manifest written to %s", export_manifest_path)
     return app.exec()

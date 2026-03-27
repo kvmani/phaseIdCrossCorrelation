@@ -9,8 +9,11 @@ Current ML CLI support includes:
 - dataset preparation (`run_ml_dataset_prepare.py`)
 - model training + held-out test evaluation (`run_ml_train_classifier.py`)
 - multi-model benchmark suite (`run_ml_benchmark_suite.py`)
+- single-image inference CLI (`run_ml_inference.py`)
+- sampled unseen-scan `.oh5` inference CLI (`run_ml_oh5_sample_inference.py`)
+- desktop inference GUI (`run_ml_inference_gui.py`)
 
-In this repository, "inference" currently means evaluation on validation and test splits during training or suite runs. A standalone unseen-scan inference CLI is not implemented yet.
+In this repository, "inference" includes evaluation on validation/test splits during training or suite runs, single-image saved-model inference, and sampled unseen-scan `.oh5` inference through a dedicated CLI.
 
 ## 2. Recommended Flow
 
@@ -20,7 +23,8 @@ In this repository, "inference" currently means evaluation on validation and tes
 2. Train one model and inspect metrics/checkpoints.
 3. Run benchmark suite across model variants.
 4. Auto-generate a lab-meeting PPTX from suite artifacts.
-5. Prefer one-go execution with full-cycle orchestration for reproducible and machine-ingestible reporting.
+5. Use the saved best model for unknown-image inference and qualitative review.
+6. Prefer one-go execution with full-cycle orchestration for reproducible and machine-ingestible reporting.
 
 ## 3. Commands
 
@@ -94,7 +98,48 @@ python scripts/package_ml_benchmark_suite.py \
 
 The bundle preserves the repo folder structure, keeps lightweight summaries such as `.json`, `.jsonl`, `.html`, `.md`, `.yml`, `.yaml`, `.csv`, and `.pptx`, excludes heavy checkpoints and tensor bundles, and auto-includes the referenced dataset manifest and dataset summary artifacts used by the suite.
 
-### 3.6 One-Go Full Cycle (Recommended for local conflict-free reproducibility)
+### 3.6 Inference From A Saved Model
+
+CLI:
+
+```bash
+python scripts/run_ml_inference.py \
+  --run-dir reports/ml/benchmarks/ni_cu_al_production/simple_cnn_w32 \
+  --image path/to/unknown_pattern.png \
+  --device auto
+```
+
+GUI:
+
+```bash
+python scripts/run_ml_inference_gui.py \
+  --suite-root reports/ml/benchmarks/ni_cu_al_production
+```
+
+### 3.7 Sampled Inference From Unseen `.oh5` Scans
+
+Use this when you have new scans under a folder such as `F:/PhaseID_Training_Data/Data_March2026/Different_Condition/Ni/*.oh5` and want to test a previously trained CNN by randomly sampling filtered pixels from each scan.
+
+```bash
+python scripts/run_ml_oh5_sample_inference.py \
+  --config configs/ml/oh5_sample_inference.ni_different_condition.example.yml \
+  --debug
+```
+
+Key config behavior:
+
+- supports both absolute and repo-relative paths for `run_dir`, `output_dir`, `input_root`, and scan file entries
+- applies the same expression-style quality filtering used during dataset prep, for example `CI > 0.5 && Fit < 1.0`
+- samples `n` valid patterns per scan using a deterministic seed
+- computes accuracy only for scans with `expected_phase`
+- writes:
+  - `sample_predictions.csv`
+  - `scan_summary.csv`
+  - `summary.json`
+  - `summary.md`
+  - `manifest.json`
+
+### 3.8 One-Go Full Cycle (Recommended for local conflict-free reproducibility)
 
 ```bash
 python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.debug.yml --debug

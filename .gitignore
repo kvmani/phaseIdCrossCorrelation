@@ -4,6 +4,11 @@
 # Python caches
 __pycache__/
 .pytest_cache/
+.mypy_cache/
+
+# Local scratch/build folders
+tmp/
+node_modules/
 
 # Large EBSD scan files (keep JSON and image assets tracked)
 data/test/student_data_packet_phaseid/scan_files/*.oh5

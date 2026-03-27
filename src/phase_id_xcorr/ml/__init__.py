@@ -6,6 +6,7 @@ from .suite import SuiteResult, run_benchmark_suite
 from .training import TrainResult, train_classifier
 from .phase_explorer import ExplorerDataset, load_explorer_dataset
 from .full_cycle import FullCycleResult, run_full_cycle
+from .oh5_inference import Oh5InferenceResult, run_oh5_sample_inference
 
 __all__ = [
     "PrepareDatasetResult",
@@ -20,4 +21,6 @@ __all__ = [
     "load_explorer_dataset",
     "FullCycleResult",
     "run_full_cycle",
+    "Oh5InferenceResult",
+    "run_oh5_sample_inference",
 ]

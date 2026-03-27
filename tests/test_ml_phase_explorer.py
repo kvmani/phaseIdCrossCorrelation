@@ -4,7 +4,14 @@ from pathlib import Path
 
 import yaml
 
-from phase_id_xcorr.ml.phase_explorer import build_intensity_mask, cdf_from_counts, histogram, load_explorer_dataset
+from phase_id_xcorr.ml.dataset_io import read_json
+from phase_id_xcorr.ml.phase_explorer import (
+    build_intensity_mask,
+    cdf_from_counts,
+    export_phase_explorer_artifacts,
+    histogram,
+    load_explorer_dataset,
+)
 import h5py
 import numpy as np
 
@@ -90,3 +97,55 @@ def test_load_explorer_dataset_single_phase(tmp_path: Path) -> None:
     assert ds.phases["fe_bcc"].intensity_values.size > 0
     assert "CI" in ds.phases["fe_bcc"].scalar_fields
     assert ds.phases["fe_bcc"].scalar_fields["CI"].size == 12
+
+
+def test_export_phase_explorer_artifacts_writes_pngs_and_json(tmp_path: Path) -> None:
+    repo_root = tmp_path
+    phase_names = ["Al", "Cu", "Ni"]
+    cfg = {
+        "schema_version": "phase_id_xcorr.ml_dataset_prep.v3",
+        "output_dir": "reports/ml/datasets/test_explorer",
+        "data_source_folder": str(tmp_path),
+        "phase_to_label": {"Al": 0, "Cu": 1, "Ni": 2},
+        "listOfFiles": [],
+        "explorer": {
+            "intensity_plot": {"bins": 16, "x_min": 0, "x_max": 65535, "show_cdf": False},
+            "attribute_plot": {"bins": 8, "field_ranges": {"CI": [0, 1], "IQ": [0, 100], "Fit": [0, 2]}},
+            "export": {"attributes": ["CI", "IQ", "Fit"], "dpi": 120, "figure_size_inches": [4, 3]},
+        },
+    }
+
+    file_rows = []
+    for idx, phase_name in enumerate(phase_names):
+        oh5_path = tmp_path / f"{phase_name}.oh5"
+        _write_single_phase_fixture(oh5_path, ci_bad_idx=idx, pattern_base=10000 + (idx * 2000))
+        file_rows.append({"file": oh5_path.name, "scan_id": phase_name.lower(), "phase_name": phase_name})
+    cfg["listOfFiles"] = file_rows
+
+    cfg_path = tmp_path / "explorer_export.yml"
+    cfg_path.write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
+
+    ds = load_explorer_dataset(config_path=cfg_path, repo_root=repo_root)
+    manifest_path = export_phase_explorer_artifacts(dataset=ds, repo_root=repo_root)
+
+    manifest = read_json(manifest_path)
+    assert manifest["output_dir"] == "reports/ml/datasets/test_explorer"
+    assert len(manifest["exports"]) == 12
+
+    intensity_exports = [row for row in manifest["exports"] if row["plot_type"] == "intensity_distribution"]
+    assert len(intensity_exports) == 3
+    intensity_x_limits = {tuple(row["x_limits"]) for row in intensity_exports}
+    intensity_y_limits = {tuple(row["y_limits"]) for row in intensity_exports}
+    assert len(intensity_x_limits) == 1
+    assert len(intensity_y_limits) == 1
+
+    for attribute in ("CI", "IQ", "Fit"):
+        rows = [row for row in manifest["exports"] if row["attribute"] == attribute]
+        assert len(rows) == 3
+        assert len({tuple(row["x_limits"]) for row in rows}) == 1
+        assert len({tuple(row["y_limits"]) for row in rows}) == 1
+        for row in rows:
+            assert (repo_root / row["path"]).exists()
+
+    for row in manifest["exports"]:
+        assert (repo_root / row["path"]).exists()

@@ -19,6 +19,7 @@ Files:
 - `phase_explorer.ni_cu_al.production.yml`: production explorer GUI config for `Al-1.oh5`, `Ni.oh`, and `Cu-1.oh5`.
 - `train.classiication_training_data.smoke.yml`: smoke single-run training config on the filtered local dataset.
 - `train.ni_cu_al.production.base.yml`: production baseline train config for the filtered Windows dataset.
+- `oh5_sample_inference.ni_different_condition.example.yml`: example unseen-scan CNN inference config for filtered random sampling from new `.oh5` files under a Windows folder.
 
 Run commands:
 
@@ -32,6 +33,7 @@ python scripts/run_ml_benchmark_suite.py --config configs/ml/benchmark_suite.cla
 python scripts/run_ml_benchmark_suite.py --config configs/ml/benchmark_suite.ni_cu_al.production.yml --debug
 python scripts/run_ml_phase_explorer.py --config configs/ml/dataset_prepare.v3_al_ni_cu.example.yml --debug
 python scripts/run_ml_phase_explorer.py --config configs/ml/phase_explorer.ni_cu_al.production.yml --debug
+python scripts/run_ml_oh5_sample_inference.py --config configs/ml/oh5_sample_inference.ni_different_condition.example.yml --debug
 python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.debug.yml --debug
 python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.ni_cu_al.production.yml --debug
 ```

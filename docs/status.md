@@ -15,7 +15,7 @@ Build a modular EBSD phase-identification workflow that improves discrimination 
 - Curated image-vs-Hough comparison is implemented and runnable.
 - G0 intake validation and `.oh5` structure guidance are in place.
 - ML dataset preparation, training, benchmark suite, and reporting are implemented.
-- A native raw `.oh5` phase explorer GUI is implemented for exploratory analysis before dataset freezing.
+- A native raw `.oh5` phase explorer GUI is implemented for exploratory analysis before dataset freezing, with auto-exported publication PNG histograms and JSON metadata in the configured output directory.
 - Debug-scale tests cover NCC, Hough, `.oh5` ingestion, dataset prep, splitting, quality gating, training smoke, and suite orchestration.
 
 ## Confirmed Constraints
