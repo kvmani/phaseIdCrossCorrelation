@@ -103,16 +103,26 @@ PowerShell:
 
 ### 3.2 Install required packages
 
-```powershell
-python -m pip install --upgrade pip
-python -m pip install numpy h5py pillow pyyaml torch timm python-pptx
-```
-
-If you also want the desktop explorer GUI on Windows:
+Install the GPU-enabled PyTorch build first. The exact CUDA wheel can vary by target machine, so verify the correct command from the official PyTorch selector if needed. For a CUDA 12.4 Windows setup:
 
 ```powershell
-python -m pip install PySide6 pyqtgraph
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+python -m pip install -r requirements.txt
 ```
+
+This installs the full repo dependency set used by NCC, ML, GUI, Hough/KikuchiPy, and tests, while keeping PyTorch on the GPU-enabled wheel you installed first.
+
+### 3.3 Verify that PyTorch sees the GPU
+
+```powershell
+python -c "import torch; print(torch.__version__); print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no gpu')"
+```
+
+Expected behavior:
+
+- `torch.cuda.is_available()` prints `True`
+- the final line prints the NVIDIA GPU name instead of `no gpu`
 
 ## 4. Exact Run Commands
 

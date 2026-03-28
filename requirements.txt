@@ -1,0 +1,12 @@
+numpy
+pillow
+h5py
+PyYAML
+timm
+python-pptx
+matplotlib
+PySide6
+pyqtgraph
+kikuchipy
+orix
+pytest
