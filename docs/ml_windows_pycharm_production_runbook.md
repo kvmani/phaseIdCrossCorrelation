@@ -11,6 +11,10 @@ Production configs:
 - `configs/ml/train.ni_cu_al.production.base.yml`
 - `configs/ml/benchmark_suite.ni_cu_al.production.yml`
 - `configs/ml/full_cycle.ni_cu_al.production.yml`
+- `configs/ml/dataset_prepare.data_march2026.balanced.yml`
+- `configs/ml/train.data_march2026.balanced.base.yml`
+- `configs/ml/benchmark_suite.data_march2026.balanced.yml`
+- `configs/ml/full_cycle.data_march2026.balanced.yml`
 
 Portable PPT generator:
 
@@ -125,6 +129,29 @@ Expected behavior:
 - the final line prints the NVIDIA GPU name instead of `no gpu`
 
 ## 4. Exact Run Commands
+
+### 4.0 March 2026 balanced Ni-Cu-Al workflow
+
+These configs point at:
+
+- `F:\PhaseID_Training_Data\Data_March2026\Al-2_1.oh5`
+- `F:\PhaseID_Training_Data\Data_March2026\Cu-2_1.oh5`
+- `F:\PhaseID_Training_Data\Data_March2026\Ni-2_1.oh5`
+
+and enable:
+
+- `quality_filters.expression: "CI > 0.5 && Fit < 1.0"`
+- `phase_balancing.equalize_to_min_count: true`
+- `train/val/test = 0.8 / 0.1 / 0.1`
+
+Run dataset prep first and inspect the output manifest/HTML to confirm qualified counts per phase and the final selected balanced counts.
+
+```powershell
+python scripts\run_ml_dataset_prepare.py --config configs\ml\dataset_prepare.data_march2026.balanced.yml --debug
+python scripts\run_ml_train_classifier.py --config configs\ml\train.data_march2026.balanced.base.yml --debug
+python scripts\run_ml_benchmark_suite.py --config configs\ml\benchmark_suite.data_march2026.balanced.yml --debug
+python scripts\run_ml_full_cycle.py --config configs\ml\full_cycle.data_march2026.balanced.yml --debug
+```
 
 ### 4.1 Explore the raw data first
 

@@ -64,6 +64,7 @@ Controls:
 - list of sources with mode-specific labeling fields,
 - quality policy (thresholds and optional logical expression, with alias mapping),
 - dataset-stage preprocessing policy (`preprocessing.resize_hw`, masking, normalization),
+- optional phase balancing policy (`phase_balancing.equalize_to_min_count`) to downsample each accepted phase to the smallest accepted phase count before splitting,
 - split policy (`train/val/test`, seed, stratified, `group_key`, `max_val_samples`, `max_test_samples`, optional `val_samples_per_phase`, optional `test_samples_per_phase`).
 
 ### Training Config
@@ -157,6 +158,7 @@ Dataset prep outputs:
 - `events.jsonl`
 - `records.csv`
 - `splits/train.npz`, `splits/val.npz`, `splits/test.npz`
+- when phase balancing is enabled, the manifest records both pre-balance qualified counts and post-balance selected counts per phase
 
 Training outputs:
 

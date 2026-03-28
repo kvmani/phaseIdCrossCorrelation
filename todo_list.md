@@ -64,6 +64,7 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [x] M14: Add lightweight benchmark-suite packaging for mail-friendly transfer of summaries and manifests without checkpoints.
 - [x] M15: Add saved-model inference CLI and desktop GUI for unknown-image phase prediction.
 - [x] M16: Add sampled unseen-scan `.oh5` CNN inference runner with YAML-configured quality filtering, random per-scan sampling, and per-pattern/per-scan summary outputs.
+- [x] M17: Add optional per-phase balancing during dataset prep by downsampling accepted samples to the smallest accepted phase count before split assignment.
 
 ## Testing and Validation
 

@@ -1,0 +1,26 @@
+schema_version: phase_id_xcorr.ml_train.v1
+
+dataset_manifest_path: reports/ml/datasets/data_march2026_balanced/manifest.json
+output_dir: reports/ml/runs/data_march2026_balanced/base
+
+seed: 42
+device: auto
+amp: true
+
+batch_size: 16
+num_workers: 0
+epochs: 15
+learning_rate: 0.0005
+weight_decay: 0.0001
+
+input:
+  resize_hw: [128, 128]
+  apply_circular_mask: true
+  normalize:
+    mean: [0.0]
+    std: [1.0]
+
+model:
+  family: simple_cnn
+  width: 16
+  in_chans: 1

@@ -60,7 +60,8 @@ def _write_fixture(oh5_path: Path, csv_path: Path) -> None:
 def _write_single_phase_fixture(
     oh5_path: Path,
     *,
-    ci_bad_idx: int,
+    ci_bad_idx: int | None = None,
+    ci_bad_indices: list[int] | None = None,
     pattern_base: int,
 ) -> None:
     nx, ny = 4, 3
@@ -87,7 +88,11 @@ def _write_single_phase_fixture(
         for i in range(n):
             patt[i, 3:13, 3:13] = np.uint16(pattern_base + 500 * (i % 3))
 
-        ci[ci_bad_idx] = 0.01  # quality reject
+        bad_indices = list(ci_bad_indices or [])
+        if ci_bad_idx is not None:
+            bad_indices.append(int(ci_bad_idx))
+        for idx in bad_indices:
+            ci[int(idx)] = 0.01  # quality reject
 
         data.create_dataset("Pattern", data=patt)
         data.create_dataset("CI", data=ci)
@@ -333,3 +338,73 @@ def test_prepare_ml_dataset_v3_list_of_files_with_caps_and_provenance(tmp_path: 
     assert manifest["quality_filters"]["resolved_expression"]
     assert manifest["provenance"]["input_file_hashes"]
     assert manifest["artifacts"]["resolved_config_json"].endswith("resolved_config.json")
+
+
+def test_prepare_ml_dataset_balances_single_phase_sources_to_min_count(tmp_path: Path) -> None:
+    repo_root = tmp_path
+    oh5_a = tmp_path / "al.oh5"
+    oh5_b = tmp_path / "cu.oh5"
+    oh5_c = tmp_path / "ni.oh5"
+    _write_single_phase_fixture(oh5_a, ci_bad_indices=[10, 11], pattern_base=10000)
+    _write_single_phase_fixture(oh5_b, ci_bad_indices=[11], pattern_base=15000)
+    _write_single_phase_fixture(oh5_c, ci_bad_indices=[9, 10, 11], pattern_base=20000)
+
+    cfg = {
+        "input_mode": "single_phase_scan_map",
+        "output_dir": "reports/ml/dataset_balanced_single_phase_test",
+        "strict_pattern_presence": True,
+        "target_pattern_hw": [24, 24],
+        "phase_labels": [
+            {"name": "Al", "label": 0},
+            {"name": "Cu", "label": 1},
+            {"name": "Ni", "label": 2},
+        ],
+        "quality_filters": {
+            "confidence_index_min": 0.1,
+            "fit_max": 2.0,
+            "valid_required": True,
+        },
+        "phase_balancing": {
+            "equalize_to_min_count": True,
+        },
+        "split": {
+            "train": 0.8,
+            "val": 0.1,
+            "test": 0.1,
+            "seed": 23,
+            "stratified": True,
+        },
+        "sources": [
+            {
+                "scan_id": "al_scan",
+                "oh5_path": str(oh5_a),
+                "phase_name": "Al",
+            },
+            {
+                "scan_id": "cu_scan",
+                "oh5_path": str(oh5_b),
+                "phase_name": "Cu",
+            },
+            {
+                "scan_id": "ni_scan",
+                "oh5_path": str(oh5_c),
+                "phase_name": "Ni",
+            },
+        ],
+    }
+
+    cfg_path = tmp_path / "config_balanced.yml"
+    cfg_path.write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
+
+    result = prepare_ml_dataset(config_path=cfg_path, repo_root=repo_root, debug=True)
+    manifest = read_json(result.manifest_path)
+
+    assert manifest["accepted_per_phase"] == {"Al": 10, "Cu": 11, "Ni": 9}
+    assert manifest["selected_per_phase"] == {"Al": 9, "Cu": 9, "Ni": 9}
+    assert manifest["phase_balancing"]["enabled"] is True
+    assert manifest["phase_balancing"]["strategy"] == "min_phase_count"
+    assert manifest["phase_balancing"]["target_per_phase"] == 9
+    assert manifest["num_samples_total"] == 27
+    assert manifest["split_phase_counts"]["train"] == {"Al": 7, "Cu": 7, "Ni": 7}
+    assert manifest["split_phase_counts"]["val"] == {"Al": 1, "Cu": 1, "Ni": 1}
+    assert manifest["split_phase_counts"]["test"] == {"Al": 1, "Cu": 1, "Ni": 1}

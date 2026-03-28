@@ -359,6 +359,8 @@ def _write_dataset_html_summary(
     split_counts = manifest.get("split_counts") or {}
     split_percentages = manifest.get("split_phase_percentages") or {}
     phase_stats = manifest.get("phase_statistics") or {}
+    balancing = manifest.get("phase_balancing") or {}
+    balancing_enabled = bool(balancing.get("enabled", False))
 
     source_rows = []
     for summary in manifest.get("source_summaries", []):
@@ -400,6 +402,7 @@ def _write_dataset_html_summary(
         phase_rows.append(
             "<tr>"
             f"<td>{phase_name}</td>"
+            f"<td>{stats.get('qualified_count', stats.get('accepted_count', 0))}</td>"
             f"<td>{stats.get('accepted_count', 0)}</td>"
             f"<td>{float(stats.get('accepted_fraction_of_dataset', 0.0)):.3f}</td>"
             f"<td>{stats.get('train_count', 0)}</td>"
@@ -460,6 +463,7 @@ def _write_dataset_html_summary(
   <h1>ML Dataset Preparation Summary</h1>
   <p><strong>Config:</strong> <code>{manifest.get('config_path', '')}</code></p>
   <p><strong>Filter:</strong> <code>{((manifest.get('quality_filters') or {}).get('expression')) or 'threshold-only policy'}</code></p>
+  <p><strong>Phase balancing:</strong> {'enabled' if balancing_enabled else 'disabled'}</p>
   <div class="metric-grid">
     <div class="metric"><div>Raw scan pixels</div><div class="value">{raw_total}</div></div>
     <div class="metric"><div>Accepted</div><div class="value">{accepted}</div></div>
@@ -474,7 +478,7 @@ def _write_dataset_html_summary(
   <table>
     <thead>
       <tr>
-        <th>Phase</th><th>Accepted</th><th>Accepted frac</th>
+        <th>Phase</th><th>Qualified</th><th>Selected</th><th>Accepted frac</th>
         <th>Train</th><th>Train frac</th><th>Val</th><th>Val frac</th><th>Test</th><th>Test frac</th>
         <th>CI mean</th><th>CI median</th><th>CI std</th>
         <th>Fit mean</th><th>Fit median</th><th>Fit std</th>
@@ -483,7 +487,7 @@ def _write_dataset_html_summary(
       </tr>
     </thead>
     <tbody>
-      {''.join(phase_rows) if phase_rows else '<tr><td colspan="20">No phase statistics available</td></tr>'}
+      {''.join(phase_rows) if phase_rows else '<tr><td colspan="21">No phase statistics available</td></tr>'}
     </tbody>
   </table>
 
@@ -538,6 +542,53 @@ def _write_dataset_html_summary(
     path.write_text(html, encoding="utf-8")
 
 
+def _balance_phase_records_to_min_count(
+    *,
+    records: list[dict[str, Any]],
+    patterns: list[np.ndarray],
+    labels: list[int],
+    sample_ids: list[str],
+    split_seed: int,
+) -> tuple[list[dict[str, Any]], list[np.ndarray], list[int], list[str], dict[str, Any]]:
+    phase_to_indices: dict[str, list[int]] = collections.defaultdict(list)
+    for idx, rec in enumerate(records):
+        phase_to_indices[str(rec.get("phase_name", ""))].append(idx)
+
+    qualified_per_phase = {phase: len(idxs) for phase, idxs in sorted(phase_to_indices.items())}
+    if not qualified_per_phase:
+        raise RuntimeError("No accepted records available for phase balancing")
+
+    target_per_phase = min(qualified_per_phase.values())
+    if target_per_phase <= 0:
+        raise RuntimeError("Phase balancing requires at least one accepted sample in every phase")
+
+    rng = np.random.default_rng(split_seed)
+    selected_indices: list[int] = []
+    selected_per_phase: dict[str, int] = {}
+    for phase_name, idxs in sorted(phase_to_indices.items()):
+        arr = np.asarray(idxs, dtype=np.int64)
+        rng.shuffle(arr)
+        keep = np.sort(arr[:target_per_phase]).tolist()
+        selected_indices.extend(int(i) for i in keep)
+        selected_per_phase[phase_name] = int(len(keep))
+
+    selected_indices = sorted(selected_indices)
+    balanced_records = [records[i] for i in selected_indices]
+    balanced_patterns = [patterns[i] for i in selected_indices]
+    balanced_labels = [labels[i] for i in selected_indices]
+    balanced_sample_ids = [sample_ids[i] for i in selected_indices]
+    payload = {
+        "enabled": True,
+        "strategy": "min_phase_count",
+        "seed": int(split_seed),
+        "qualified_per_phase": qualified_per_phase,
+        "target_per_phase": int(target_per_phase),
+        "selected_per_phase": selected_per_phase,
+        "dropped_samples": int(len(records) - len(balanced_records)),
+    }
+    return balanced_records, balanced_patterns, balanced_labels, balanced_sample_ids, payload
+
+
 def prepare_ml_dataset(
     *,
     config_path: Path,
@@ -576,6 +627,8 @@ def prepare_ml_dataset(
     phase_to_label = _parse_phase_map(cfg)
     label_to_phase = {v: k for k, v in phase_to_label.items()}
     split_cfg = split_config_from_yaml(cfg.get("split"))
+    balance_cfg = cfg.get("phase_balancing") if isinstance(cfg.get("phase_balancing"), dict) else {}
+    phase_balancing_enabled = bool(balance_cfg.get("equalize_to_min_count", False))
     quality_policy = quality_policy_from_config(cfg.get("quality_filters"))
     preprocessing_policy = resolve_preprocessing_policy(cfg)
 
@@ -946,6 +999,32 @@ def prepare_ml_dataset(
     if not patterns:
         raise RuntimeError("No patterns accepted after applying filters")
 
+    phase_balancing_summary: dict[str, Any] = {
+        "enabled": False,
+        "strategy": "none",
+        "seed": int(split_cfg.seed),
+        "qualified_per_phase": {str(k): int(v) for k, v in sorted(accepted_per_phase.items())},
+        "target_per_phase": None,
+        "selected_per_phase": {str(k): int(v) for k, v in sorted(accepted_per_phase.items())},
+        "dropped_samples": 0,
+    }
+    if phase_balancing_enabled:
+        records, patterns, labels, sample_ids, phase_balancing_summary = _balance_phase_records_to_min_count(
+            records=records,
+            patterns=patterns,
+            labels=labels,
+            sample_ids=sample_ids,
+            split_seed=split_cfg.seed,
+        )
+        emit(
+            "PHASE_BALANCING_APPLIED",
+            strategy=phase_balancing_summary["strategy"],
+            target_per_phase=phase_balancing_summary["target_per_phase"],
+            qualified_per_phase=phase_balancing_summary["qualified_per_phase"],
+            selected_per_phase=phase_balancing_summary["selected_per_phase"],
+            dropped_samples=phase_balancing_summary["dropped_samples"],
+        )
+
     # Validate homogeneous pattern shape after optional resizing.
     shape0 = tuple(patterns[0].shape)
     for arr in patterns:
@@ -968,6 +1047,7 @@ def prepare_ml_dataset(
 
     patterns_np = np.stack(patterns, axis=0).astype(np.float32, copy=False)
     labels_np = np.asarray(labels, dtype=np.int64)
+    selected_per_phase = collections.Counter(str(rec.get("phase_name", "")) for rec in records)
 
     split_npz_paths: dict[str, Path] = {}
     split_counts: dict[str, int] = {}
@@ -1033,7 +1113,7 @@ def prepare_ml_dataset(
                 per_phase_metric_values[phase_name][metric_name].append(value)
 
     phase_statistics: dict[str, dict[str, Any]] = {}
-    for phase_name in sorted(accepted_per_phase):
+    for phase_name in sorted(set(accepted_per_phase) | set(selected_per_phase)):
         hist = phase_intensity_counts.get(phase_name)
         mode_intensity_value = None
         mode_pixel_count = None
@@ -1042,8 +1122,9 @@ def prepare_ml_dataset(
             mode_intensity_value = mode_idx
             mode_pixel_count = int(hist[mode_idx])
         phase_statistics[phase_name] = {
-            "accepted_count": int(accepted_per_phase.get(phase_name, 0)),
-            "accepted_fraction_of_dataset": _format_pct(int(accepted_per_phase.get(phase_name, 0)), len(records)),
+            "qualified_count": int(accepted_per_phase.get(phase_name, 0)),
+            "accepted_count": int(selected_per_phase.get(phase_name, 0)),
+            "accepted_fraction_of_dataset": _format_pct(int(selected_per_phase.get(phase_name, 0)), len(records)),
             "train_count": int(split_phase_counts.get("train", {}).get(phase_name, 0)),
             "train_fraction_within_split": float(split_phase_percentages.get("train", {}).get(phase_name, 0.0)),
             "val_count": int(split_phase_counts.get("val", {}).get(phase_name, 0)),
@@ -1094,6 +1175,8 @@ def prepare_ml_dataset(
         "split_phase_counts": split_phase_counts,
         "split_phase_percentages": split_phase_percentages,
         "accepted_per_phase": dict(accepted_per_phase),
+        "selected_per_phase": {str(k): int(v) for k, v in sorted(selected_per_phase.items())},
+        "phase_balancing": phase_balancing_summary,
         "phase_statistics": phase_statistics,
         "raw_input_rows_total": int(raw_rows_total),
         "raw_label_rows_total": int(raw_rows_total),
@@ -1122,6 +1205,7 @@ def prepare_ml_dataset(
             "max_test_samples": split_cfg.max_test_samples,
             "val_samples_per_phase": split_cfg.val_samples_per_phase,
             "test_samples_per_phase": split_cfg.test_samples_per_phase,
+            "phase_balancing_equalize_to_min_count": phase_balancing_enabled,
         },
         "timing": {
             "total_elapsed_seconds": float(time.monotonic() - run_t0),

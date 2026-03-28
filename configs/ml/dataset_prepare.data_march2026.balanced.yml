@@ -1,0 +1,41 @@
+schema_version: phase_id_xcorr.ml_dataset_prep.v3
+input_mode: single_phase_scan_map
+output_dir: reports/ml/datasets/data_march2026_balanced
+strict_pattern_presence: true
+
+data_source_folder: 'F:\PhaseID_Training_Data\Data_March2026'
+allow_filename_phase_fallback: false
+
+phase_to_label:
+  Al: 0
+  Ni: 1
+  Cu: 2
+
+listOfFiles:
+  - file: Al-2_1.oh5
+    scan_id: al_2_1
+    phase_name: Al
+  - file: Cu-2_1.oh5
+    scan_id: cu_2_1
+    phase_name: Cu
+  - file: Ni-2_1.oh5
+    scan_id: ni_2_1
+    phase_name: Ni
+
+quality_filters:
+  expression: "CI > 0.5 && Fit < 1.0"
+
+preprocessing:
+  resize_hw: [128, 128]
+  apply_circular_mask: true
+  normalize_mode: none
+
+phase_balancing:
+  equalize_to_min_count: true
+
+split:
+  train: 0.8
+  val: 0.1
+  test: 0.1
+  seed: 42
+  stratified: true

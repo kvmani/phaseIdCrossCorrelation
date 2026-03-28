@@ -11,12 +11,13 @@ Operational guide for preparing ML datasets from `.oh5` scans and launching the 
    - applies quality filters (`CI`, `IQ`, `Fit`, `Valid`),
    - stores accepted pattern + label + trace metadata.
 3. Merges accepted samples across all sources.
-4. Creates deterministic train/val/test splits.
-5. Writes dataset artifacts (`manifest.json`, `records.csv`, split `.npz`, `events.jsonl`).
-6. `run_ml_train_classifier.py` trains/evaluates from dataset manifest.
-7. `run_ml_benchmark_suite.py` runs repeated model experiments.
-8. Dataset summaries include per-phase split composition, CI/Fit/IQ mean-median-std, and modal intensity statistics.
-9. Suite summaries include best-model selection, confusion matrices, per-class metrics, and links to per-run configs and reports.
+4. Optionally balances accepted phase counts down to the smallest accepted phase before splitting.
+5. Creates deterministic train/val/test splits.
+6. Writes dataset artifacts (`manifest.json`, `records.csv`, split `.npz`, `events.jsonl`).
+7. `run_ml_train_classifier.py` trains/evaluates from dataset manifest.
+8. `run_ml_benchmark_suite.py` runs repeated model experiments.
+9. Dataset summaries include per-phase split composition, CI/Fit/IQ mean-median-std, and modal intensity statistics.
+10. Suite summaries include best-model selection, confusion matrices, per-class metrics, and links to per-run configs and reports.
 
 ## 2. Input Modes
 
@@ -127,6 +128,8 @@ split:
   test: 0.15
   seed: 42
   stratified: true
+phase_balancing:
+  equalize_to_min_count: true
   # optional exact per-phase holdout sizes; remainder goes to train
   # val_samples_per_phase: 3
   # test_samples_per_phase: 3
@@ -170,6 +173,8 @@ split:
   test: 0.15
   seed: 42
   stratified: true
+phase_balancing:
+  equalize_to_min_count: true
   # optional exact per-phase holdout sizes; for example use 100 each in larger runs
   # val_samples_per_phase: 100
   # test_samples_per_phase: 100
@@ -261,6 +266,8 @@ Manifest highlights:
 - `input_mode`
 - `phase_to_label`, `label_to_phase`
 - `source_summaries` and per-source reject reasons
+- `accepted_per_phase` for qualified post-filter counts before balancing
+- `selected_per_phase` and `phase_balancing` for the final balanced dataset used downstream
 - split counts and per-phase split counts
 - quality filter policy and sanity checks
 
