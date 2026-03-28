@@ -7,6 +7,7 @@ import argparse
 import logging
 from pathlib import Path
 import sys
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -14,6 +15,31 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from phase_id_xcorr.ml.oh5_inference import run_oh5_sample_inference
+from phase_id_xcorr.ml.dataset_io import read_json
+
+
+def _prediction_table(predictions: list[dict[str, Any]]) -> str:
+    columns = [
+        ("oh5_file", "oh5_file"),
+        ("x", "x"),
+        ("y", "y"),
+        ("index", "index"),
+        ("predicted_phase", "predicted_phase"),
+        ("score", "score"),
+    ]
+    widths: dict[str, int] = {}
+    for key, header in columns:
+        values = [str(row.get(key, "")) for row in predictions]
+        widths[key] = max(len(header), max((len(value) for value in values), default=0))
+
+    header = " | ".join(header.ljust(widths[key]) for key, header in columns)
+    divider = "-+-".join("-" * widths[key] for key, _ in columns)
+    lines = [header, divider]
+    for row in predictions:
+        lines.append(
+            " | ".join(str(row.get(key, "")).ljust(widths[key]) for key, _ in columns)
+        )
+    return "\n".join(lines)
 
 
 def parse_args() -> argparse.Namespace:
@@ -53,6 +79,10 @@ def main() -> int:
         result.sampled_patterns,
         summary_rel,
     )
+    predictions_payload = read_json(result.predictions_json)
+    predictions = predictions_payload.get("predictions", [])
+    if isinstance(predictions, list) and predictions:
+        print(_prediction_table(predictions))
     return 0
 
 

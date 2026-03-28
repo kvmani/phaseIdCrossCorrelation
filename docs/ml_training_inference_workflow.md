@@ -133,11 +133,13 @@ Key config behavior:
 - samples `n` valid patterns per scan using a deterministic seed
 - computes accuracy only for scans with `expected_phase`
 - writes:
+  - `sample_predictions.json`
   - `sample_predictions.csv`
   - `scan_summary.csv`
   - `summary.json`
   - `summary.md`
   - `manifest.json`
+- prints a compact terminal table with `oh5_file`, `x`, `y`, `index`, `predicted_phase`, and `score`
 
 ### 3.8 One-Go Full Cycle (Recommended for local conflict-free reproducibility)
 

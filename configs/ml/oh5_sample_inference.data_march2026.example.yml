@@ -1,0 +1,21 @@
+schema_version: phase_id_xcorr.ml_oh5_inference.v1
+
+run_dir: reports/ml/benchmarks/ni_cu_al_production/simple_cnn_w32
+checkpoint: best_checkpoint.pt
+device: auto
+
+output_dir: reports/ml/oh5_inference/data_march2026_sampled_prediction
+
+sampling:
+  samples_per_scan: 5
+  seed: 42
+
+quality_filters:
+  expression: "CI > 0.5 && Fit < 1.0"
+
+strict_sampling: false
+
+scans:
+  - file: F:/PhaseID_Training_Data/Data_March2026/Data_1.oh5
+  - file: F:/PhaseID_Training_Data/Data_March2026/Data_2.oh5
+  - file: F:/PhaseID_Training_Data/Data_March2026/Data_3.oh5

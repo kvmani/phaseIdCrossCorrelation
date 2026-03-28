@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 
 import h5py
@@ -9,6 +10,16 @@ import yaml
 from phase_id_xcorr.ml.dataset_io import read_json, save_split_npz, write_json
 from phase_id_xcorr.ml.oh5_inference import run_oh5_sample_inference
 from phase_id_xcorr.ml.training import train_classifier
+
+
+def _load_script_module():
+    script_path = Path(__file__).resolve().parents[1] / "scripts" / "run_ml_oh5_sample_inference.py"
+    spec = importlib.util.spec_from_file_location("run_ml_oh5_sample_inference_script", script_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Failed to load run_ml_oh5_sample_inference.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _make_patterns(n: int, h: int, w: int, seed: int) -> tuple[np.ndarray, np.ndarray]:
@@ -149,12 +160,55 @@ def test_run_oh5_sample_inference_supports_relative_and_absolute_paths(tmp_path:
     assert 0.0 <= result.labeled_accuracy <= 1.0
 
     summary = read_json(result.summary_json)
+    prediction_json = read_json(result.predictions_json)
     assert summary["processed_scans"] == 2
     assert summary["sampled_patterns"] == 4
     assert summary["labeled_patterns"] == 4
+    assert summary["artifacts"]["sample_predictions_json"] == "reports/ml/oh5_inference/test_run/sample_predictions.json"
+    assert prediction_json["schema_version"] == "phase_id_xcorr.ml_oh5_sample_predictions.v1"
+    assert prediction_json["processed_scans"] == 2
+    assert prediction_json["sampled_patterns"] == 4
+    assert len(prediction_json["predictions"]) == 4
+    first_prediction = prediction_json["predictions"][0]
+    assert sorted(first_prediction.keys()) == ["index", "oh5_file", "predicted_phase", "score", "x", "y"]
+    assert first_prediction["oh5_file"] in {"WD14.oh5", "WD18.oh5"}
+    assert 0.0 <= float(first_prediction["score"]) <= 1.0
 
     pattern_lines = result.patterns_csv.read_text(encoding="utf-8").strip().splitlines()
     scan_lines = result.scans_csv.read_text(encoding="utf-8").strip().splitlines()
     assert len(pattern_lines) == 5
     assert len(scan_lines) == 3
     assert "WD14" in result.summary_md.read_text(encoding="utf-8")
+
+
+def test_prediction_table_formats_requested_columns() -> None:
+    module = _load_script_module()
+    table = module._prediction_table(
+        [
+            {
+                "oh5_file": "Data_1.oh5",
+                "x": 1,
+                "y": 2,
+                "index": 3,
+                "predicted_phase": "Ni",
+                "score": 0.812345,
+            },
+            {
+                "oh5_file": "Data_2.oh5",
+                "x": 10,
+                "y": 20,
+                "index": 30,
+                "predicted_phase": "Cu",
+                "score": 0.654321,
+            },
+        ]
+    )
+
+    lines = table.splitlines()
+    assert len(lines) == 4
+    assert "oh5_file" in lines[0]
+    assert "predicted_phase" in lines[0]
+    assert "score" in lines[0]
+    assert "Data_1.oh5" in lines[2]
+    assert "Ni" in lines[2]
+    assert "0.812345" in lines[2]

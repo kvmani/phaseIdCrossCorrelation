@@ -39,6 +39,7 @@ class Oh5InferenceResult:
 
     output_dir: Path
     patterns_csv: Path
+    predictions_json: Path
     scans_csv: Path
     summary_json: Path
     manifest_json: Path
@@ -296,6 +297,22 @@ def _summary_markdown(
     return "\n".join(lines) + "\n"
 
 
+def _prediction_json_rows(pattern_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for row in pattern_rows:
+        rows.append(
+            {
+                "oh5_file": Path(str(row["oh5_path"])).name,
+                "x": int(row["x"]),
+                "y": int(row["y"]),
+                "index": int(row["pattern_index"]),
+                "predicted_phase": str(row["predicted_phase"]),
+                "score": round(float(row["confidence"]), 6),
+            }
+        )
+    return rows
+
+
 def run_oh5_sample_inference(
     *,
     config_path: Path,
@@ -383,6 +400,7 @@ def run_oh5_sample_inference(
             )
 
     patterns_csv = output_dir / "sample_predictions.csv"
+    predictions_json = output_dir / "sample_predictions.json"
     scans_csv = output_dir / "scan_summary.csv"
     summary_json = output_dir / "summary.json"
     manifest_json = output_dir / "manifest.json"
@@ -396,6 +414,7 @@ def run_oh5_sample_inference(
     result = Oh5InferenceResult(
         output_dir=output_dir,
         patterns_csv=patterns_csv,
+        predictions_json=predictions_json,
         scans_csv=scans_csv,
         summary_json=summary_json,
         manifest_json=manifest_json,
@@ -407,6 +426,33 @@ def run_oh5_sample_inference(
 
     write_records_csv(patterns_csv, pattern_rows)
     write_records_csv(scans_csv, scan_rows)
+    prediction_rows = _prediction_json_rows(pattern_rows)
+    write_json(
+        predictions_json,
+        {
+            "schema_version": "phase_id_xcorr.ml_oh5_sample_predictions.v1",
+            "created_utc": _now_iso_utc(),
+            "model": {
+                "run_dir": rel_path(model.run_dir, repo_root),
+                "checkpoint_path": rel_path(model.checkpoint_path, repo_root),
+                "model_family": model.model_family,
+                "model_name": model.model_name,
+                "class_names": model.class_names,
+            },
+            "quality_filters": {
+                "expression": quality_policy.expression,
+                "resolved_expression": quality_policy.resolved_expression,
+            },
+            "sampling": {
+                "seed": seed,
+                "default_samples_per_scan": default_samples_per_scan,
+                "strict_sampling": strict_sampling,
+            },
+            "processed_scans": len(scan_rows),
+            "sampled_patterns": len(pattern_rows),
+            "predictions": prediction_rows,
+        },
+    )
 
     summary_payload = {
         "schema_version": "phase_id_xcorr.ml_oh5_inference_summary.v1",
@@ -435,6 +481,7 @@ def run_oh5_sample_inference(
         "overall_labeled_accuracy": labeled_accuracy,
         "artifacts": {
             "sample_predictions_csv": rel_path(patterns_csv, repo_root),
+            "sample_predictions_json": rel_path(predictions_json, repo_root),
             "scan_summary_csv": rel_path(scans_csv, repo_root),
             "summary_md": rel_path(summary_md, repo_root),
         },
@@ -457,6 +504,7 @@ def run_oh5_sample_inference(
             "sampled_patterns": len(pattern_rows),
             "summary_json": rel_path(summary_json, repo_root),
             "sample_predictions_csv": rel_path(patterns_csv, repo_root),
+            "sample_predictions_json": rel_path(predictions_json, repo_root),
             "scan_summary_csv": rel_path(scans_csv, repo_root),
         },
     )

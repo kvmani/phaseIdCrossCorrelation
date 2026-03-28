@@ -20,6 +20,7 @@ Files:
 - `train.classiication_training_data.smoke.yml`: smoke single-run training config on the filtered local dataset.
 - `train.ni_cu_al.production.base.yml`: production baseline train config for the filtered Windows dataset.
 - `oh5_sample_inference.ni_different_condition.example.yml`: example unseen-scan CNN inference config for filtered random sampling from new `.oh5` files under a Windows folder.
+- `oh5_sample_inference.data_march2026.example.yml`: explicit three-scan inference config for `F:/PhaseID_Training_Data/Data_March2026/Data_1.oh5` to `Data_3.oh5`, sampling 5 filtered patterns per scan.
 
 Run commands:
 
@@ -34,8 +35,9 @@ python scripts/run_ml_benchmark_suite.py --config configs/ml/benchmark_suite.ni_
 python scripts/run_ml_phase_explorer.py --config configs/ml/dataset_prepare.v3_al_ni_cu.example.yml --debug
 python scripts/run_ml_phase_explorer.py --config configs/ml/phase_explorer.ni_cu_al.production.yml --debug
 python scripts/run_ml_oh5_sample_inference.py --config configs/ml/oh5_sample_inference.ni_different_condition.example.yml --debug
+python scripts/run_ml_oh5_sample_inference.py --config configs/ml/oh5_sample_inference.data_march2026.example.yml --debug
 python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.debug.yml --debug
 python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.ni_cu_al.production.yml --debug
 ```
 
-Each workflow writes both `manifest.json` and `events.jsonl` under its output directory. Dataset HTML summaries also include phase-wise split composition, CI/Fit/IQ statistics, and modal intensity values. Benchmark HTML summaries include best-model selection, confusion matrices, per-class metrics, and links to per-run artifacts.
+Each workflow writes both `manifest.json` and `events.jsonl` under its output directory. The sampled `.oh5` inference workflow now also writes `sample_predictions.json` alongside the existing CSV summaries. Dataset HTML summaries also include phase-wise split composition, CI/Fit/IQ statistics, and modal intensity values. Benchmark HTML summaries include best-model selection, confusion matrices, per-class metrics, and links to per-run artifacts.
