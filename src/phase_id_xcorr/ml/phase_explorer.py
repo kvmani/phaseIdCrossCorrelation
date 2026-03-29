@@ -289,6 +289,56 @@ def _default_attr_limits(dataset: ExplorerDataset, attribute: str) -> tuple[floa
     return _sanitize_axis_limits(float(np.min(merged)), float(np.max(merged)))
 
 
+def _parse_optional_float(mapping: dict[str, Any], key: str) -> float | None:
+    value = mapping.get(key)
+    if value is None:
+        return None
+    return float(value)
+
+
+def _resolve_y_limits(
+    cfg: dict[str, Any],
+    *,
+    computed_max: float,
+) -> tuple[float, float]:
+    y_min = _parse_optional_float(cfg, "y_min")
+    y_max = _parse_optional_float(cfg, "y_max")
+    if y_min is None:
+        y_min = 0.0
+    if y_max is None:
+        y_max = max(1.0, computed_max * 1.05)
+    return _sanitize_axis_limits(float(y_min), float(y_max))
+
+
+def _resolve_plot_text(
+    cfg: dict[str, Any],
+    *,
+    default_title: str,
+    default_x_label: str,
+    default_y_label: str,
+    phase_name: str,
+    attribute: str | None = None,
+) -> tuple[str, str, str]:
+    title_template = str(cfg.get("title_template", "")).strip()
+    x_label_template = str(cfg.get("x_label_template", "")).strip()
+    y_label_template = str(cfg.get("y_label_template", "")).strip()
+    title = str(cfg.get("title", "")).strip()
+    x_label = str(cfg.get("x_label", "")).strip()
+    y_label = str(cfg.get("y_label", "")).strip()
+    context = {"phase": phase_name, "attribute": attribute or ""}
+    if title_template:
+        title = title_template.format(**context)
+    if x_label_template:
+        x_label = x_label_template.format(**context)
+    if y_label_template:
+        y_label = y_label_template.format(**context)
+    return (
+        title or default_title,
+        x_label or default_x_label,
+        y_label or default_y_label,
+    )
+
+
 def _plot_histogram_png(
     *,
     counts: np.ndarray,
@@ -302,28 +352,82 @@ def _plot_histogram_png(
     output_path: Path,
     dpi: int,
     figure_size: tuple[float, float],
+    figure_facecolor: str,
+    axes_facecolor: str,
     title_fontsize: float,
     label_fontsize: float,
-    tick_labelsize: float,
+    x_tick_labelsize: float,
+    y_tick_labelsize: float,
+    tick_width: float,
+    tick_length: float,
+    minor_tick_width: float,
+    minor_tick_length: float,
+    tick_direction: str,
+    x_tick_rotation: float,
+    y_tick_rotation: float,
     spine_linewidth: float,
     grid_linewidth: float,
+    grid_alpha: float,
+    title_pad: float,
+    label_pad: float,
+    bar_linewidth: float,
+    edge_color: str,
+    show_minor_ticks: bool,
+    savefig_pad_inches: float,
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     centers = 0.5 * (edges[:-1] + edges[1:])
     widths = np.diff(edges)
 
-    fig, ax = plt.subplots(figsize=figure_size, constrained_layout=True)
-    ax.bar(centers, counts, width=widths, align="center", color=color, edgecolor=color, linewidth=0.8)
-    ax.set_title(title, fontsize=title_fontsize, pad=10)
-    ax.set_xlabel(x_label, fontsize=label_fontsize)
-    ax.set_ylabel(y_label, fontsize=label_fontsize)
-    ax.tick_params(axis="both", which="major", labelsize=tick_labelsize, width=max(0.8, spine_linewidth))
+    fig, ax = plt.subplots(figsize=figure_size, constrained_layout=True, facecolor=figure_facecolor)
+    ax.set_facecolor(axes_facecolor)
+    ax.bar(
+        centers,
+        counts,
+        width=widths,
+        align="center",
+        color=color,
+        edgecolor=edge_color,
+        linewidth=bar_linewidth,
+    )
+    ax.set_title(title, fontsize=title_fontsize, pad=title_pad)
+    ax.set_xlabel(x_label, fontsize=label_fontsize, labelpad=label_pad)
+    ax.set_ylabel(y_label, fontsize=label_fontsize, labelpad=label_pad)
+    ax.tick_params(
+        axis="x",
+        which="major",
+        labelsize=x_tick_labelsize,
+        width=tick_width,
+        length=tick_length,
+        direction=tick_direction,
+        rotation=x_tick_rotation,
+    )
+    ax.tick_params(
+        axis="y",
+        which="major",
+        labelsize=y_tick_labelsize,
+        width=tick_width,
+        length=tick_length,
+        direction=tick_direction,
+        rotation=y_tick_rotation,
+    )
+    if show_minor_ticks:
+        ax.minorticks_on()
+        ax.tick_params(
+            axis="both",
+            which="minor",
+            width=minor_tick_width,
+            length=minor_tick_length,
+            direction=tick_direction,
+        )
+    else:
+        ax.minorticks_off()
     ax.set_xlim(*x_limits)
     ax.set_ylim(*y_limits)
-    ax.grid(True, alpha=0.25, linewidth=grid_linewidth)
+    ax.grid(True, alpha=grid_alpha, linewidth=grid_linewidth)
     for spine in ax.spines.values():
         spine.set_linewidth(spine_linewidth)
-    fig.savefig(output_path, dpi=dpi, bbox_inches="tight")
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight", pad_inches=savefig_pad_inches, facecolor=figure_facecolor)
     plt.close(fig)
 
 
@@ -351,11 +455,28 @@ def export_phase_explorer_artifacts(
     title_fontsize = float(export_cfg.get("title_font_size", 20))
     label_fontsize = float(export_cfg.get("label_font_size", 18))
     tick_labelsize = float(export_cfg.get("tick_label_size", 16))
+    x_tick_labelsize = float(export_cfg.get("x_tick_label_size", tick_labelsize))
+    y_tick_labelsize = float(export_cfg.get("y_tick_label_size", tick_labelsize))
+    tick_width = float(export_cfg.get("tick_width", max(0.8, float(export_cfg.get("spine_line_width", 1.2)))))
+    tick_length = float(export_cfg.get("tick_length", 6.0))
+    minor_tick_width = float(export_cfg.get("minor_tick_width", max(0.6, tick_width * 0.8)))
+    minor_tick_length = float(export_cfg.get("minor_tick_length", max(3.0, tick_length * 0.6)))
+    tick_direction = str(export_cfg.get("tick_direction", "out")).strip() or "out"
+    x_tick_rotation = float(export_cfg.get("x_tick_rotation", 0.0))
+    y_tick_rotation = float(export_cfg.get("y_tick_rotation", 0.0))
     spine_linewidth = float(export_cfg.get("spine_line_width", 1.2))
     grid_linewidth = float(export_cfg.get("grid_line_width", 0.8))
+    grid_alpha = float(export_cfg.get("grid_alpha", 0.25))
+    title_pad = float(export_cfg.get("title_pad", 10.0))
+    label_pad = float(export_cfg.get("label_pad", 8.0))
+    figure_facecolor = str(export_cfg.get("figure_facecolor", "white")).strip() or "white"
+    axes_facecolor = str(export_cfg.get("axes_facecolor", "white")).strip() or "white"
+    show_minor_ticks = bool(export_cfg.get("show_minor_ticks", False))
+    savefig_pad_inches = float(export_cfg.get("savefig_pad_inches", 0.1))
     intensity_bins = int(intensity_cfg.get("bins", 256))
     attr_bins = int(attr_cfg.get("bins", 48))
     field_ranges = attr_cfg.get("field_ranges") if isinstance(attr_cfg.get("field_ranges"), dict) else {}
+    field_y_ranges = attr_cfg.get("field_y_ranges") if isinstance(attr_cfg.get("field_y_ranges"), dict) else {}
     exported_attributes = export_cfg.get("attributes", ["CI", "IQ", "Fit"])
     if not isinstance(exported_attributes, list):
         exported_attributes = ["CI", "IQ", "Fit"]
@@ -369,8 +490,8 @@ def export_phase_explorer_artifacts(
             "font.size": base_fontsize,
             "axes.titlesize": title_fontsize,
             "axes.labelsize": label_fontsize,
-            "xtick.labelsize": tick_labelsize,
-            "ytick.labelsize": tick_labelsize,
+            "xtick.labelsize": x_tick_labelsize,
+            "ytick.labelsize": y_tick_labelsize,
             "figure.dpi": dpi,
             "savefig.dpi": dpi,
         }
@@ -382,6 +503,9 @@ def export_phase_explorer_artifacts(
         intensity_cfg.get("x_max", intensity_max_default) if intensity_cfg.get("x_max") is not None else intensity_max_default
     )
     intensity_x_limits = _sanitize_axis_limits(intensity_x_min, intensity_x_max)
+    intensity_color = str(intensity_cfg.get("color", "#1f77b4")).strip() or "#1f77b4"
+    intensity_edge_color = str(intensity_cfg.get("edge_color", intensity_color)).strip() or intensity_color
+    intensity_bar_linewidth = float(intensity_cfg.get("bar_line_width", 0.8))
 
     intensity_phase_histograms: dict[str, dict[str, Any]] = {}
     intensity_y_max = 0.0
@@ -394,29 +518,53 @@ def export_phase_explorer_artifacts(
         )
         intensity_phase_histograms[phase_name] = {"counts": counts, "edges": edges}
         intensity_y_max = max(intensity_y_max, float(np.max(counts)) if counts.size else 0.0)
-    intensity_y_limits = (0.0, max(1.0, intensity_y_max * 1.05))
+    intensity_y_limits = _resolve_y_limits(intensity_cfg, computed_max=intensity_y_max)
 
     exports: list[dict[str, Any]] = []
     for phase_name in dataset.phase_names:
         output_path = output_dir / f"{phase_name}_intensity_distribution.png"
         hist_payload = intensity_phase_histograms[phase_name]
+        title, x_label, y_label = _resolve_plot_text(
+            intensity_cfg,
+            default_title=f"{phase_name} intensity distribution",
+            default_x_label="Intensity",
+            default_y_label="Pixel count",
+            phase_name=phase_name,
+        )
         _plot_histogram_png(
             counts=hist_payload["counts"],
             edges=hist_payload["edges"],
-            title=f"{phase_name} intensity distribution",
-            x_label="Intensity",
-            y_label="Pixel count",
+            title=title,
+            x_label=x_label,
+            y_label=y_label,
             x_limits=intensity_x_limits,
             y_limits=intensity_y_limits,
-            color="#1f77b4",
+            color=intensity_color,
             output_path=output_path,
             dpi=dpi,
             figure_size=figure_size,
+            figure_facecolor=figure_facecolor,
+            axes_facecolor=axes_facecolor,
             title_fontsize=title_fontsize,
             label_fontsize=label_fontsize,
-            tick_labelsize=tick_labelsize,
+            x_tick_labelsize=x_tick_labelsize,
+            y_tick_labelsize=y_tick_labelsize,
+            tick_width=tick_width,
+            tick_length=tick_length,
+            minor_tick_width=minor_tick_width,
+            minor_tick_length=minor_tick_length,
+            tick_direction=tick_direction,
+            x_tick_rotation=x_tick_rotation,
+            y_tick_rotation=y_tick_rotation,
             spine_linewidth=spine_linewidth,
             grid_linewidth=grid_linewidth,
+            grid_alpha=grid_alpha,
+            title_pad=title_pad,
+            label_pad=label_pad,
+            bar_linewidth=intensity_bar_linewidth,
+            edge_color=intensity_edge_color,
+            show_minor_ticks=show_minor_ticks,
+            savefig_pad_inches=savefig_pad_inches,
         )
         exports.append(
             {
@@ -427,6 +575,10 @@ def export_phase_explorer_artifacts(
                 "x_limits": list(intensity_x_limits),
                 "y_limits": list(intensity_y_limits),
                 "bins": intensity_bins,
+                "title": title,
+                "x_label": x_label,
+                "y_label": y_label,
+                "color": intensity_color,
             }
         )
 
@@ -467,29 +619,63 @@ def export_phase_explorer_artifacts(
             attribute_histograms[phase_name] = {"counts": counts, "edges": edges}
             attr_y_max = max(attr_y_max, float(np.max(counts)) if counts.size else 0.0)
 
-        attr_y_limits = (0.0, max(1.0, attr_y_max * 1.05))
+        attr_y_limits = (
+            _sanitize_axis_limits(float(field_y_ranges[attribute][0]), float(field_y_ranges[attribute][1]))
+            if attribute in field_y_ranges
+            and isinstance(field_y_ranges[attribute], (list, tuple))
+            and len(field_y_ranges[attribute]) == 2
+            else _resolve_y_limits(attr_cfg, computed_max=attr_y_max)
+        )
+        attribute_color = str(attr_cfg.get("color", "#2ca02c")).strip() or "#2ca02c"
+        attribute_edge_color = str(attr_cfg.get("edge_color", attribute_color)).strip() or attribute_color
+        attribute_bar_linewidth = float(attr_cfg.get("bar_line_width", 0.8))
         for phase_name in dataset.phase_names:
             hist_payload = attribute_histograms.get(phase_name)
             if hist_payload is None:
                 continue
             output_path = output_dir / f"{phase_name}_{attribute}.png"
+            title, x_label, y_label = _resolve_plot_text(
+                attr_cfg,
+                default_title=f"{phase_name} {attribute} distribution",
+                default_x_label=attribute,
+                default_y_label="Pixel count",
+                phase_name=phase_name,
+                attribute=attribute,
+            )
             _plot_histogram_png(
                 counts=hist_payload["counts"],
                 edges=hist_payload["edges"],
-                title=f"{phase_name} {attribute} distribution",
-                x_label=attribute,
-                y_label="Pixel count",
+                title=title,
+                x_label=x_label,
+                y_label=y_label,
                 x_limits=attr_x_limits,
                 y_limits=attr_y_limits,
-                color="#2ca02c",
+                color=attribute_color,
                 output_path=output_path,
                 dpi=dpi,
                 figure_size=figure_size,
+                figure_facecolor=figure_facecolor,
+                axes_facecolor=axes_facecolor,
                 title_fontsize=title_fontsize,
                 label_fontsize=label_fontsize,
-                tick_labelsize=tick_labelsize,
+                x_tick_labelsize=x_tick_labelsize,
+                y_tick_labelsize=y_tick_labelsize,
+                tick_width=tick_width,
+                tick_length=tick_length,
+                minor_tick_width=minor_tick_width,
+                minor_tick_length=minor_tick_length,
+                tick_direction=tick_direction,
+                x_tick_rotation=x_tick_rotation,
+                y_tick_rotation=y_tick_rotation,
                 spine_linewidth=spine_linewidth,
                 grid_linewidth=grid_linewidth,
+                grid_alpha=grid_alpha,
+                title_pad=title_pad,
+                label_pad=label_pad,
+                bar_linewidth=attribute_bar_linewidth,
+                edge_color=attribute_edge_color,
+                show_minor_ticks=show_minor_ticks,
+                savefig_pad_inches=savefig_pad_inches,
             )
             exports.append(
                 {
@@ -500,6 +686,10 @@ def export_phase_explorer_artifacts(
                     "x_limits": list(attr_x_limits),
                     "y_limits": list(attr_y_limits),
                     "bins": attr_bins,
+                    "title": title,
+                    "x_label": x_label,
+                    "y_label": y_label,
+                    "color": attribute_color,
                 }
             )
 
@@ -507,6 +697,32 @@ def export_phase_explorer_artifacts(
         "config_path": rel_path(dataset.config_path, repo_root),
         "output_dir": rel_path(output_dir, repo_root),
         "phase_names": list(dataset.phase_names),
+        "export_style": {
+            "dpi": dpi,
+            "figure_size_inches": list(figure_size),
+            "font_family": font_family,
+            "font_size": base_fontsize,
+            "title_font_size": title_fontsize,
+            "label_font_size": label_fontsize,
+            "x_tick_label_size": x_tick_labelsize,
+            "y_tick_label_size": y_tick_labelsize,
+            "tick_width": tick_width,
+            "tick_length": tick_length,
+            "minor_tick_width": minor_tick_width,
+            "minor_tick_length": minor_tick_length,
+            "tick_direction": tick_direction,
+            "x_tick_rotation": x_tick_rotation,
+            "y_tick_rotation": y_tick_rotation,
+            "spine_line_width": spine_linewidth,
+            "grid_line_width": grid_linewidth,
+            "grid_alpha": grid_alpha,
+            "title_pad": title_pad,
+            "label_pad": label_pad,
+            "figure_facecolor": figure_facecolor,
+            "axes_facecolor": axes_facecolor,
+            "show_minor_ticks": show_minor_ticks,
+            "savefig_pad_inches": savefig_pad_inches,
+        },
         "exports": exports,
     }
     manifest_path = output_dir / "phase_explorer_exports.json"
