@@ -302,6 +302,11 @@ def _plot_histogram_png(
     output_path: Path,
     dpi: int,
     figure_size: tuple[float, float],
+    title_fontsize: float,
+    label_fontsize: float,
+    tick_labelsize: float,
+    spine_linewidth: float,
+    grid_linewidth: float,
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     centers = 0.5 * (edges[:-1] + edges[1:])
@@ -309,14 +314,15 @@ def _plot_histogram_png(
 
     fig, ax = plt.subplots(figsize=figure_size, constrained_layout=True)
     ax.bar(centers, counts, width=widths, align="center", color=color, edgecolor=color, linewidth=0.8)
-    ax.set_title(title)
-    ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label)
+    ax.set_title(title, fontsize=title_fontsize, pad=10)
+    ax.set_xlabel(x_label, fontsize=label_fontsize)
+    ax.set_ylabel(y_label, fontsize=label_fontsize)
+    ax.tick_params(axis="both", which="major", labelsize=tick_labelsize, width=max(0.8, spine_linewidth))
     ax.set_xlim(*x_limits)
     ax.set_ylim(*y_limits)
-    ax.grid(True, alpha=0.25, linewidth=0.6)
+    ax.grid(True, alpha=0.25, linewidth=grid_linewidth)
     for spine in ax.spines.values():
-        spine.set_linewidth(0.8)
+        spine.set_linewidth(spine_linewidth)
     fig.savefig(output_path, dpi=dpi, bbox_inches="tight")
     plt.close(fig)
 
@@ -336,10 +342,17 @@ def export_phase_explorer_artifacts(
     export_cfg = explorer_cfg.get("export") if isinstance(explorer_cfg.get("export"), dict) else {}
 
     dpi = int(export_cfg.get("dpi", 300))
-    figure_size_cfg = export_cfg.get("figure_size_inches", [6.5, 4.5])
+    figure_size_cfg = export_cfg.get("figure_size_inches", [8.5, 5.5])
     if not isinstance(figure_size_cfg, (list, tuple)) or len(figure_size_cfg) != 2:
-        figure_size_cfg = [6.5, 4.5]
+        figure_size_cfg = [8.5, 5.5]
     figure_size = (float(figure_size_cfg[0]), float(figure_size_cfg[1]))
+    font_family = str(export_cfg.get("font_family", "Arial")).strip() or "Arial"
+    base_fontsize = float(export_cfg.get("font_size", 18))
+    title_fontsize = float(export_cfg.get("title_font_size", 20))
+    label_fontsize = float(export_cfg.get("label_font_size", 18))
+    tick_labelsize = float(export_cfg.get("tick_label_size", 16))
+    spine_linewidth = float(export_cfg.get("spine_line_width", 1.2))
+    grid_linewidth = float(export_cfg.get("grid_line_width", 0.8))
     intensity_bins = int(intensity_cfg.get("bins", 256))
     attr_bins = int(attr_cfg.get("bins", 48))
     field_ranges = attr_cfg.get("field_ranges") if isinstance(attr_cfg.get("field_ranges"), dict) else {}
@@ -352,11 +365,12 @@ def export_phase_explorer_artifacts(
     plt.style.use("seaborn-v0_8-whitegrid")
     plt.rcParams.update(
         {
-            "font.size": 11,
-            "axes.titlesize": 13,
-            "axes.labelsize": 12,
-            "xtick.labelsize": 10,
-            "ytick.labelsize": 10,
+            "font.family": font_family,
+            "font.size": base_fontsize,
+            "axes.titlesize": title_fontsize,
+            "axes.labelsize": label_fontsize,
+            "xtick.labelsize": tick_labelsize,
+            "ytick.labelsize": tick_labelsize,
             "figure.dpi": dpi,
             "savefig.dpi": dpi,
         }
@@ -398,6 +412,11 @@ def export_phase_explorer_artifacts(
             output_path=output_path,
             dpi=dpi,
             figure_size=figure_size,
+            title_fontsize=title_fontsize,
+            label_fontsize=label_fontsize,
+            tick_labelsize=tick_labelsize,
+            spine_linewidth=spine_linewidth,
+            grid_linewidth=grid_linewidth,
         )
         exports.append(
             {
@@ -466,6 +485,11 @@ def export_phase_explorer_artifacts(
                 output_path=output_path,
                 dpi=dpi,
                 figure_size=figure_size,
+                title_fontsize=title_fontsize,
+                label_fontsize=label_fontsize,
+                tick_labelsize=tick_labelsize,
+                spine_linewidth=spine_linewidth,
+                grid_linewidth=grid_linewidth,
             )
             exports.append(
                 {

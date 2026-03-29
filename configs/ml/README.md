@@ -51,3 +51,5 @@ python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.data_march202
 ```
 
 Each workflow writes both `manifest.json` and `events.jsonl` under its output directory. The sampled `.oh5` inference workflow now also writes `sample_predictions.json` alongside the existing CSV summaries. Dataset HTML summaries also include phase-wise split composition, CI/Fit/IQ statistics, and modal intensity values. Benchmark HTML summaries include best-model selection, confusion matrices, per-class metrics, and links to per-run artifacts.
+
+For the phase explorer, publication-export styling is set under `explorer.export`. Typical fields include `dpi`, `figure_size_inches`, `font_family`, `font_size`, `title_font_size`, `label_font_size`, and `tick_label_size`.

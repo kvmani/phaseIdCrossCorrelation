@@ -55,6 +55,18 @@ On startup, the explorer also writes PNG and JSON artifacts into the YAML `outpu
 - `Al_Fit.png`, `Cu_Fit.png`, `Ni_Fit.png`
 - `phase_explorer_exports.json`
 
+Publication-export styling is controlled from `explorer.export`, including:
+
+- `dpi`
+- `figure_size_inches`
+- `font_family`
+- `font_size`
+- `title_font_size`
+- `label_font_size`
+- `tick_label_size`
+- `spine_line_width`
+- `grid_line_width`
+
 ## 4. GUI Layout
 
 Each phase gets its own column. A column contains:

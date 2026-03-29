@@ -32,3 +32,14 @@ explorer:
     field_ranges:
       CI: [0, 1]
       Fit: [0, 2]
+  export:
+    dpi: 400
+    figure_size_inches: [8.5, 5.5]
+    font_family: Arial
+    font_size: 18
+    title_font_size: 20
+    label_font_size: 18
+    tick_label_size: 16
+    spine_line_width: 1.2
+    grid_line_width: 0.8
+    attributes: [CI, IQ, Fit]
