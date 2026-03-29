@@ -2,6 +2,7 @@ numpy
 pillow
 h5py
 PyYAML
+torch
 timm
 python-pptx
 matplotlib

@@ -25,6 +25,7 @@ Files:
 - `full_cycle.data_march2026.balanced.yml`: one-go full-cycle config for the balanced March 2026 dataset.
 - `oh5_sample_inference.ni_different_condition.example.yml`: example unseen-scan CNN inference config for filtered random sampling from new `.oh5` files under a Windows folder.
 - `oh5_sample_inference.data_march2026.example.yml`: explicit three-scan inference config for `F:/PhaseID_Training_Data/Data_March2026/Data_1.oh5` to `Data_3.oh5`, sampling 5 filtered patterns per scan.
+- `diagnostic_gallery.example.yml`: cross-condition gallery template with reference/unknown source groups, quality gating, prediction filters, and contact-sheet export.
 
 Run commands:
 
@@ -43,6 +44,7 @@ python scripts/run_ml_phase_explorer.py --config configs/ml/dataset_prepare.v3_a
 python scripts/run_ml_phase_explorer.py --config configs/ml/phase_explorer.ni_cu_al.production.yml --debug
 python scripts/run_ml_oh5_sample_inference.py --config configs/ml/oh5_sample_inference.ni_different_condition.example.yml --debug
 python scripts/run_ml_oh5_sample_inference.py --config configs/ml/oh5_sample_inference.data_march2026.example.yml --debug
+python scripts/run_ml_diagnostic_gallery.py --config configs/ml/diagnostic_gallery.example.yml --debug
 python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.debug.yml --debug
 python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.ni_cu_al.production.yml --debug
 python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.data_march2026.balanced.yml --debug

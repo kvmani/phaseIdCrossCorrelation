@@ -8,6 +8,6 @@ Core package code lives under `src/phase_id_xcorr/`.
 - `features`: KikuchiPy Hough feature extraction
 - `evaluation`: curated NCC and Hough comparison workflows
 - `reporting`: run manifest helpers
-- `ml`: `.oh5` ingestion, labels, quality gating, splits, dataset prep, training, suite reporting, and GUI exploration
+- `ml`: `.oh5` ingestion, labels, quality gating, splits, dataset prep, training, suite reporting, and GUI exploration/diagnosis
 
 See `docs/architecture.md` for the higher-level workflow map.

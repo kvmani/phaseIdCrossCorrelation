@@ -31,6 +31,7 @@ Use this file as the entry point to the documentation set.
 - `docs/ml_training_inference_workflow.md`: recommended experiment sequence and reporting flow.
 - `docs/ml_windows_pycharm_production_runbook.md`: exact Windows 11 + PyCharm commands for the production `Ni-Cu-Al` run.
 - `docs/ml_phase_explorer_gui.md`: raw `.oh5` exploration GUI.
+- `docs/ml_diagnostic_gallery_gui.md`: cross-condition pattern gallery for model diagnosis.
 - `docs/ml_model_selection.md`: backbone shortlist and selection rationale.
 
 ### Understand data contracts

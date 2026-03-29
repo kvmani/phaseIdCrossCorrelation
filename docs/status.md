@@ -1,6 +1,6 @@
 # Project Status Snapshot
 
-Last updated: 2026-03-12
+Last updated: 2026-03-29
 
 ## Purpose
 
@@ -16,6 +16,7 @@ Build a modular EBSD phase-identification workflow that improves discrimination 
 - G0 intake validation and `.oh5` structure guidance are in place.
 - ML dataset preparation, training, benchmark suite, and reporting are implemented.
 - A native raw `.oh5` phase explorer GUI is implemented for exploratory analysis before dataset freezing, with auto-exported publication PNG histograms and JSON metadata in the configured output directory.
+- A diagnostic pattern gallery GUI is implemented for cross-condition inspection, manual index lookup, and reproducible JSON/contact-sheet export.
 - Debug-scale tests cover NCC, Hough, `.oh5` ingestion, dataset prep, splitting, quality gating, training smoke, and suite orchestration.
 
 ## Confirmed Constraints

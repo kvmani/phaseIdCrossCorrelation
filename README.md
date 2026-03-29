@@ -15,7 +15,8 @@ Implemented today:
 - curated image-vs-Hough comparison workflow,
 - ML dataset preparation from `.oh5`,
 - ML training and benchmark-suite runners,
-- raw `.oh5` phase explorer GUI.
+- raw `.oh5` phase explorer GUI,
+- diagnostic pattern gallery GUI for cross-condition model inspection.
 
 ## Start Here
 
@@ -39,6 +40,7 @@ Implemented today:
 - `docs/ml_input_data_runbook.md`
 - `docs/ml_training_inference_workflow.md`
 - `docs/ml_phase_explorer_gui.md`
+- `docs/ml_diagnostic_gallery_gui.md`
 - `docs/ml_model_selection.md`
 
 ### Data Contracts

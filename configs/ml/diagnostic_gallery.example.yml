@@ -1,0 +1,40 @@
+# Diagnostic gallery template.
+# Replace the run_dir and source file paths with your local trained model and scans.
+
+gallery_title: Diagnostic Pattern Gallery
+output_dir: reports/ml/diagnostic_gallery/example
+run_dir: path/to/trained_run
+checkpoint: best_checkpoint.pt
+device: auto
+
+sampling:
+  patterns_per_source: 5
+  seed: 7
+  strategy: random
+
+quality_filters:
+  expression: CI > 0.5 && Fit < 1.5
+
+prediction_filters:
+  min_confidence: 0.5
+  min_margin: 0.15
+
+source_groups:
+  reference:
+    - file: path/to/Al-2_1.oh5
+      scan_id: Al-2_1
+      phase_name: Al
+    - file: path/to/Cu-2_1.oh5
+      scan_id: Cu-2_1
+      phase_name: Cu
+    - file: path/to/Ni-2_1.oh5
+      scan_id: Ni-2_1
+      phase_name: Ni
+  unknown:
+    - file: path/to/data1.oh5
+      scan_id: data1
+    - file: path/to/data2.oh5
+      scan_id: data2
+    - file: path/to/data3.oh5
+      scan_id: data3
+

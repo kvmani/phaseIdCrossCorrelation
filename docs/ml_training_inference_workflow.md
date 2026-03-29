@@ -141,7 +141,25 @@ Key config behavior:
   - `manifest.json`
 - prints a compact terminal table with `oh5_file`, `x`, `y`, `index`, `predicted_phase`, and `score`
 
-### 3.8 One-Go Full Cycle (Recommended for local conflict-free reproducibility)
+### 3.8 Diagnostic Pattern Gallery
+
+Use this when you want side-by-side inspection of reference phase scans and anonymous unseen scans, with direct access to the exact pattern indices that were displayed:
+
+```bash
+python scripts/run_ml_diagnostic_gallery.py \
+  --config configs/ml/diagnostic_gallery.example.yml \
+  --debug
+```
+
+The gallery GUI is optimized for diagnosis rather than training. It supports:
+
+- drag-and-drop source lists for reference and unknown `.oh5` files,
+- reproducible sampling with quality and prediction filters,
+- manual pattern-index lookup for exact pixel inspection,
+- raw vs preprocessed preview tabs,
+- JSON manifest plus PNG contact-sheet export for slide assembly.
+
+### 3.9 One-Go Full Cycle (Recommended for local conflict-free reproducibility)
 
 ```bash
 python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.debug.yml --debug

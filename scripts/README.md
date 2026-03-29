@@ -19,6 +19,7 @@ Thin CLI entry points live here.
 - `scripts/run_ml_oh5_sample_inference.py` (sample filtered patterns from unseen `.oh5` scans, run saved CNN inference, write per-pattern JSON/CSV plus per-scan summaries, and print a compact prediction table)
 - `scripts/run_ml_inference_gui.py` (desktop GUI to choose a trained model, drop an unknown image, and inspect prediction probabilities)
 - `scripts/run_ml_phase_explorer.py` (native desktop GUI for raw `.oh5` phase-wise histogram/CDF exploration, interactive intensity-band highlighting, and auto-exported publication PNG/JSON histogram artifacts)
+- `scripts/run_ml_diagnostic_gallery.py` (desktop GUI for cross-condition pattern diagnosis with source grouping, manual pattern lookup, and manifest/contact-sheet export)
 - `scripts/run_ml_suite_with_ppt.py` (run benchmark suite and auto-build lab-meeting PPTX summary)
 - `scripts/run_ml_full_cycle.py` (one-go workflow from raw `.oh5` dataset prep to multi-model suite, HTML summaries, and PPTX)
 See `docs/README.md` for the doc map behind each runner.
