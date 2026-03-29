@@ -17,6 +17,7 @@ Build a modular EBSD phase-identification workflow that improves discrimination 
 - ML dataset preparation, training, benchmark suite, and reporting are implemented.
 - A native raw `.oh5` phase explorer GUI is implemented for exploratory analysis before dataset freezing, with auto-exported publication PNG histograms and JSON metadata in the configured output directory.
 - A diagnostic pattern gallery GUI is implemented for cross-condition inspection, manual index lookup, and reproducible JSON/contact-sheet export.
+- A graphics-first lab-meeting PPTX generator is implemented for balanced benchmark plus diagnostic-gallery assessment decks.
 - Debug-scale tests cover NCC, Hough, `.oh5` ingestion, dataset prep, splitting, quality gating, training smoke, and suite orchestration.
 
 ## Confirmed Constraints
