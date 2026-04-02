@@ -1,5 +1,5 @@
 schema_version: phase_id_xcorr.ml_full_cycle.v1
-output_root: reports/ml/full_cycle/data_march2026_balanced
+output_root: reports/ml/full_cycle/data_march2026_balanced_3scansEach
 
 dataset_prepare_config: configs/ml/dataset_prepare.data_march2026.balanced.yml
 suite_config: configs/ml/benchmark_suite.data_march2026.balanced.yml
@@ -9,5 +9,5 @@ strict: false
 generate_ppt: true
 ppt_output_dir: reports/ml/presentations
 ppt_max_results: 8
-deck_title: "Data March 2026 Balanced Ni-Cu-Al Run"
+deck_title: "Data March 2026 Balanced 3-Scans-Each Production Run"
 ppt_script: scripts/ml_results_presentation/generate_lab_meeting_ppt.py

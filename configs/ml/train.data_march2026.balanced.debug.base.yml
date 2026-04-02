@@ -1,15 +1,15 @@
 schema_version: phase_id_xcorr.ml_train.v1
 
-dataset_manifest_path: reports/ml/datasets/data_march2026_balanced_3scansEach/manifest.json
-output_dir: reports/ml/runs/data_march2026_balanced_3scansEach/base
+dataset_manifest_path: reports/ml/datasets/data_march2026_balanced_3scansEach_debug/manifest.json
+output_dir: reports/ml/runs/data_march2026_balanced_3scansEach_debug/base
 
 seed: 42
 device: auto
-amp: true
+amp: false
 
-batch_size: 16
+batch_size: 8
 num_workers: 0
-epochs: 15
+epochs: 2
 learning_rate: 0.0005
 weight_decay: 0.0001
 
