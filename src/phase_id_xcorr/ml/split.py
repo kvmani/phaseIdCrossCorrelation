@@ -21,6 +21,7 @@ class SplitConfig:
     group_key: str | None = None
     max_val_samples: int | None = None
     max_test_samples: int | None = None
+    train_samples_per_phase: int | None = None
     val_samples_per_phase: int | None = None
     test_samples_per_phase: int | None = None
 
@@ -48,6 +49,7 @@ def split_config_from_yaml(payload: dict[str, Any] | None) -> SplitConfig:
         group_key=str(cfg.get("group_key")).strip() if cfg.get("group_key") else None,
         max_val_samples=int(cfg["max_val_samples"]) if cfg.get("max_val_samples") is not None else None,
         max_test_samples=int(cfg["max_test_samples"]) if cfg.get("max_test_samples") is not None else None,
+        train_samples_per_phase=int(cfg["train_samples_per_phase"]) if cfg.get("train_samples_per_phase") is not None else None,
         val_samples_per_phase=int(cfg["val_samples_per_phase"]) if cfg.get("val_samples_per_phase") is not None else None,
         test_samples_per_phase=int(cfg["test_samples_per_phase"]) if cfg.get("test_samples_per_phase") is not None else None,
     )
@@ -126,28 +128,52 @@ def build_split_assignments(labels: list[int], cfg: SplitConfig, *, groups: list
     rng = np.random.default_rng(cfg.seed)
     out = ["" for _ in range(n)]
 
-    if cfg.val_samples_per_phase is not None or cfg.test_samples_per_phase is not None:
+    if (
+        cfg.train_samples_per_phase is not None
+        or cfg.val_samples_per_phase is not None
+        or cfg.test_samples_per_phase is not None
+    ):
         if groups:
-            raise ValueError("val_samples_per_phase/test_samples_per_phase are not supported with group-based splitting")
+            raise ValueError(
+                "train_samples_per_phase/val_samples_per_phase/test_samples_per_phase "
+                "are not supported with group-based splitting"
+            )
         if not cfg.stratified:
-            raise ValueError("val_samples_per_phase/test_samples_per_phase require stratified=true")
+            raise ValueError(
+                "train_samples_per_phase/val_samples_per_phase/test_samples_per_phase require stratified=true"
+            )
         label_to_indices: dict[int, list[int]] = {}
         for idx, label in enumerate(labels):
             label_to_indices.setdefault(int(label), []).append(idx)
 
+        train_n = max(0, int(cfg.train_samples_per_phase or 0))
         val_n = max(0, int(cfg.val_samples_per_phase or 0))
         test_n = max(0, int(cfg.test_samples_per_phase or 0))
 
         for _, idxs in sorted(label_to_indices.items(), key=lambda kv: kv[0]):
             arr = np.asarray(idxs, dtype=np.int64)
             rng.shuffle(arr)
-            n_val = min(val_n, int(arr.size))
-            remaining_after_val = max(0, int(arr.size) - n_val)
+            n_train = min(train_n, int(arr.size)) if cfg.train_samples_per_phase is not None else None
+            remaining_after_train = max(0, int(arr.size) - int(n_train or 0))
+            n_val = min(val_n, remaining_after_train)
+            remaining_after_val = max(0, remaining_after_train - n_val)
             n_test = min(test_n, remaining_after_val)
 
-            val_idx = arr[:n_val]
-            test_idx = arr[n_val : n_val + n_test]
-            train_idx = arr[n_val + n_test :]
+            cursor = 0
+            if n_train is not None:
+                train_idx = arr[cursor : cursor + n_train]
+                cursor += n_train
+            else:
+                train_idx = np.asarray([], dtype=np.int64)
+            val_idx = arr[cursor : cursor + n_val]
+            cursor += n_val
+            test_idx = arr[cursor : cursor + n_test]
+            cursor += n_test
+            remainder_idx = arr[cursor:]
+            if n_train is None:
+                train_idx = remainder_idx
+            else:
+                train_idx = np.concatenate([train_idx, remainder_idx], axis=0)
 
             for i in train_idx:
                 out[int(i)] = "train"

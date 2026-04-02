@@ -62,3 +62,25 @@ def test_split_exact_samples_per_phase_move_remainder_to_train() -> None:
         assert label_splits.count("val") == 3
         assert label_splits.count("test") == 3
         assert label_splits.count("train") == len(idxs) - 6
+
+
+def test_split_exact_train_val_test_samples_per_phase() -> None:
+    labels = [0] * 600 + [1] * 610 + [2] * 620
+    cfg = SplitConfig(
+        train=0.8,
+        val=0.1,
+        test=0.1,
+        seed=42,
+        stratified=True,
+        train_samples_per_phase=500,
+        val_samples_per_phase=20,
+        test_samples_per_phase=20,
+    )
+    split = build_split_assignments(labels, cfg)
+
+    for label in (0, 1, 2):
+        idxs = [i for i, y in enumerate(labels) if y == label]
+        label_splits = [split[i] for i in idxs]
+        assert label_splits.count("val") == 20
+        assert label_splits.count("test") == 20
+        assert label_splits.count("train") == len(idxs) - 40

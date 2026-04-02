@@ -14,7 +14,7 @@ from typing import Any
 
 from .config import apply_overrides, load_yaml, resolve_path
 from .dataset_builder import prepare_ml_dataset
-from .dataset_io import rel_path, write_json
+from .dataset_io import read_json, rel_path, write_json
 from .suite import run_benchmark_suite
 
 
@@ -55,6 +55,7 @@ def _write_html_summary(*, path: Path, summary: dict[str, Any], links: dict[str,
 <table>
 <tr><th>Stage</th><th>Artifact</th></tr>
 <tr><td>Dataset prep manifest</td><td><a href="../{links.get('dataset_manifest','')}">{links.get('dataset_manifest','')}</a></td></tr>
+<tr><td>Dataset prep HTML</td><td><a href="../{links.get('dataset_summary_html','')}">{links.get('dataset_summary_html','')}</a></td></tr>
 <tr><td>Benchmark suite summary</td><td><a href="../{links.get('suite_summary','')}">{links.get('suite_summary','')}</a></td></tr>
 <tr><td>Benchmark suite HTML</td><td><a href="../{links.get('suite_report_html','')}">{links.get('suite_report_html','')}</a></td></tr>
 <tr><td>PPTX</td><td>{('<a href="../'+links.get('pptx','')+'">'+links.get('pptx','')+'</a>') if links.get('pptx') else 'not generated'}</td></tr>
@@ -120,6 +121,8 @@ def run_full_cycle(
     emit("DATASET_PREP_START", config_path=rel_path(ds_cfg_path, repo_root))
     ds_result = prepare_ml_dataset(config_path=ds_cfg_path, repo_root=repo_root, debug=debug, logger=log)
     emit("DATASET_PREP_END", manifest_path=rel_path(ds_result.manifest_path, repo_root))
+    ds_manifest = read_json(ds_result.manifest_path)
+    dataset_summary_html = str(ds_manifest.get("artifacts", {}).get("summary_html", ""))
 
     suite_cfg_path = resolve_path(
         cfg.get("suite_config", "configs/ml/benchmark_suite.debug.yml"),
@@ -240,6 +243,7 @@ def run_full_cycle(
         summary=summary,
         links={
             "dataset_manifest": summary["dataset_manifest_path"],
+            "dataset_summary_html": dataset_summary_html,
             "suite_summary": summary["suite_summary_json"],
             "suite_report_html": suite_html_rel,
             "pptx": summary["pptx_path"] or "",

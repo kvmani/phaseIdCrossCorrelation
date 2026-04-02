@@ -1,6 +1,6 @@
 schema_version: phase_id_xcorr.ml_dataset_prep.v3
 input_mode: single_phase_scan_map
-output_dir: reports/ml/datasets/data_march2026_balanced
+output_dir: reports/ml/datasets/data_march2026_balanced_3scansEach
 strict_pattern_presence: true
 
 data_source_folder: 'F:\PhaseID_Training_Data\Data_March2026'
@@ -18,12 +18,24 @@ listOfFiles:
   - file: Cu-2_1.oh5
     scan_id: cu_2_1
     phase_name: Cu
+  - file: Cu-Ni-Data-Training\Cu-1.oh5
+    scan_id: cu_1_1
+    phase_name: Cu
+  - file: Cu-Ni-Data-Training\Cu-2.oh5
+    scan_id: cu_1_2
+    phase_name: Cu
   - file: Ni-2_1.oh5
     scan_id: ni_2_1
     phase_name: Ni
+  - file: Cu-Ni-Data-Training\Ni-1.oh5
+    scan_id: Ni_1_1
+    phase_name: Ni
+  - file: Cu-Ni-Data-Training\Ni-2.oh5
+    scan_id: Ni_1_2
+    phase_name: Ni
 
 quality_filters:
-  expression: "CI > 0.5 && Fit < 1.0"
+  expression: "CI > 0.2 && Fit < 1.5"
 
 preprocessing:
   resize_hw: [128, 128]
@@ -39,3 +51,6 @@ split:
   test: 0.1
   seed: 42
   stratified: true
+  train_samples_per_phase: 500
+  val_samples_per_phase: 20
+  test_samples_per_phase: 20

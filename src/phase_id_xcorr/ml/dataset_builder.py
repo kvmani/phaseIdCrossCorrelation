@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import logging
+import os
 from pathlib import Path
 import platform
 import subprocess
@@ -150,6 +151,18 @@ def _append_event(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(payload, sort_keys=False) + "\n")
+
+
+def _html_rel_path(target: str, *, html_path: Path, repo_root: Path) -> str:
+    if not target:
+        return ""
+    candidate = Path(target)
+    if not candidate.is_absolute():
+        candidate = (repo_root / candidate).resolve()
+    try:
+        return Path(os.path.relpath(candidate, html_path.parent.resolve())).as_posix()
+    except ValueError:
+        return candidate.as_posix()
 
 
 def _safe_eta_seconds(*, processed: int, total: int, elapsed: float) -> float | None:
@@ -462,6 +475,32 @@ def _write_dataset_html_summary(
             )
 
     artifacts = manifest.get("artifacts", {})
+    ipf_rows = []
+    for row in ipf_plots:
+        if not isinstance(row, dict):
+            continue
+        img_href = _html_rel_path(str(row.get("path", "")), html_path=path, repo_root=repo_root)
+        ipf_rows.append(
+            "<tr>"
+            f"<td>{row.get('stage', '')}</td>"
+            f"<td>{row.get('split', '')}</td>"
+            f"<td>{row.get('phase_name', '')}</td>"
+            f"<td>{row.get('count', 0)}</td>"
+            f"<td><a href=\"{img_href}\">{row.get('path', '')}</a></td>"
+            "</tr>"
+        )
+    gallery_blocks = []
+    for row in ipf_plots:
+        if not isinstance(row, dict):
+            continue
+        img_href = _html_rel_path(str(row.get("path", "")), html_path=path, repo_root=repo_root)
+        caption = f"{row.get('stage', '')} / {row.get('split') or 'all'} / {row.get('phase_name', '')} (n={row.get('count', 0)})"
+        gallery_blocks.append(
+            "<div style=\"display:inline-block;width:320px;vertical-align:top;margin:0 16px 20px 0;\">"
+            f"<div style=\"font-weight:600;margin-bottom:6px;\">{caption}</div>"
+            f"<a href=\"{img_href}\"><img src=\"{img_href}\" alt=\"{caption}\" style=\"width:300px;border:1px solid #ccc;padding:4px;background:#fff;\" /></a>"
+            "</div>"
+        )
     html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -548,18 +587,18 @@ def _write_dataset_html_summary(
       <tr><th>Name</th><th>Path</th></tr>
     </thead>
     <tbody>
-      <tr><td>Manifest JSON</td><td>{rel_path(path.with_name('manifest.json'), repo_root)}</td></tr>
-      <tr><td>Records CSV</td><td>{artifacts.get('records_csv', '')}</td></tr>
-      <tr><td>Train split</td><td>{artifacts.get('train_npz', '')}</td></tr>
-      <tr><td>Val split</td><td>{artifacts.get('val_npz', '')}</td></tr>
-      <tr><td>Test split</td><td>{artifacts.get('test_npz', '')}</td></tr>
-      <tr><td>Event log</td><td>{artifacts.get('event_log_jsonl', '')}</td></tr>
-      <tr><td>Qualified orientations CSV</td><td>{artifacts.get('qualified_orientations_csv', '')}</td></tr>
-      <tr><td>Qualified orientations JSON</td><td>{artifacts.get('qualified_orientations_json', '')}</td></tr>
-      <tr><td>Selected orientations CSV</td><td>{artifacts.get('selected_orientations_csv', '')}</td></tr>
-      <tr><td>Selected orientations JSON</td><td>{artifacts.get('selected_orientations_json', '')}</td></tr>
-      <tr><td>IPF plot index JSON</td><td>{artifacts.get('ipf_index_json', '')}</td></tr>
-      <tr><td>Resolved config</td><td>{artifacts.get('resolved_config_json', '')}</td></tr>
+      <tr><td>Manifest JSON</td><td><a href="{_html_rel_path(rel_path(path.with_name('manifest.json'), repo_root), html_path=path, repo_root=repo_root)}">{rel_path(path.with_name('manifest.json'), repo_root)}</a></td></tr>
+      <tr><td>Records CSV</td><td><a href="{_html_rel_path(str(artifacts.get('records_csv', '')), html_path=path, repo_root=repo_root)}">{artifacts.get('records_csv', '')}</a></td></tr>
+      <tr><td>Train split</td><td><a href="{_html_rel_path(str(artifacts.get('train_npz', '')), html_path=path, repo_root=repo_root)}">{artifacts.get('train_npz', '')}</a></td></tr>
+      <tr><td>Val split</td><td><a href="{_html_rel_path(str(artifacts.get('val_npz', '')), html_path=path, repo_root=repo_root)}">{artifacts.get('val_npz', '')}</a></td></tr>
+      <tr><td>Test split</td><td><a href="{_html_rel_path(str(artifacts.get('test_npz', '')), html_path=path, repo_root=repo_root)}">{artifacts.get('test_npz', '')}</a></td></tr>
+      <tr><td>Event log</td><td><a href="{_html_rel_path(str(artifacts.get('event_log_jsonl', '')), html_path=path, repo_root=repo_root)}">{artifacts.get('event_log_jsonl', '')}</a></td></tr>
+      <tr><td>Qualified orientations CSV</td><td><a href="{_html_rel_path(str(artifacts.get('qualified_orientations_csv', '')), html_path=path, repo_root=repo_root)}">{artifacts.get('qualified_orientations_csv', '')}</a></td></tr>
+      <tr><td>Qualified orientations JSON</td><td><a href="{_html_rel_path(str(artifacts.get('qualified_orientations_json', '')), html_path=path, repo_root=repo_root)}">{artifacts.get('qualified_orientations_json', '')}</a></td></tr>
+      <tr><td>Selected orientations CSV</td><td><a href="{_html_rel_path(str(artifacts.get('selected_orientations_csv', '')), html_path=path, repo_root=repo_root)}">{artifacts.get('selected_orientations_csv', '')}</a></td></tr>
+      <tr><td>Selected orientations JSON</td><td><a href="{_html_rel_path(str(artifacts.get('selected_orientations_json', '')), html_path=path, repo_root=repo_root)}">{artifacts.get('selected_orientations_json', '')}</a></td></tr>
+      <tr><td>IPF plot index JSON</td><td><a href="{_html_rel_path(str(artifacts.get('ipf_index_json', '')), html_path=path, repo_root=repo_root)}">{artifacts.get('ipf_index_json', '')}</a></td></tr>
+      <tr><td>Resolved config</td><td><a href="{_html_rel_path(str(artifacts.get('resolved_config_json', '')), html_path=path, repo_root=repo_root)}">{artifacts.get('resolved_config_json', '')}</a></td></tr>
     </tbody>
   </table>
   <h2>IPF Plot Inventory</h2>
@@ -568,9 +607,13 @@ def _write_dataset_html_summary(
       <tr><th>Stage</th><th>Split</th><th>Phase</th><th>Count</th><th>Path</th></tr>
     </thead>
     <tbody>
-      {''.join(f"<tr><td>{row.get('stage', '')}</td><td>{row.get('split', '')}</td><td>{row.get('phase_name', '')}</td><td>{row.get('count', 0)}</td><td>{row.get('path', '')}</td></tr>" for row in ipf_plots) if ipf_plots else '<tr><td colspan="5">No IPF plots available</td></tr>'}
+      {''.join(ipf_rows) if ipf_rows else '<tr><td colspan="5">No IPF plots available</td></tr>'}
     </tbody>
   </table>
+  <h2>IPF Gallery</h2>
+  <div>
+    {''.join(gallery_blocks) if gallery_blocks else 'No IPF images available'}
+  </div>
 </body>
 </html>"""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1305,6 +1348,7 @@ def prepare_ml_dataset(
             "group_key": split_cfg.group_key,
             "max_val_samples": split_cfg.max_val_samples,
             "max_test_samples": split_cfg.max_test_samples,
+            "train_samples_per_phase": split_cfg.train_samples_per_phase,
             "val_samples_per_phase": split_cfg.val_samples_per_phase,
             "test_samples_per_phase": split_cfg.test_samples_per_phase,
             "phase_balancing_equalize_to_min_count": phase_balancing_enabled,
