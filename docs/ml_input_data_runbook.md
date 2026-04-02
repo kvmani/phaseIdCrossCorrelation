@@ -13,7 +13,7 @@ Operational guide for preparing ML datasets from `.oh5` scans and launching the 
 3. Merges accepted samples across all sources.
 4. Optionally balances accepted phase counts down to the smallest accepted phase before splitting.
 5. Creates deterministic train/val/test splits.
-6. Writes dataset artifacts (`manifest.json`, `records.csv`, split `.npz`, `events.jsonl`).
+6. Writes dataset artifacts (`manifest.json`, `records.csv`, split `.npz`, `events.jsonl`, Euler export CSV/JSON, and IPF diagnostics).
 7. `run_ml_train_classifier.py` trains/evaluates from dataset manifest.
 8. `run_ml_benchmark_suite.py` runs repeated model experiments.
 9. Dataset summaries include per-phase split composition, CI/Fit/IQ mean-median-std, and modal intensity statistics.
@@ -260,6 +260,12 @@ Dataset prep writes:
 - `<output_dir>/splits/val.npz`
 - `<output_dir>/splits/test.npz`
 - `<output_dir>/events.jsonl`
+- `<output_dir>/orientation_exports/qualified_orientations.csv`
+- `<output_dir>/orientation_exports/qualified_orientations.json`
+- `<output_dir>/orientation_exports/selected_orientations.csv`
+- `<output_dir>/orientation_exports/selected_orientations.json`
+- `<output_dir>/orientation_exports/ipf_index.json`
+- `<output_dir>/orientation_exports/ipf/...png`
 
 Manifest highlights:
 
@@ -269,7 +275,18 @@ Manifest highlights:
 - `accepted_per_phase` for qualified post-filter counts before balancing
 - `selected_per_phase` and `phase_balancing` for the final balanced dataset used downstream
 - split counts and per-phase split counts
+- orientation export counts, source Euler units, and IPF plot inventory
 - quality filter policy and sanity checks
+
+Orientation export assumptions:
+
+- Euler fields are read from `.oh5` `Phi1`, `Phi`, and `Phi2`.
+- Exported convention is recorded as `Bunge ZXZ`.
+- Source units are auto-detected per scan:
+  - values staying below about `2*pi` are treated as radians,
+  - values exceeding about `100` are treated as degrees,
+  - ambiguous inputs fail with a clear error.
+- Exported Euler values are normalized to degrees in both CSV and JSON artifacts.
 
 Training and suite runs also emit `manifest.json`, `events.jsonl`, and their model-specific reports.
 

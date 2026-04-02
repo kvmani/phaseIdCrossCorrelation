@@ -65,6 +65,7 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [x] M15: Add saved-model inference CLI and desktop GUI for unknown-image phase prediction.
 - [x] M16: Add sampled unseen-scan `.oh5` CNN inference runner with YAML-configured quality filtering, random per-scan sampling, and per-pattern/per-scan summary outputs.
 - [x] M17: Add optional per-phase balancing during dataset prep by downsampling accepted samples to the smallest accepted phase count before split assignment.
+- [x] M20: Export per-sample Euler angles from dataset prep with provenance-rich CSV/JSON outputs plus per-phase IPF split diagnostics for orientation-space coverage review.
 - [x] M18: Add diagnostic pattern gallery GUI with cross-condition source grouping, manual index lookup, and manifest/contact-sheet export.
 - [x] M19: Add graphics-first lab-meeting PPT generation for balanced benchmark plus diagnostic-gallery assessment artifacts.
 

@@ -18,7 +18,14 @@ QUALITY_ALIASES: dict[str, tuple[str, ...]] = {
     "valid": ("Valid",),
 }
 
+EULER_ALIASES: dict[str, tuple[str, ...]] = {
+    "phi1": ("Phi1", "phi1", "phi_1"),
+    "Phi": ("Phi", "phi"),
+    "phi2": ("Phi2", "phi2", "phi_2"),
+}
+
 PATTERN_ALIASES: tuple[str, ...] = ("Pattern", "Patterns")
+EULER_CONVENTION = "Bunge ZXZ"
 
 
 def _normalize_key(text: str) -> str:
@@ -83,6 +90,13 @@ class Oh5ScanMeta:
     pattern_shape: tuple[int, int] | None
     pattern_bit_depth: int | None
     quality_field_map: dict[str, str]
+    euler_field_map: dict[str, str]
+    euler_convention: str | None
+    euler_unit: str | None
+
+    @property
+    def euler_present(self) -> bool:
+        return len(self.euler_field_map) == len(EULER_ALIASES)
 
 
 class Oh5ScanReader:
@@ -102,6 +116,9 @@ class Oh5ScanReader:
         self.pattern_shape: tuple[int, int] | None = None
         self.pattern_bit_depth: int | None = None
         self.quality_field_map: dict[str, str] = {}
+        self.euler_field_map: dict[str, str] = {}
+        self.euler_convention: str | None = None
+        self.euler_unit: str | None = None
 
     def __enter__(self) -> "Oh5ScanReader":
         self.open()
@@ -125,6 +142,10 @@ class Oh5ScanReader:
     @property
     def pattern_present(self) -> bool:
         return self.pattern_key is not None
+
+    @property
+    def euler_present(self) -> bool:
+        return len(self.euler_field_map) == 3
 
     def open(self) -> None:
         if self._h5 is not None:
@@ -154,6 +175,20 @@ class Oh5ScanReader:
             if key is not None:
                 self.quality_field_map[canonical] = key
 
+        self.euler_field_map = {}
+        for canonical, aliases in EULER_ALIASES.items():
+            key = self._find_dataset_key(aliases)
+            if key is not None:
+                self.euler_field_map[canonical] = key
+        if self.euler_field_map and len(self.euler_field_map) != len(EULER_ALIASES):
+            raise ValueError(
+                "Incomplete Euler angle fields in .oh5 file. "
+                f"Expected {sorted(EULER_ALIASES)} but found {sorted(self.euler_field_map)}."
+            )
+        if self.euler_present:
+            self.euler_convention = EULER_CONVENTION
+            self.euler_unit = self._detect_euler_unit()
+
     def close(self) -> None:
         if self._h5 is not None:
             self._h5.close()
@@ -175,6 +210,9 @@ class Oh5ScanReader:
             pattern_shape=self.pattern_shape,
             pattern_bit_depth=self.pattern_bit_depth,
             quality_field_map=dict(self.quality_field_map),
+            euler_field_map=dict(self.euler_field_map),
+            euler_convention=self.euler_convention,
+            euler_unit=self.euler_unit,
         )
 
     def xy_to_flat(self, x: int, y: int) -> int:
@@ -225,6 +263,26 @@ class Oh5ScanReader:
                 row[canonical] = float(value)
 
         return row
+
+    def read_euler_row(
+        self,
+        *,
+        flat_index: int | None = None,
+        x: int | None = None,
+        y: int | None = None,
+        degrees: bool = False,
+    ) -> dict[str, float]:
+        if not self.euler_present:
+            raise KeyError("Euler angle datasets not found in this .oh5 file")
+        idx = self._resolve_flat_index(flat_index=flat_index, x=x, y=y)
+        values = {
+            "phi1": float(self._read_scalar_point(self.data_group[self.euler_field_map["phi1"]], idx)),
+            "Phi": float(self._read_scalar_point(self.data_group[self.euler_field_map["Phi"]], idx)),
+            "phi2": float(self._read_scalar_point(self.data_group[self.euler_field_map["phi2"]], idx)),
+        }
+        if degrees and self.euler_unit == "radian":
+            return {key: float(np.degrees(val)) for key, val in values.items()}
+        return values
 
 
     def discover_scalar_fields(self) -> list[str]:
@@ -304,6 +362,30 @@ class Oh5ScanReader:
             if hit is not None:
                 return hit
         return None
+
+    def _detect_euler_unit(self) -> str:
+        maxima: list[float] = []
+        for key in self.euler_field_map.values():
+            ds = self.data_group[key]
+            if ds.ndim == 1:
+                arr = np.asarray(ds[: self.total_pixels], dtype=np.float64)
+            elif ds.ndim == 2 and tuple(ds.shape) == (self.ny, self.nx):
+                arr = np.asarray(ds, dtype=np.float64).reshape(-1)
+            else:
+                raise ValueError(f"Unsupported Euler dataset shape for {ds.name}: {tuple(ds.shape)}")
+            finite = arr[np.isfinite(arr)]
+            if finite.size == 0:
+                raise ValueError(f"Euler dataset {ds.name} does not contain finite values")
+            maxima.append(float(np.max(np.abs(finite))))
+        global_max = max(maxima) if maxima else 0.0
+        if global_max <= float(2.0 * np.pi + 1e-6):
+            return "radian"
+        if global_max >= 10.0:
+            return "degree"
+        raise ValueError(
+            "Could not determine Euler angle unit from .oh5 data. "
+            f"Observed max abs Euler value={global_max:.6f}; expected radians (<~2pi) or degrees (clearly >~10)."
+        )
 
     def _pattern_hw(self, ds: h5py.Dataset) -> tuple[int, int]:
         if ds.ndim >= 3 and ds.shape[0] == self.total_pixels:

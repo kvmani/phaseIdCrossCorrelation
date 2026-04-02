@@ -21,6 +21,11 @@ from .config import get_required, load_yaml, resolve_path
 from .dataset_io import rel_path, save_split_npz, write_json, write_records_csv
 from .labels import load_label_csv
 from .oh5_reader import Oh5ScanReader
+from .orientation_diagnostics import (
+    EXPORT_EULER_UNIT,
+    export_orientation_records,
+    generate_ipf_diagnostics,
+)
 from .preprocessing_policy import apply_preprocessing, resolve_preprocessing_policy
 from .quality import evaluate_quality, quality_policy_from_config
 from .split import build_split_assignments, split_config_from_yaml
@@ -100,6 +105,18 @@ def _safe_float(value: object) -> float | None:
         return float(value)
     except Exception:
         return None
+
+
+def _as_degree_triplet(
+    euler_row: dict[str, float],
+    *,
+    source_unit: str,
+) -> dict[str, float]:
+    if source_unit == EXPORT_EULER_UNIT:
+        return {key: float(val) for key, val in euler_row.items()}
+    if source_unit == "radian":
+        return {key: float(np.degrees(val)) for key, val in euler_row.items()}
+    raise ValueError(f"Unsupported Euler unit '{source_unit}'")
 
 
 def _format_pct(numerator: int, denominator: int) -> float:
@@ -361,6 +378,9 @@ def _write_dataset_html_summary(
     phase_stats = manifest.get("phase_statistics") or {}
     balancing = manifest.get("phase_balancing") or {}
     balancing_enabled = bool(balancing.get("enabled", False))
+    orientation_exports = manifest.get("orientation_exports") or {}
+    orientation_counts = orientation_exports.get("counts") or {}
+    ipf_plots = orientation_exports.get("ipf_plots") or []
 
     source_rows = []
     for summary in manifest.get("source_summaries", []):
@@ -464,6 +484,7 @@ def _write_dataset_html_summary(
   <p><strong>Config:</strong> <code>{manifest.get('config_path', '')}</code></p>
   <p><strong>Filter:</strong> <code>{((manifest.get('quality_filters') or {}).get('expression')) or 'threshold-only policy'}</code></p>
   <p><strong>Phase balancing:</strong> {'enabled' if balancing_enabled else 'disabled'}</p>
+  <p><strong>Orientation exports:</strong> qualified={orientation_counts.get('qualified_records', 0)} selected={orientation_counts.get('selected_records', 0)}</p>
   <div class="metric-grid">
     <div class="metric"><div>Raw scan pixels</div><div class="value">{raw_total}</div></div>
     <div class="metric"><div>Accepted</div><div class="value">{accepted}</div></div>
@@ -533,7 +554,21 @@ def _write_dataset_html_summary(
       <tr><td>Val split</td><td>{artifacts.get('val_npz', '')}</td></tr>
       <tr><td>Test split</td><td>{artifacts.get('test_npz', '')}</td></tr>
       <tr><td>Event log</td><td>{artifacts.get('event_log_jsonl', '')}</td></tr>
+      <tr><td>Qualified orientations CSV</td><td>{artifacts.get('qualified_orientations_csv', '')}</td></tr>
+      <tr><td>Qualified orientations JSON</td><td>{artifacts.get('qualified_orientations_json', '')}</td></tr>
+      <tr><td>Selected orientations CSV</td><td>{artifacts.get('selected_orientations_csv', '')}</td></tr>
+      <tr><td>Selected orientations JSON</td><td>{artifacts.get('selected_orientations_json', '')}</td></tr>
+      <tr><td>IPF plot index JSON</td><td>{artifacts.get('ipf_index_json', '')}</td></tr>
       <tr><td>Resolved config</td><td>{artifacts.get('resolved_config_json', '')}</td></tr>
+    </tbody>
+  </table>
+  <h2>IPF Plot Inventory</h2>
+  <table>
+    <thead>
+      <tr><th>Stage</th><th>Split</th><th>Phase</th><th>Count</th><th>Path</th></tr>
+    </thead>
+    <tbody>
+      {''.join(f"<tr><td>{row.get('stage', '')}</td><td>{row.get('split', '')}</td><td>{row.get('phase_name', '')}</td><td>{row.get('count', 0)}</td><td>{row.get('path', '')}</td></tr>" for row in ipf_plots) if ipf_plots else '<tr><td colspan="5">No IPF plots available</td></tr>'}
     </tbody>
   </table>
 </body>
@@ -549,7 +584,7 @@ def _balance_phase_records_to_min_count(
     labels: list[int],
     sample_ids: list[str],
     split_seed: int,
-) -> tuple[list[dict[str, Any]], list[np.ndarray], list[int], list[str], dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], list[np.ndarray], list[int], list[str], dict[str, Any], list[int]]:
     phase_to_indices: dict[str, list[int]] = collections.defaultdict(list)
     for idx, rec in enumerate(records):
         phase_to_indices[str(rec.get("phase_name", ""))].append(idx)
@@ -586,7 +621,7 @@ def _balance_phase_records_to_min_count(
         "selected_per_phase": selected_per_phase,
         "dropped_samples": int(len(records) - len(balanced_records)),
     }
-    return balanced_records, balanced_patterns, balanced_labels, balanced_sample_ids, payload
+    return balanced_records, balanced_patterns, balanced_labels, balanced_sample_ids, payload, selected_indices
 
 
 def prepare_ml_dataset(
@@ -661,6 +696,8 @@ def prepare_ml_dataset(
     labels: list[int] = []
     sample_ids: list[str] = []
     records: list[dict[str, Any]] = []
+    qualified_records: list[dict[str, Any]] = []
+    source_euler_units: dict[str, str] = {}
 
     reject_reason_counts: dict[str, int] = collections.Counter()
     accepted_per_phase: dict[str, int] = collections.Counter()
@@ -741,7 +778,13 @@ def prepare_ml_dataset(
                 ny=meta.ny,
                 pattern_present=bool(meta.pattern_present),
                 quality_field_map=meta.quality_field_map,
+                euler_field_map=meta.euler_field_map,
+                euler_unit=meta.euler_unit,
             )
+            if not meta.euler_present:
+                emit("SOURCE_ERROR", scan_id=scan_id, reason="euler_missing")
+                raise KeyError(f"Euler datasets missing in {oh5_path}")
+            source_euler_units[scan_id] = str(meta.euler_unit)
 
             if not meta.pattern_present:
                 msg = f"Pattern dataset missing in {oh5_path}"
@@ -864,6 +907,10 @@ def prepare_ml_dataset(
                     flat_index = reader.xy_to_flat(row.x, row.y)
 
                 quality_row = reader.read_quality_row(flat_index=flat_index)
+                euler_row = _as_degree_triplet(
+                    reader.read_euler_row(flat_index=flat_index, degrees=False),
+                    source_unit=str(meta.euler_unit),
+                )
                 decision = evaluate_quality(quality_row, quality_policy)
                 if not decision.accept:
                     for reason in decision.reasons:
@@ -950,9 +997,16 @@ def prepare_ml_dataset(
                         "image_quality": _safe_float(quality_row.get("image_quality")),
                         "fit": _safe_float(quality_row.get("fit")),
                         "valid": bool(quality_row.get("valid")) if quality_row.get("valid") is not None else None,
+                        "euler_phi1": float(euler_row["phi1"]),
+                        "euler_Phi": float(euler_row["Phi"]),
+                        "euler_phi2": float(euler_row["phi2"]),
+                        "euler_source_unit": str(meta.euler_unit),
+                        "euler_export_unit": EXPORT_EULER_UNIT,
+                        "euler_convention": str(meta.euler_convention),
                         "split": "",
                     }
                 )
+                qualified_records.append(dict(records[-1]))
                 if processed % progress_interval == 0 or processed == rows_total:
                     _emit_source_progress(
                         emit=emit,
@@ -983,6 +1037,9 @@ def prepare_ml_dataset(
                     "grid": {"nx": meta.nx, "ny": meta.ny},
                     "pattern_shape": list(meta.pattern_shape) if meta.pattern_shape else None,
                     "quality_field_map": meta.quality_field_map,
+                    "euler_field_map": meta.euler_field_map,
+                    "euler_convention": meta.euler_convention,
+                    "euler_unit": meta.euler_unit,
                 }
             )
             emit(
@@ -1008,8 +1065,9 @@ def prepare_ml_dataset(
         "selected_per_phase": {str(k): int(v) for k, v in sorted(accepted_per_phase.items())},
         "dropped_samples": 0,
     }
+    selected_indices = list(range(len(records)))
     if phase_balancing_enabled:
-        records, patterns, labels, sample_ids, phase_balancing_summary = _balance_phase_records_to_min_count(
+        records, patterns, labels, sample_ids, phase_balancing_summary, selected_indices = _balance_phase_records_to_min_count(
             records=records,
             patterns=patterns,
             labels=labels,
@@ -1044,6 +1102,39 @@ def prepare_ml_dataset(
     for rec, split_name in zip(records, split_assignments, strict=True):
         rec["split"] = split_name
     emit("SPLIT_ASSIGNMENT_COMPLETE", total_records=len(records), group_key=split_cfg.group_key)
+
+    orientation_dir = out_dir / "orientation_exports"
+    qualified_orientation_csv, qualified_orientation_json = export_orientation_records(
+        stage="qualified",
+        records=qualified_records,
+        out_dir=orientation_dir,
+        repo_root=repo_root,
+        config_path=rel_path(cfg_path, repo_root),
+        source_unit_by_scan=source_euler_units,
+    )
+    selected_orientation_csv, selected_orientation_json = export_orientation_records(
+        stage="selected",
+        records=records,
+        out_dir=orientation_dir,
+        repo_root=repo_root,
+        config_path=rel_path(cfg_path, repo_root),
+        source_unit_by_scan=source_euler_units,
+    )
+    ipf_index_path, ipf_index_payload = generate_ipf_diagnostics(
+        qualified_records=qualified_records,
+        selected_records=records,
+        out_dir=orientation_dir,
+        repo_root=repo_root,
+    )
+    emit(
+        "ORIENTATION_EXPORTS_COMPLETE",
+        qualified_count=len(qualified_records),
+        selected_count=len(records),
+        ipf_plot_count=len(ipf_index_payload.get("plots", [])),
+        qualified_orientation_csv=rel_path(qualified_orientation_csv, repo_root),
+        selected_orientation_csv=rel_path(selected_orientation_csv, repo_root),
+        ipf_index_json=rel_path(ipf_index_path, repo_root),
+    )
 
     patterns_np = np.stack(patterns, axis=0).astype(np.float32, copy=False)
     labels_np = np.asarray(labels, dtype=np.int64)
@@ -1178,6 +1269,17 @@ def prepare_ml_dataset(
         "selected_per_phase": {str(k): int(v) for k, v in sorted(selected_per_phase.items())},
         "phase_balancing": phase_balancing_summary,
         "phase_statistics": phase_statistics,
+        "orientation_exports": {
+            "euler_convention": "Bunge ZXZ",
+            "euler_export_unit": EXPORT_EULER_UNIT,
+            "source_units_by_scan": dict(sorted(source_euler_units.items())),
+            "counts": {
+                "qualified_records": int(len(qualified_records)),
+                "selected_records": int(len(records)),
+                "selected_indices": int(len(selected_indices)),
+            },
+            "ipf_plots": ipf_index_payload.get("plots", []),
+        },
         "raw_input_rows_total": int(raw_rows_total),
         "raw_label_rows_total": int(raw_rows_total),
         "rejected_reason_counts": dict(reject_reason_counts),
@@ -1226,6 +1328,11 @@ def prepare_ml_dataset(
             "val_npz": rel_path(split_npz_paths["val"], repo_root),
             "test_npz": rel_path(split_npz_paths["test"], repo_root),
             "event_log_jsonl": rel_path(event_log, repo_root),
+            "qualified_orientations_csv": rel_path(qualified_orientation_csv, repo_root),
+            "qualified_orientations_json": rel_path(qualified_orientation_json, repo_root),
+            "selected_orientations_csv": rel_path(selected_orientation_csv, repo_root),
+            "selected_orientations_json": rel_path(selected_orientation_json, repo_root),
+            "ipf_index_json": rel_path(ipf_index_path, repo_root),
         },
     }
 

@@ -20,6 +20,7 @@ In this repository, "inference" includes evaluation on validation/test splits du
 1. Prepare dataset from `.oh5` scans:
    - use `oh5_csv_labels` mode (per-pixel labels), or
    - use `single_phase_scan_map` mode (one scan file = one phase).
+   - inspect generated Euler/IPF diagnostics to confirm split-wise orientation coverage by phase.
 2. Train one model and inspect metrics/checkpoints.
 3. Run benchmark suite across model variants.
 4. Auto-generate a lab-meeting PPTX from suite artifacts.

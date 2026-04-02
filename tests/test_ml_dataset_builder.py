@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 
 import h5py
@@ -47,6 +48,9 @@ def _write_fixture(oh5_path: Path, csv_path: Path) -> None:
         data.create_dataset("IQ", data=iq)
         data.create_dataset("Fit", data=fit)
         data.create_dataset("Valid", data=valid)
+        data.create_dataset("Phi1", data=np.linspace(0.0, 110.0, num=n, dtype=np.float32))
+        data.create_dataset("Phi", data=np.linspace(5.0, 80.0, num=n, dtype=np.float32))
+        data.create_dataset("Phi2", data=np.linspace(10.0, 120.0, num=n, dtype=np.float32))
 
     phases = ["fe_bcc", "fe3o4_magnetite", "feo_wustite"]
     lines = ["sample_id,x,y,phase_name\n"]
@@ -63,6 +67,7 @@ def _write_single_phase_fixture(
     ci_bad_idx: int | None = None,
     ci_bad_indices: list[int] | None = None,
     pattern_base: int,
+    euler_unit: str = "degree",
 ) -> None:
     nx, ny = 4, 3
     n = nx * ny
@@ -99,6 +104,16 @@ def _write_single_phase_fixture(
         data.create_dataset("IQ", data=iq)
         data.create_dataset("Fit", data=fit)
         data.create_dataset("Valid", data=valid)
+        if euler_unit == "degree":
+            data.create_dataset("Phi1", data=np.linspace(0.0, 110.0, num=n, dtype=np.float32))
+            data.create_dataset("Phi", data=np.linspace(5.0, 80.0, num=n, dtype=np.float32))
+            data.create_dataset("Phi2", data=np.linspace(10.0, 120.0, num=n, dtype=np.float32))
+        elif euler_unit == "radian":
+            data.create_dataset("Phi1", data=np.linspace(0.0, 3.0, num=n, dtype=np.float32))
+            data.create_dataset("Phi", data=np.linspace(0.1, 1.5, num=n, dtype=np.float32))
+            data.create_dataset("Phi2", data=np.linspace(0.2, 2.5, num=n, dtype=np.float32))
+        else:
+            raise ValueError(f"Unsupported euler_unit {euler_unit}")
 
 
 def test_prepare_ml_dataset_end_to_end(tmp_path: Path) -> None:
@@ -169,10 +184,26 @@ def test_prepare_ml_dataset_end_to_end(tmp_path: Path) -> None:
     assert manifest["sanity_checks"]["phase_label_mapping_unique"] is True
     assert manifest["sanity_checks"]["all_records_assigned_split"] is True
     assert "event_log_jsonl" in manifest["artifacts"]
+    assert manifest["orientation_exports"]["counts"]["qualified_records"] == 10
+    assert manifest["orientation_exports"]["counts"]["selected_records"] == 10
     event_log = tmp_path / manifest["artifacts"]["event_log_jsonl"]
     assert event_log.exists()
     summary_html = tmp_path / manifest["artifacts"]["summary_html"]
     assert summary_html.exists()
+    qualified_csv = tmp_path / manifest["artifacts"]["qualified_orientations_csv"]
+    qualified_json = tmp_path / manifest["artifacts"]["qualified_orientations_json"]
+    selected_csv = tmp_path / manifest["artifacts"]["selected_orientations_csv"]
+    selected_json = tmp_path / manifest["artifacts"]["selected_orientations_json"]
+    ipf_index = tmp_path / manifest["artifacts"]["ipf_index_json"]
+    assert qualified_csv.exists()
+    assert qualified_json.exists()
+    assert selected_csv.exists()
+    assert selected_json.exists()
+    assert ipf_index.exists()
+    selected_payload = json.loads(selected_json.read_text(encoding="utf-8"))
+    assert selected_payload["euler_convention"] == "Bunge ZXZ"
+    assert selected_payload["euler_export_unit"] == "degree"
+    assert selected_payload["record_count"] == 10
     lines = [line for line in event_log.read_text(encoding="utf-8").splitlines() if line.strip()]
     assert lines
 
@@ -238,6 +269,8 @@ def test_prepare_ml_dataset_single_phase_scan_map_mode(tmp_path: Path) -> None:
     assert manifest["split_counts"]["train"] > 0
     assert manifest["split_counts"]["val"] > 0
     assert manifest["split_counts"]["test"] > 0
+    assert manifest["orientation_exports"]["counts"]["qualified_records"] == 22
+    assert manifest["orientation_exports"]["counts"]["selected_records"] == 22
 
     with result.records_csv.open("r", encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
@@ -245,12 +278,13 @@ def test_prepare_ml_dataset_single_phase_scan_map_mode(tmp_path: Path) -> None:
     assert all(row["source_mode"] == "single_phase_scan_map" for row in rows)
     assert all(row["labels_csv_path"] == "" for row in rows)
     assert {row["phase_name"] for row in rows} == {"fe_bcc", "feo_wustite"}
+    assert all(row["euler_export_unit"] == "degree" for row in rows)
 
 
 def test_prepare_ml_dataset_single_phase_mode_inferred_from_sources(tmp_path: Path) -> None:
     repo_root = tmp_path
     oh5 = tmp_path / "scan_single.oh5"
-    _write_single_phase_fixture(oh5, ci_bad_idx=0, pattern_base=9000)
+    _write_single_phase_fixture(oh5, ci_bad_idx=0, pattern_base=9000, euler_unit="radian")
 
     cfg = {
         "output_dir": "reports/ml/dataset_single_phase_infer",
@@ -290,6 +324,7 @@ def test_prepare_ml_dataset_single_phase_mode_inferred_from_sources(tmp_path: Pa
     manifest = read_json(result.manifest_path)
     assert manifest["input_mode"] == "single_phase_scan_map"
     assert manifest["num_samples_total"] == 11
+    assert manifest["orientation_exports"]["source_units_by_scan"] == {"s001": "radian"}
 
 
 def test_prepare_ml_dataset_v3_list_of_files_with_caps_and_provenance(tmp_path: Path) -> None:
@@ -338,6 +373,7 @@ def test_prepare_ml_dataset_v3_list_of_files_with_caps_and_provenance(tmp_path: 
     assert manifest["quality_filters"]["resolved_expression"]
     assert manifest["provenance"]["input_file_hashes"]
     assert manifest["artifacts"]["resolved_config_json"].endswith("resolved_config.json")
+    assert manifest["artifacts"]["ipf_index_json"].endswith("ipf_index.json")
 
 
 def test_prepare_ml_dataset_balances_single_phase_sources_to_min_count(tmp_path: Path) -> None:
@@ -408,3 +444,27 @@ def test_prepare_ml_dataset_balances_single_phase_sources_to_min_count(tmp_path:
     assert manifest["split_phase_counts"]["train"] == {"Al": 7, "Cu": 7, "Ni": 7}
     assert manifest["split_phase_counts"]["val"] == {"Al": 1, "Cu": 1, "Ni": 1}
     assert manifest["split_phase_counts"]["test"] == {"Al": 1, "Cu": 1, "Ni": 1}
+    assert manifest["orientation_exports"]["counts"]["qualified_records"] == 30
+    assert manifest["orientation_exports"]["counts"]["selected_records"] == 27
+    assert len(manifest["orientation_exports"]["ipf_plots"]) == 12
+
+    ipf_index = read_json(tmp_path / manifest["artifacts"]["ipf_index_json"])
+    assert len(ipf_index["plots"]) == 12
+    expected_paths = {
+        "reports/ml/dataset_balanced_single_phase_test/orientation_exports/ipf/qualified/Al_ipf.png",
+        "reports/ml/dataset_balanced_single_phase_test/orientation_exports/ipf/qualified/Cu_ipf.png",
+        "reports/ml/dataset_balanced_single_phase_test/orientation_exports/ipf/qualified/Ni_ipf.png",
+        "reports/ml/dataset_balanced_single_phase_test/orientation_exports/ipf/selected/train/Al_ipf.png",
+        "reports/ml/dataset_balanced_single_phase_test/orientation_exports/ipf/selected/train/Cu_ipf.png",
+        "reports/ml/dataset_balanced_single_phase_test/orientation_exports/ipf/selected/train/Ni_ipf.png",
+        "reports/ml/dataset_balanced_single_phase_test/orientation_exports/ipf/selected/val/Al_ipf.png",
+        "reports/ml/dataset_balanced_single_phase_test/orientation_exports/ipf/selected/val/Cu_ipf.png",
+        "reports/ml/dataset_balanced_single_phase_test/orientation_exports/ipf/selected/val/Ni_ipf.png",
+        "reports/ml/dataset_balanced_single_phase_test/orientation_exports/ipf/selected/test/Al_ipf.png",
+        "reports/ml/dataset_balanced_single_phase_test/orientation_exports/ipf/selected/test/Cu_ipf.png",
+        "reports/ml/dataset_balanced_single_phase_test/orientation_exports/ipf/selected/test/Ni_ipf.png",
+    }
+    actual_paths = {plot["path"] for plot in ipf_index["plots"]}
+    assert actual_paths == expected_paths
+    for rel in actual_paths:
+        assert (tmp_path / rel).exists()

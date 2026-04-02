@@ -23,4 +23,5 @@ Thin CLI entry points live here.
 - `scripts/run_ml_suite_with_ppt.py` (run benchmark suite and auto-build lab-meeting PPTX summary)
 - `scripts/run_ml_full_cycle.py` (one-go workflow from raw `.oh5` dataset prep to multi-model suite, HTML summaries, and PPTX)
 - `scripts/ml_results_presentation/generate_executive_assessment_ppt.py` (build a graphics-first lab-meeting PPTX from balanced benchmark, dataset, and diagnostic gallery artifacts)
+- `scripts/generate_cnn32_architecture_svg.py` (generate a publication-ready SVG of the exact `simple_cnn_w32` architecture used in the balanced Al/Cu/Ni work)
 See `docs/README.md` for the doc map behind each runner.
