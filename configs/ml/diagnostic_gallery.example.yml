@@ -3,7 +3,9 @@
 
 gallery_title: Diagnostic Pattern Gallery
 output_dir: reports/ml/diagnostic_gallery/example
-run_dir: path/to/trained_run
+#run_dir: reports/ml/benchmarks/data_march2026_balanced/simple_cnn_w32
+#run_dir: reports/ml/benchmarks/data_march2026_balanced/efficientnet_b0_scratch
+run_dir: reports/ml/benchmarks/data_march2026_balanced/resnet18_scratch
 checkpoint: best_checkpoint.pt
 device: auto
 
@@ -21,20 +23,20 @@ prediction_filters:
 
 source_groups:
   reference:
-    - file: path/to/Al-2_1.oh5
+    - file: F:\PhaseID_Training_Data\Data_March2026/Al-2_1.oh5
       scan_id: Al-2_1
       phase_name: Al
-    - file: path/to/Cu-2_1.oh5
+    - file: F:\PhaseID_Training_Data\Data_March2026/Cu-2_1.oh5
       scan_id: Cu-2_1
       phase_name: Cu
-    - file: path/to/Ni-2_1.oh5
+    - file: F:\PhaseID_Training_Data\Data_March2026/Ni-2_1.oh5
       scan_id: Ni-2_1
       phase_name: Ni
   unknown:
-    - file: path/to/data1.oh5
+    - file: F:\PhaseID_Training_Data\Data_March2026/Data_1.oh5
       scan_id: data1
-    - file: path/to/data2.oh5
+    - file: F:\PhaseID_Training_Data\Data_March2026/Data_2.oh5
       scan_id: data2
-    - file: path/to/data3.oh5
+    - file: F:\PhaseID_Training_Data\Data_March2026/Data_3.oh5
       scan_id: data3
 

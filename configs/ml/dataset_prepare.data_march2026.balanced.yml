@@ -51,6 +51,6 @@ split:
   test: 0.1
   seed: 42
   stratified: true
-  train_samples_per_phase: 500
-  val_samples_per_phase: 20
-  test_samples_per_phase: 20
+  train_samples_per_phase: 100
+  val_samples_per_phase: 5
+  test_samples_per_phase: 5

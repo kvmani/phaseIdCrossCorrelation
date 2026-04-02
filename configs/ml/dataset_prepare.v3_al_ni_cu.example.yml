@@ -2,7 +2,7 @@ schema_version: phase_id_xcorr.ml_dataset_prep.v3
 input_mode: single_phase_scan_map
 output_dir: reports/ml/datasets/al_ni_cu_v3
 
-data_source_folder: data/al_ni_cu
+data_source_folder: F:\PhaseID_Training_Data\Data_March2026
 allow_filename_phase_fallback: true
 
 phase_to_label:
@@ -11,11 +11,11 @@ phase_to_label:
   cu: 2
 
 listOfFiles:
-  - file: al_scan_001__al.oh5
+  - file: F:\PhaseID_Training_Data\Data_March2026/Al-2_1.oh5
     scan_id: al001
-  - file: ni_scan_001__ni.oh5
+  - file: F:\PhaseID_Training_Data\Data_March2026/Ni-2_1.oh5
     scan_id: ni001
-  - file: cu_scan_001__cu.oh5
+  - file: F:\PhaseID_Training_Data\Data_March2026/Cu-2_1.oh5
     scan_id: cu001
 
 quality_filters:
@@ -38,3 +38,58 @@ split:
   group_key: scan_id
   max_val_samples: 2000
   max_test_samples: 2000
+explorer:
+  intensity_plot:
+    bins: 512
+    x_min: 0
+    x_max: 65535
+    y_min: 0
+    y_max: 120000
+    title_template: "{phase}"
+    x_label: Intensity
+    y_label: Pixel count
+    color: "#1f77b4"
+    edge_color: "#1f77b4"
+    bar_line_width: 0.8
+  attribute_plot:
+    bins: 80
+    y_min: 0
+    field_ranges:
+      CI: [0, 1]
+      IQ: [0, 6000]
+      Fit: [0, 2]
+    field_y_ranges:
+      CI: [0, 150000]
+    title_template: "{phase} {attribute}"
+    x_label_template: "{attribute}"
+    y_label: Pixel count
+    color: "#2ca02c"
+    edge_color: "#2ca02c"
+    bar_line_width: 0.8
+  export:
+    dpi: 400
+    figure_size_inches: [8.5, 5.5]
+    font_family: Arial
+    font_size: 18
+    title_font_size: 20
+    label_font_size: 18
+    tick_label_size: 16
+    x_tick_label_size: 16
+    y_tick_label_size: 16
+    tick_width: 1.2
+    tick_length: 6
+    minor_tick_width: 0.9
+    minor_tick_length: 3.5
+    tick_direction: out
+    x_tick_rotation: 0
+    y_tick_rotation: 0
+    spine_line_width: 1.2
+    grid_line_width: 0.8
+    grid_alpha: 0.25
+    title_pad: 10
+    label_pad: 8
+    figure_facecolor: white
+    axes_facecolor: white
+    show_minor_ticks: false
+    savefig_pad_inches: 0.1
+    attributes: [CI, IQ, Fit]

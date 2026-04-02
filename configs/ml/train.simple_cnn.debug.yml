@@ -1,6 +1,6 @@
 schema_version: phase_id_xcorr.ml_train.v1
 
-dataset_manifest_path: reports/ml/datasets/debug_fixture/manifest.json
+dataset_manifest_path: reports/ml/datasets/data_march2026_balanced_3scansEach/manifest.json
 output_dir: reports/ml/runs/simple_cnn_debug
 
 seed: 7

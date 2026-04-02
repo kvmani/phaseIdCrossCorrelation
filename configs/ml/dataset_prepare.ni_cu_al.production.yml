@@ -15,7 +15,7 @@ listOfFiles:
   - file: Al-1.oh5
     scan_id: al_1
     phase_name: Al
-  - file: Ni.oh
+  - file: Ni.oh5
     scan_id: ni_1
     phase_name: Ni
   - file: Cu-1.oh5
