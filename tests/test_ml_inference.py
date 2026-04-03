@@ -8,6 +8,7 @@ import yaml
 
 from phase_id_xcorr.ml.dataset_io import save_split_npz, write_json
 from phase_id_xcorr.ml.inference import list_model_runs, load_trained_model, predict_image
+from phase_id_xcorr.ml.inference_gui import _contrast_stretch_gray, _prepare_display_gray
 from phase_id_xcorr.ml.training import train_classifier
 
 
@@ -98,3 +99,33 @@ def test_inference_loads_trained_run_and_predicts_image(tmp_path: Path) -> None:
     assert result.predicted_phase in {"Al", "Ni", "Cu"}
     assert abs(sum(result.probabilities.values()) - 1.0) < 1e-6
     assert result.preprocessed_image.shape == (24, 24)
+
+
+def test_contrast_stretch_gray_expands_dynamic_range() -> None:
+    arr = np.asarray(
+        [
+            [0.20, 0.25, 0.30],
+            [0.35, 0.40, 0.45],
+        ],
+        dtype=np.float32,
+    )
+    out = _contrast_stretch_gray(arr, lower_pct=0.0, upper_pct=100.0)
+    assert np.isclose(float(out.min()), 0.0)
+    assert np.isclose(float(out.max()), 1.0)
+    assert out.shape == arr.shape
+
+
+def test_prepare_display_gray_keeps_values_bounded() -> None:
+    arr = np.asarray(
+        [
+            [0.05, 0.05, 0.10, 0.20],
+            [0.20, 0.30, 0.35, 0.40],
+            [0.50, 0.60, 0.80, 0.95],
+        ],
+        dtype=np.float32,
+    )
+    out = _prepare_display_gray(arr, histogram_normalization=True, contrast_stretch=True)
+    assert out.shape == arr.shape
+    assert float(out.min()) >= 0.0
+    assert float(out.max()) <= 1.0
+    assert not np.allclose(out, arr)

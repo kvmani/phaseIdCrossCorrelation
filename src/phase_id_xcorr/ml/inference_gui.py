@@ -63,6 +63,79 @@ def _phase_color_map(class_names: list[str]) -> dict[str, np.ndarray]:
     return out
 
 
+def _contrast_stretch_gray(array: np.ndarray, *, lower_pct: float = 1.0, upper_pct: float = 99.0) -> np.ndarray:
+    arr = np.asarray(array, dtype=np.float32)
+    finite = np.isfinite(arr)
+    if not np.any(finite):
+        return np.zeros_like(arr, dtype=np.float32)
+    values = arr[finite]
+    lo = float(np.percentile(values, lower_pct))
+    hi = float(np.percentile(values, upper_pct))
+    if not np.isfinite(lo) or not np.isfinite(hi) or hi <= lo:
+        return np.clip(arr, 0.0, 1.0).astype(np.float32, copy=False)
+    out = (arr - lo) / (hi - lo)
+    out = np.where(finite, out, 0.0)
+    return np.clip(out, 0.0, 1.0).astype(np.float32, copy=False)
+
+
+def _histogram_equalize_gray(array: np.ndarray) -> np.ndarray:
+    arr = np.clip(np.asarray(array, dtype=np.float32), 0.0, 1.0)
+    finite = np.isfinite(arr)
+    if not np.any(finite):
+        return np.zeros_like(arr, dtype=np.float32)
+    values = arr[finite]
+    hist, edges = np.histogram(values, bins=256, range=(0.0, 1.0))
+    if np.sum(hist) <= 0:
+        return arr.astype(np.float32, copy=False)
+    cdf = np.cumsum(hist).astype(np.float32)
+    nonzero = cdf > 0
+    if not np.any(nonzero):
+        return arr.astype(np.float32, copy=False)
+    cdf_min = float(cdf[nonzero][0])
+    denom = float(cdf[-1] - cdf_min)
+    if denom <= 0.0:
+        return arr.astype(np.float32, copy=False)
+    lut = np.clip((cdf - cdf_min) / denom, 0.0, 1.0)
+    bin_idx = np.clip(np.searchsorted(edges[1:], values, side="right"), 0, len(lut) - 1)
+    out = np.zeros_like(arr, dtype=np.float32)
+    out[finite] = lut[bin_idx]
+    return out
+
+
+def _prepare_display_gray(
+    array: np.ndarray,
+    *,
+    histogram_normalization: bool,
+    contrast_stretch: bool,
+) -> np.ndarray:
+    out = np.clip(np.asarray(array, dtype=np.float32), 0.0, 1.0)
+    if histogram_normalization:
+        out = _histogram_equalize_gray(out)
+    if contrast_stretch:
+        out = _contrast_stretch_gray(out)
+    return np.clip(out, 0.0, 1.0).astype(np.float32, copy=False)
+
+
+def _overlay_selected_pixel(image: np.ndarray, *, x: int | None, y: int | None) -> np.ndarray:
+    if x is None or y is None:
+        return image
+    if y < 0 or x < 0 or y >= image.shape[0] or x >= image.shape[1]:
+        return image
+    marked = np.array(image, copy=True)
+    y0 = max(0, y - 2)
+    y1 = min(marked.shape[0], y + 3)
+    x0 = max(0, x - 2)
+    x1 = min(marked.shape[1], x + 3)
+    marked[y0:y1, x0:x1] = 1.0
+    inner_y0 = max(0, y - 1)
+    inner_y1 = min(marked.shape[0], y + 2)
+    inner_x0 = max(0, x - 1)
+    inner_x1 = min(marked.shape[1], x + 2)
+    marked[inner_y0:inner_y1, inner_x0:inner_x1] = 0.0
+    marked[y, x] = 1.0
+    return marked
+
+
 def _render_full_scan_phase_map(
     result: FullScanInferenceResult,
     *,
@@ -87,6 +160,49 @@ def _render_full_scan_phase_map(
         else:
             image[y, x] = base
     return image
+
+
+class ClickableImageLabel(QtWidgets.QLabel):
+    imageClicked = QtCore.Signal(int, int)
+
+    def __init__(self, text: str = "") -> None:
+        super().__init__(text)
+        self._source_size: tuple[int, int] | None = None
+
+    def set_source_image_size(self, width: int | None, height: int | None) -> None:
+        if width is None or height is None or width <= 0 or height <= 0:
+            self._source_size = None
+            return
+        self._source_size = (int(width), int(height))
+
+    def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:  # noqa: N802
+        if event.button() == QtCore.Qt.LeftButton and self._source_size is not None:
+            mapped = self._map_to_source(event.position())
+            if mapped is not None:
+                self.imageClicked.emit(mapped[0], mapped[1])
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+    def _map_to_source(self, pos: QtCore.QPointF) -> tuple[int, int] | None:
+        if self._source_size is None:
+            return None
+        rect = self.contentsRect()
+        src_w, src_h = self._source_size
+        scale = min(rect.width() / max(1, src_w), rect.height() / max(1, src_h))
+        if scale <= 0.0:
+            return None
+        display_w = src_w * scale
+        display_h = src_h * scale
+        offset_x = rect.x() + (rect.width() - display_w) / 2.0
+        offset_y = rect.y() + (rect.height() - display_h) / 2.0
+        rel_x = float(pos.x()) - offset_x
+        rel_y = float(pos.y()) - offset_y
+        if rel_x < 0.0 or rel_y < 0.0 or rel_x >= display_w or rel_y >= display_h:
+            return None
+        src_x = min(src_w - 1, max(0, int(rel_x / scale)))
+        src_y = min(src_h - 1, max(0, int(rel_y / scale)))
+        return src_x, src_y
 
 
 class DropImageLabel(QtWidgets.QLabel):
@@ -126,6 +242,10 @@ class GuiState:
     full_scan_result: FullScanInferenceResult | None = None
     full_scan_ipf_image: np.ndarray | None = None
     full_scan_ipf_map_image: np.ndarray | None = None
+    selected_pixel_x: int | None = None
+    selected_pixel_y: int | None = None
+    selected_pattern: np.ndarray | None = None
+    selected_pixel_details: dict[str, Any] | None = None
 
 
 def _format_duration(seconds: float | None) -> str:
@@ -307,13 +427,55 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         oh5_controls.addWidget(self.confidence_shading_checkbox, 1, 0, 1, 2)
         oh5_controls.addWidget(btn_full_scan, 1, 2)
 
+        inspector_group = QtWidgets.QGroupBox("Clicked Pixel Inspector")
+        inspector_layout = QtWidgets.QVBoxLayout(inspector_group)
+
+        self.selected_pixel_status = QtWidgets.QLabel(
+            "Click a pixel in the predicted phase map to inspect its Kikuchi pattern."
+        )
+        self.selected_pixel_status.setWordWrap(True)
+        inspector_layout.addWidget(self.selected_pixel_status)
+
+        selected_info = QtWidgets.QFormLayout()
+        self.selected_pixel_value = QtWidgets.QLabel("-")
+        self.selected_phase_value = QtWidgets.QLabel("-")
+        self.selected_confidence_value = QtWidgets.QLabel("-")
+        self.selected_quality_value = QtWidgets.QLabel("-")
+        self.selected_quality_value.setWordWrap(True)
+        selected_info.addRow("Pixel", self.selected_pixel_value)
+        selected_info.addRow("Phase", self.selected_phase_value)
+        selected_info.addRow("Confidence", self.selected_confidence_value)
+        selected_info.addRow("Quality", self.selected_quality_value)
+        inspector_layout.addLayout(selected_info)
+
+        self.pattern_preview = QtWidgets.QLabel("No pixel selected")
+        self.pattern_preview.setAlignment(QtCore.Qt.AlignCenter)
+        self.pattern_preview.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        self.pattern_preview.setMinimumSize(320, 320)
+        inspector_layout.addWidget(self.pattern_preview, stretch=1)
+
+        display_controls_group = QtWidgets.QGroupBox("Pattern Display")
+        display_controls = QtWidgets.QVBoxLayout(display_controls_group)
+        self.histogram_normalization_checkbox = QtWidgets.QCheckBox("Histogram normalization")
+        self.histogram_normalization_checkbox.toggled.connect(self._refresh_selected_pattern_preview)
+        self.contrast_stretch_checkbox = QtWidgets.QCheckBox("Contrast stretch")
+        self.contrast_stretch_checkbox.toggled.connect(self._refresh_selected_pattern_preview)
+        btn_reset_pattern_display = QtWidgets.QPushButton("Reset display controls")
+        btn_reset_pattern_display.clicked.connect(self._reset_pattern_display_controls)
+        display_controls.addWidget(self.histogram_normalization_checkbox)
+        display_controls.addWidget(self.contrast_stretch_checkbox)
+        display_controls.addWidget(btn_reset_pattern_display)
+        inspector_layout.addWidget(display_controls_group, stretch=0)
+
         self.oh5_help = QtWidgets.QPlainTextEdit()
         self.oh5_help.setReadOnly(True)
         self.oh5_help.setPlainText(
             "Full-scan mode runs inference on every available pattern in the selected .oh5 file.\n"
-            "The phase map uses model class colors; with confidence shading enabled, low-score pixels are dulled."
+            "Click the predicted phase map to inspect the corresponding experimental Kikuchi pattern.\n"
+            "Pattern display is grayscale-only and can optionally apply histogram normalization and contrast stretch."
         )
-        oh5_layout.addWidget(self.oh5_help, stretch=1)
+        inspector_layout.addWidget(self.oh5_help, stretch=0)
+        oh5_layout.addWidget(inspector_group, stretch=1)
         self.input_stack.addWidget(oh5_page)
 
         right = QtWidgets.QVBoxLayout()
@@ -330,10 +492,11 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.predicted_map_layout = QtWidgets.QVBoxLayout(self.predicted_map_tab)
         self.predicted_map_layout.setContentsMargins(0, 0, 0, 0)
         self.predicted_map_layout.setSpacing(8)
-        self.result_preview = QtWidgets.QLabel("No result")
+        self.result_preview = ClickableImageLabel("No result")
         self.result_preview.setAlignment(QtCore.Qt.AlignCenter)
         self.result_preview.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.result_preview.setMinimumSize(540, 420)
+        self.result_preview.imageClicked.connect(self._handle_phase_map_click)
         self.predicted_map_layout.addWidget(self.result_preview, stretch=1)
 
         self.map_legend_widget = QtWidgets.QWidget()
@@ -450,6 +613,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
                 self._run_inference()
             else:
                 self.result_preview.setText("Load an image to predict.")
+                self.result_preview.set_source_image_size(None, None)
             self.preview_tabs.setTabText(0, "Image preview")
             self.preview_tabs.setTabText(1, "IPF reference")
             self.preview_tabs.setTabText(2, "IPF-colored EBSD map")
@@ -465,6 +629,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
                 self._run_inference()
             else:
                 self.result_preview.setText("Select a .oh5 file to run full-scan inference.")
+                self.result_preview.set_source_image_size(None, None)
                 self.ipf_preview.setText("Select a .oh5 file to render the IPF orientation reference.")
                 self.ipf_map_preview.setText("Select a .oh5 file to render the IPF-colored EBSD map.")
 
@@ -480,6 +645,8 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.state.full_scan_result = None
         self.state.full_scan_ipf_image = None
         self.state.full_scan_ipf_map_image = None
+        self._clear_selected_pixel()
+        self.notes.setPlainText(f"Selected .oh5: {self.state.oh5_path}\nRun full-scan inference to populate map and pixel-inspection details.")
         self.ipf_preview.setText("Scan selected. Run full-scan inference to populate the IPF reference.")
         self.ipf_map_preview.setText("Scan selected. Run full-scan inference to populate the IPF-colored EBSD map.")
         self._append_log("info", f"Selected .oh5 scan: {self.state.oh5_path}")
@@ -512,6 +679,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.result_preview.setPixmap(
             _gray_array_to_pixmap(result.preprocessed_image, target_size=self.result_preview.size())
         )
+        self.result_preview.set_source_image_size(result.preprocessed_image.shape[1], result.preprocessed_image.shape[0])
         self.prediction_label.setText(f"Prediction: {result.predicted_phase} ({result.confidence:.4f})")
 
         items = sorted(result.probabilities.items(), key=lambda kv: kv[1], reverse=True)
@@ -552,9 +720,12 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.state.full_scan_result = None
         self.state.full_scan_ipf_image = None
         self.state.full_scan_ipf_map_image = None
+        self._clear_selected_pixel()
         self.result_preview.setText("Running full-scan inference...")
+        self.result_preview.set_source_image_size(None, None)
         self.ipf_preview.setText("Waiting for Euler/IPF reference...")
         self.ipf_map_preview.setText("Waiting for Euler/IPF-colored EBSD map...")
+        self.notes.setPlainText(f"Running full-scan inference for {resolved}...\nSelected-pixel notes will update after the map is available.")
         self.status_label.setText(f"Running full-scan inference for {resolved.name}...")
         self.scan_progress.setValue(0)
         self.scan_eta_label.setText("ETA: estimating...")
@@ -588,7 +759,13 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
             result,
             use_confidence_shading=bool(self.confidence_shading_checkbox.isChecked()),
         )
+        rendered = _overlay_selected_pixel(
+            rendered,
+            x=self.state.selected_pixel_x,
+            y=self.state.selected_pixel_y,
+        )
         self.result_preview.setPixmap(_rgb_array_to_pixmap(rendered, target_size=self.result_preview.size()))
+        self.result_preview.set_source_image_size(result.nx, result.ny)
         if self.state.full_scan_ipf_image is not None:
             self.ipf_preview.setPixmap(
                 _rgb_array_to_pixmap(self.state.full_scan_ipf_image, target_size=self.ipf_preview.size())
@@ -628,6 +805,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
             self._run_image_prediction()
         elif self.state.inference_mode == INFERENCE_MODE_FULL_SCAN and self.state.full_scan_result is not None:
             self._refresh_full_scan_preview()
+            self._refresh_selected_pattern_preview()
 
     def _set_full_scan_busy(self, busy: bool) -> None:
         self.btn_full_scan.setEnabled(not busy)
@@ -636,6 +814,8 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.mode_combo.setEnabled(not busy)
         self.root_edit.setEnabled(not busy)
         self.confidence_shading_checkbox.setEnabled(not busy)
+        self.histogram_normalization_checkbox.setEnabled(not busy)
+        self.contrast_stretch_checkbox.setEnabled(not busy)
 
     def _append_log(self, level: str, message: str) -> None:
         level_name = str(level).upper()
@@ -673,6 +853,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.state.full_scan_result = result
         self.state.full_scan_ipf_image = ipf_image
         self.state.full_scan_ipf_map_image = ipf_map_image
+        self._clear_selected_pixel()
         dominant_phase = max(result.phase_counts.items(), key=lambda kv: (kv[1], kv[0]))[0] if result.phase_counts else "-"
         self.prediction_label.setText(
             f"Full scan: {dominant_phase} dominant | mean confidence {result.mean_confidence:.4f}"
@@ -691,38 +872,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
             self.prob_table.setItem(row_idx, 2, QtWidgets.QTableWidgetItem(f"{result.phase_fractions[phase]:.4f}"))
             self.prob_table.setItem(row_idx, 3, QtWidgets.QTableWidgetItem(f"{mean_score:.4f}"))
 
-        palette = _phase_color_map(result.class_names)
-        legend_lines = []
-        for phase in result.class_names:
-            rgb = tuple(int(round(float(v) * 255.0)) for v in palette[phase])
-            legend_lines.append(f"{phase}: rgb{rgb}")
-        self.notes.setPlainText(
-            "\n".join(
-                [
-                    f"Run: {self.state.loaded_model.run_dir}",
-                    f"Model: {self.state.loaded_model.model_name}",
-                    f"Checkpoint: {self.state.loaded_model.checkpoint_path.name}",
-                    f".oh5: {result.oh5_path}",
-                    f"Scan: {result.scan_name}",
-                    f"Grid: {result.nx} x {result.ny}",
-                    f"Inferred pixels: {result.total_pixels}",
-                    f"Header grid cells: {result.header_total_pixels}",
-                    f"Mean confidence: {result.mean_confidence:.6f}",
-                    f"Euler convention: {result.euler_convention or 'unavailable'}",
-                    f"Euler source unit: {result.euler_source_unit or 'unavailable'}",
-                    f"IPF reference: {'available' if ipf_image is not None else 'unavailable'}",
-                    f"IPF-colored EBSD map: {'available' if ipf_map_image is not None else 'unavailable'}",
-                    f"Confidence shading: {'on' if self.confidence_shading_checkbox.isChecked() else 'off'}",
-                    "",
-                    "Legend:",
-                    *legend_lines,
-                    "",
-                    "IPF note:",
-                    "Reference IPF panels are built from scan Euler angles grouped by predicted phase.",
-                    "IPF-colored EBSD map is generated per pixel from Euler angles using IPF color keys.",
-                ]
-            )
-        )
+        self._refresh_full_scan_notes()
         self.status_label.setText(f"Full-scan inference complete for {result.oh5_path.name}")
         self.scan_progress.setValue(100)
         self.scan_eta_label.setText("ETA: 00:00 | elapsed: complete")
@@ -778,6 +928,176 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
             entry_layout.addWidget(label, alignment=QtCore.Qt.AlignHCenter)
             self.map_legend_layout.addWidget(entry, stretch=0)
         self.map_legend_layout.addStretch(1)
+
+    def _reset_pattern_display_controls(self) -> None:
+        self.histogram_normalization_checkbox.blockSignals(True)
+        self.contrast_stretch_checkbox.blockSignals(True)
+        self.histogram_normalization_checkbox.setChecked(False)
+        self.contrast_stretch_checkbox.setChecked(False)
+        self.histogram_normalization_checkbox.blockSignals(False)
+        self.contrast_stretch_checkbox.blockSignals(False)
+        self._refresh_selected_pattern_preview()
+
+    def _clear_selected_pixel(self) -> None:
+        self.state.selected_pixel_x = None
+        self.state.selected_pixel_y = None
+        self.state.selected_pattern = None
+        self.state.selected_pixel_details = None
+        self.selected_pixel_status.setText("Click a pixel in the predicted phase map to inspect its Kikuchi pattern.")
+        self.selected_pixel_value.setText("-")
+        self.selected_phase_value.setText("-")
+        self.selected_confidence_value.setText("-")
+        self.selected_quality_value.setText("-")
+        self.pattern_preview.clear()
+        self.pattern_preview.setText("No pixel selected")
+        self._refresh_full_scan_notes()
+
+    def _handle_phase_map_click(self, x: int, y: int) -> None:
+        result = self.state.full_scan_result
+        if self.state.inference_mode != INFERENCE_MODE_FULL_SCAN or result is None:
+            return
+        flat_index = y * result.nx + x
+        if flat_index < 0 or flat_index >= result.header_total_pixels:
+            return
+        if flat_index >= result.total_pixels or int(result.predicted_indices[flat_index]) < 0:
+            self.state.selected_pixel_x = x
+            self.state.selected_pixel_y = y
+            self.state.selected_pattern = None
+            self.state.selected_pixel_details = {
+                "x": int(x),
+                "y": int(y),
+                "phase": "unavailable",
+                "confidence": None,
+                "quality": "No pattern available for this grid cell.",
+            }
+            self.selected_pixel_status.setText("Selected grid cell has no pattern payload in the .oh5 file.")
+            self.selected_pixel_value.setText(f"({x}, {y})")
+            self.selected_phase_value.setText("unavailable")
+            self.selected_confidence_value.setText("-")
+            self.selected_quality_value.setText("No pattern available")
+            self.pattern_preview.clear()
+            self.pattern_preview.setText("No pattern available")
+            self._refresh_full_scan_preview()
+            self._refresh_full_scan_notes()
+            return
+
+        from .oh5_reader import Oh5ScanReader
+
+        try:
+            with Oh5ScanReader(result.oh5_path) as reader:
+                pattern = reader.read_pattern(flat_index=flat_index)
+                quality_row = reader.read_quality_row(flat_index=flat_index)
+        except Exception as exc:
+            self._append_log("error", f"Failed to load Kikuchi pattern for pixel ({x}, {y}): {exc}")
+            self.selected_pixel_status.setText(f"Failed to load clicked pixel pattern: {exc}")
+            return
+
+        class_idx = int(result.predicted_indices[flat_index])
+        phase = result.class_names[class_idx]
+        confidence = float(result.confidences[flat_index])
+        quality_bits = []
+        ci = quality_row.get("confidence_index")
+        iq = quality_row.get("image_quality")
+        fit = quality_row.get("fit")
+        if ci is not None:
+            quality_bits.append(f"CI={float(ci):.4f}")
+        if iq is not None:
+            quality_bits.append(f"IQ={float(iq):.4f}")
+        if fit is not None:
+            quality_bits.append(f"Fit={float(fit):.4f}")
+        quality_text = ", ".join(quality_bits) if quality_bits else "No quality fields available"
+
+        self.state.selected_pixel_x = int(x)
+        self.state.selected_pixel_y = int(y)
+        self.state.selected_pattern = np.asarray(pattern, dtype=np.float32)
+        self.state.selected_pixel_details = {
+            "x": int(x),
+            "y": int(y),
+            "phase": phase,
+            "confidence": confidence,
+            "quality": quality_text,
+        }
+        self.selected_pixel_status.setText("Showing experimental Kikuchi pattern for the selected map pixel.")
+        self.selected_pixel_value.setText(f"({x}, {y})")
+        self.selected_phase_value.setText(phase)
+        self.selected_confidence_value.setText(f"{confidence:.4f}")
+        self.selected_quality_value.setText(quality_text)
+        self._refresh_selected_pattern_preview()
+        self._refresh_full_scan_preview()
+        self._refresh_full_scan_notes()
+
+    def _refresh_selected_pattern_preview(self) -> None:
+        pattern = self.state.selected_pattern
+        if pattern is None:
+            return
+        display = _prepare_display_gray(
+            pattern,
+            histogram_normalization=bool(self.histogram_normalization_checkbox.isChecked()),
+            contrast_stretch=bool(self.contrast_stretch_checkbox.isChecked()),
+        )
+        self.pattern_preview.setText("")
+        self.pattern_preview.setPixmap(_gray_array_to_pixmap(display, target_size=self.pattern_preview.size()))
+
+    def _refresh_full_scan_notes(self) -> None:
+        result = self.state.full_scan_result
+        if result is None or self.state.loaded_model is None:
+            return
+
+        palette = _phase_color_map(result.class_names)
+        legend_lines = []
+        for phase in result.class_names:
+            rgb = tuple(int(round(float(v) * 255.0)) for v in palette[phase])
+            legend_lines.append(f"{phase}: rgb{rgb}")
+
+        lines = [
+            f"Run: {self.state.loaded_model.run_dir}",
+            f"Model: {self.state.loaded_model.model_name}",
+            f"Checkpoint: {self.state.loaded_model.checkpoint_path.name}",
+            f".oh5: {result.oh5_path}",
+            f"Scan: {result.scan_name}",
+            f"Grid: {result.nx} x {result.ny}",
+            f"Inferred pixels: {result.total_pixels}",
+            f"Header grid cells: {result.header_total_pixels}",
+            f"Mean confidence: {result.mean_confidence:.6f}",
+            f"Euler convention: {result.euler_convention or 'unavailable'}",
+            f"Euler source unit: {result.euler_source_unit or 'unavailable'}",
+            f"IPF reference: {'available' if self.state.full_scan_ipf_image is not None else 'unavailable'}",
+            f"IPF-colored EBSD map: {'available' if self.state.full_scan_ipf_map_image is not None else 'unavailable'}",
+            f"Confidence shading: {'on' if self.confidence_shading_checkbox.isChecked() else 'off'}",
+        ]
+        details = self.state.selected_pixel_details
+        if details is not None:
+            lines.extend(
+                [
+                    "",
+                    "Selected pixel:",
+                    f"Pixel: ({details['x']}, {details['y']})",
+                    f"Phase: {details['phase']}",
+                    (
+                        f"Confidence: {float(details['confidence']):.4f}"
+                        if details.get('confidence') is not None
+                        else "Confidence: unavailable"
+                    ),
+                    f"Quality: {details['quality']}",
+                    (
+                        "Pattern display: histogram normalization="
+                        f"{'on' if self.histogram_normalization_checkbox.isChecked() else 'off'}, "
+                        f"contrast stretch={'on' if self.contrast_stretch_checkbox.isChecked() else 'off'}"
+                    ),
+                ]
+            )
+        lines.extend(
+            [
+                "",
+                "Legend:",
+                *legend_lines,
+                "",
+                "IPF note:",
+                "Reference IPF panels are built from scan Euler angles grouped by predicted phase.",
+                "IPF-colored EBSD map is generated per pixel from Euler angles using IPF color keys.",
+            ]
+        )
+        self.notes.setPlainText("\n".join(lines))
 
 
 def run_inference_gui(*, repo_root: Path, suite_root: Path | None, debug: bool = False) -> int:

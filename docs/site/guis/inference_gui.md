@@ -4,7 +4,7 @@
 :alt: Inference GUI schematic
 :width: 100%
 
-Schematic layout of the inference GUI showing suite/run selection, mode switch, image or `.oh5` inputs, and the result/summary panels.
+Schematic layout of the inference GUI showing suite/run selection, mode switch, image or `.oh5` inputs, a clicked-pixel Kikuchi inspector, and the result/summary panels.
 :::
 
 :::{figure} ../figures/full_scan_map_mode.svg
@@ -19,8 +19,11 @@ Full-scan `.oh5` mode: the GUI reconstructs the scan grid and colors each pixel 
 The `.oh5` workflow now shows two scan-level diagnostics side by side through tabs:
 
 - a **predicted phase map** from the trained classifier
+- a **clicked-pixel Kikuchi inspector** in the left panel
 - an **IPF orientation reference** rendered from the scan Euler angles
 - an **IPF-colored EBSD map** rendered per pixel from the scan Euler angles
+
+The clicked-pixel inspector loads the experimental pattern for any map pixel, keeps the display grayscale, and offers optional **histogram normalization** plus **contrast stretch** to improve band visibility without changing the underlying inference result.
 
 The window also includes a live **log panel** and progress/ETA display so large scans remain inspectable while inference is running.
 
@@ -49,6 +52,7 @@ The rendered map semantics are:
 - hue = predicted phase
 - intensity/saturation = confidence when `Use confidence shading` is enabled
 - duller pixels = lower confidence
+- click selection = the map pixel whose experimental Kikuchi pattern is shown in the inspector panel
 
 The IPF reference semantics are:
 
@@ -74,16 +78,18 @@ This mode is deliberately analogous to EBSD-style interpretive maps where catego
 5. enable or disable confidence shading
 6. run inference
 7. watch the live log and ETA while the scan is processed
-8. inspect the predicted phase map, IPF reference, and IPF-colored EBSD map tabs
-9. inspect the dominant phase, per-phase counts, fractions, and mean scores
+8. click any map pixel to load its experimental Kikuchi pattern
+9. optionally enable histogram normalization and/or contrast stretch for the clicked pattern
+10. inspect the predicted phase map, IPF reference, and IPF-colored EBSD map tabs
+11. inspect the dominant phase, per-phase counts, fractions, and mean scores
 
 ## What the panels mean
 
 - **top controls**: model selection and inference mode
-- **left input area**: image browser or `.oh5` browser depending on mode
+- **left input area**: image browser in image mode, or `.oh5` browser plus clicked-pixel Kikuchi inspector in full-scan mode
 - **right preview tabs**: preprocessed image preview, predicted scan map, IPF reference, and IPF-colored EBSD map
 - **table**: probabilities for image mode, or per-phase pixel counts/fractions/mean scores for full-scan mode
-- **notes**: run metadata, grid size, Euler metadata, confidence state, and phase-color legend
+- **notes**: run metadata, grid size, Euler metadata, confidence state, phase-color legend, and currently selected pixel details
 - **log panel**: backend progress, scan-opening messages, Euler/IPF status, and errors
 - **progress row**: processed pixels plus ETA/elapsed time
 
@@ -93,6 +99,9 @@ The GUI is not meant to be a black-box convenience toy. It is designed to make s
 
 - full-scan mode avoids arbitrary sampling when a true map is desired
 - confidence shading exposes low-trust transition regions
+- clicked-pixel pattern review ties each map decision back to the raw experimental evidence
+- grayscale-only display respects the native character of Kikuchi patterns
+- histogram normalization and contrast stretch help reveal weak band structure during qualitative review
 - the IPF reference panel gives orientation-space context for the same scan
 - the IPF-colored EBSD map gives a familiar orientation microstructure view derived from the same Euler data
 - the log pane exposes long-running backend work instead of hiding it behind a frozen window

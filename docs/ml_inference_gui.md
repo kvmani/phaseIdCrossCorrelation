@@ -70,6 +70,8 @@ GUI features:
 - inspect original and preprocessed grayscale views in image mode
 - browse a `.oh5` scan and run inference on every available pattern in full-scan mode
 - render a predicted phase map on the scan grid using class colors
+- click any full-scan map pixel to inspect the corresponding experimental Kikuchi pattern
+- display clicked-pixel Kikuchi patterns in grayscale with optional histogram normalization and contrast stretch
 - render an IPF orientation-reference panel from the scan Euler angles when present
 - render a per-pixel IPF-colored EBSD map from the scan Euler angles when present
 - optionally dull low-confidence pixels using `Use confidence shading`
@@ -92,6 +94,9 @@ Behavior:
 - optionally scales color vividness by the model confidence for that pixel
 - reads Euler angles from the `.oh5` when available and renders an IPF reference grouped by predicted phase
 - reads Euler angles from the `.oh5` when available and renders a conventional-style IPF-colored orientation map per pixel
+- lets the user click a predicted-map pixel and load the matching experimental Kikuchi pattern from the `.oh5`
+- shows clicked-pattern metadata including pixel coordinate, predicted phase, confidence, and discovered quality fields when available
+- keeps the pattern in grayscale and optionally applies histogram normalization and percentile-based contrast stretch for visibility tuning
 - leaves missing/unavailable pixels dark
 - emits progress, ETA, and backend status messages in a GUI log window
 

@@ -68,6 +68,7 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [x] M20: Export per-sample Euler angles from dataset prep with provenance-rich CSV/JSON outputs plus per-phase IPF split diagnostics for orientation-space coverage review.
 - [x] M21: Extend the inference GUI with full-scan `.oh5` prediction-map rendering and optional confidence-based color shading.
 - [x] M22: Extend the inference GUI full-scan `.oh5` mode with orientation-reference IPF rendering plus live progress/log visibility for large scans.
+- [x] M23: Extend the inference GUI full-scan mode with clicked-pixel Kikuchi pattern inspection and grayscale contrast-enhancement controls.
 - [x] M18: Add diagnostic pattern gallery GUI with cross-condition source grouping, manual index lookup, and manifest/contact-sheet export.
 - [x] M19: Add graphics-first lab-meeting PPT generation for balanced benchmark plus diagnostic-gallery assessment artifacts.
 

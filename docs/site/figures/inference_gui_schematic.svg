@@ -1,32 +1,53 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700">
-  <rect width="1200" height="700" fill="#f6f7fb"/>
-  <rect x="20" y="20" width="1160" height="660" rx="18" fill="#ffffff" stroke="#1f2937" stroke-width="2"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <rect width="1200" height="760" fill="#f6f7fb"/>
+  <rect x="20" y="20" width="1160" height="720" rx="18" fill="#ffffff" stroke="#1f2937" stroke-width="2"/>
   <text x="50" y="62" font-family="Arial" font-size="28" font-weight="700" fill="#0d3b66">Inference GUI</text>
+
   <rect x="40" y="90" width="1120" height="110" rx="12" fill="#eef3f8" stroke="#9aa6b2"/>
   <text x="60" y="125" font-family="Arial" font-size="18" font-weight="700">Suite root / run dir</text>
-  <rect x="220" y="106" width="640" height="34" rx="6" fill="#fff" stroke="#7c8792"/>
-  <rect x="880" y="106" width="160" height="34" rx="6" fill="#d9eaf7" stroke="#0d3b66"/>
-  <text x="960" y="128" text-anchor="middle" font-family="Arial" font-size="16">Browse Suite/Run</text>
+  <rect x="220" y="106" width="650" height="34" rx="6" fill="#fff" stroke="#7c8792"/>
+  <rect x="890" y="106" width="150" height="34" rx="6" fill="#d9eaf7" stroke="#0d3b66"/>
+  <text x="965" y="128" text-anchor="middle" font-family="Arial" font-size="16">Browse Suite/Run</text>
   <text x="60" y="168" font-family="Arial" font-size="18" font-weight="700">Model / mode / known phase</text>
   <rect x="300" y="147" width="230" height="30" rx="6" fill="#fff" stroke="#7c8792"/>
   <rect x="550" y="147" width="180" height="30" rx="6" fill="#fff" stroke="#7c8792"/>
   <rect x="750" y="147" width="180" height="30" rx="6" fill="#fff" stroke="#7c8792"/>
-  <rect x="40" y="220" width="420" height="430" rx="14" fill="#fafafa" stroke="#b5bfc8"/>
-  <text x="60" y="255" font-family="Arial" font-size="22" font-weight="700">Input side</text>
-  <rect x="60" y="280" width="380" height="110" rx="10" fill="#f4f8fc" stroke="#90a4b8" stroke-dasharray="8 6"/>
-  <text x="250" y="334" text-anchor="middle" font-family="Arial" font-size="20">Image drop area</text>
-  <rect x="60" y="410" width="180" height="210" rx="10" fill="#eceff3" stroke="#8b97a3"/>
-  <rect x="260" y="410" width="180" height="210" rx="10" fill="#eceff3" stroke="#8b97a3"/>
-  <text x="150" y="520" text-anchor="middle" font-family="Arial" font-size="18">Original</text>
-  <text x="350" y="520" text-anchor="middle" font-family="Arial" font-size="18">Preprocessed</text>
-  <rect x="500" y="220" width="640" height="430" rx="14" fill="#fafafa" stroke="#b5bfc8"/>
+
+  <rect x="40" y="220" width="430" height="490" rx="14" fill="#fafafa" stroke="#b5bfc8"/>
+  <text x="60" y="255" font-family="Arial" font-size="22" font-weight="700">Full-scan input + clicked-pixel inspector</text>
+  <rect x="60" y="280" width="390" height="74" rx="10" fill="#f4f8fc" stroke="#90a4b8"/>
+  <text x="80" y="308" font-family="Arial" font-size="16" font-weight="700">.oh5 file + run controls</text>
+  <rect x="75" y="320" width="250" height="22" rx="5" fill="#fff" stroke="#7c8792"/>
+  <rect x="335" y="320" width="105" height="22" rx="5" fill="#d9eaf7" stroke="#0d3b66"/>
+
+  <rect x="60" y="370" width="390" height="320" rx="10" fill="#ffffff" stroke="#8b97a3"/>
+  <text x="80" y="398" font-family="Arial" font-size="18" font-weight="700">Clicked pixel inspector</text>
+  <text x="80" y="425" font-family="Arial" font-size="15">Pixel / phase / confidence / quality</text>
+  <rect x="85" y="445" width="340" height="170" rx="8" fill="#eceff3" stroke="#8b97a3"/>
+  <text x="255" y="535" text-anchor="middle" font-family="Arial" font-size="20">Grayscale Kikuchi pattern</text>
+  <rect x="85" y="630" width="160" height="20" rx="5" fill="#f4f8fc" stroke="#7c8792"/>
+  <rect x="265" y="630" width="160" height="20" rx="5" fill="#f4f8fc" stroke="#7c8792"/>
+  <text x="165" y="644" text-anchor="middle" font-family="Arial" font-size="13">Histogram normalization</text>
+  <text x="345" y="644" text-anchor="middle" font-family="Arial" font-size="13">Contrast stretch</text>
+  <rect x="85" y="658" width="140" height="22" rx="5" fill="#fff7df" stroke="#c49b2b"/>
+  <text x="155" y="673" text-anchor="middle" font-family="Arial" font-size="13">Reset display</text>
+
+  <rect x="500" y="220" width="640" height="490" rx="14" fill="#fafafa" stroke="#b5bfc8"/>
   <text x="520" y="255" font-family="Arial" font-size="22" font-weight="700">Result side</text>
-  <rect x="520" y="280" width="280" height="40" rx="6" fill="#fff7df" stroke="#c49b2b"/>
-  <text x="660" y="305" text-anchor="middle" font-family="Arial" font-size="18">Prediction: phase / confidence</text>
-  <rect x="520" y="340" width="370" height="280" rx="10" fill="#eef3f8" stroke="#90a4b8"/>
-  <text x="705" y="485" text-anchor="middle" font-family="Arial" font-size="20">Preview or scan map</text>
-  <rect x="910" y="340" width="210" height="120" rx="10" fill="#ffffff" stroke="#8b97a3"/>
-  <rect x="910" y="480" width="210" height="140" rx="10" fill="#ffffff" stroke="#8b97a3"/>
-  <text x="1015" y="404" text-anchor="middle" font-family="Arial" font-size="18">Probability / count table</text>
-  <text x="1015" y="555" text-anchor="middle" font-family="Arial" font-size="18">Notes, legend, metadata</text>
+  <rect x="520" y="280" width="320" height="40" rx="6" fill="#fff7df" stroke="#c49b2b"/>
+  <text x="680" y="305" text-anchor="middle" font-family="Arial" font-size="18">Full scan dominant phase / confidence</text>
+
+  <rect x="520" y="340" width="410" height="300" rx="10" fill="#eef3f8" stroke="#90a4b8"/>
+  <text x="725" y="372" text-anchor="middle" font-family="Arial" font-size="20">Predicted phase map / IPF tabs</text>
+  <text x="725" y="400" text-anchor="middle" font-family="Arial" font-size="16">click any pixel to inspect its Kikuchi pattern</text>
+  <circle cx="770" cy="510" r="10" fill="#ffffff" stroke="#111827" stroke-width="2"/>
+  <circle cx="770" cy="510" r="3" fill="#111827"/>
+
+  <rect x="950" y="340" width="170" height="145" rx="10" fill="#ffffff" stroke="#8b97a3"/>
+  <text x="1035" y="418" text-anchor="middle" font-family="Arial" font-size="18">Per-phase table</text>
+  <rect x="950" y="500" width="170" height="140" rx="10" fill="#ffffff" stroke="#8b97a3"/>
+  <text x="1035" y="552" text-anchor="middle" font-family="Arial" font-size="18">Notes</text>
+  <text x="1035" y="576" text-anchor="middle" font-family="Arial" font-size="14">run metadata + selected pixel details</text>
+
+  <rect x="40" y="720" width="1080" height="0" fill="none"/>
 </svg>
