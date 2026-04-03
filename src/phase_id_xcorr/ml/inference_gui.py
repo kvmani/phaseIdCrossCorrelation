@@ -89,110 +89,6 @@ def _render_full_scan_phase_map(
     return image
 
 
-def _draw_phase_legend(image: np.ndarray, *, class_names: list[str]) -> np.ndarray:
-    out = np.asarray(image, dtype=np.float32).copy()
-    if out.ndim != 3 or out.shape[2] != 3:
-        raise ValueError("Legend renderer expects an RGB image")
-    if not class_names:
-        return out
-
-    height, width, _ = out.shape
-    palette = _phase_color_map(class_names)
-
-    panel_margin = max(8, min(height, width) // 40)
-    row_height = max(18, min(26, height // max(8, len(class_names) + 2)))
-    swatch_size = max(12, row_height - 8)
-    text_char_w = 7
-    label_width = max(len(name) for name in class_names) * text_char_w + 10
-    panel_width = min(width - 2 * panel_margin, swatch_size + label_width + 30)
-    panel_height = min(height - 2 * panel_margin, 14 + len(class_names) * row_height + 10)
-    if panel_width <= 20 or panel_height <= 20:
-        return out
-
-    x0 = panel_margin
-    y0 = panel_margin
-    x1 = min(width, x0 + panel_width)
-    y1 = min(height, y0 + panel_height)
-
-    panel_color = np.asarray([0.08, 0.08, 0.08], dtype=np.float32)
-    border_color = np.asarray([0.95, 0.95, 0.95], dtype=np.float32)
-    alpha = 0.82
-    out[y0:y1, x0:x1] = out[y0:y1, x0:x1] * (1.0 - alpha) + panel_color * alpha
-    out[y0:y0 + 2, x0:x1] = border_color
-    out[y1 - 2:y1, x0:x1] = border_color
-    out[y0:y1, x0:x0 + 2] = border_color
-    out[y0:y1, x1 - 2:x1] = border_color
-
-    title_y = y0 + 6
-    out = _draw_text_block(out, x=x0 + 8, y=title_y, text="Legend", color=(1.0, 1.0, 1.0), scale=1)
-
-    for idx, phase_name in enumerate(class_names):
-        row_y = y0 + 22 + idx * row_height
-        swatch_y0 = row_y
-        swatch_y1 = min(y1 - 6, swatch_y0 + swatch_size)
-        swatch_x0 = x0 + 8
-        swatch_x1 = min(x1 - 6, swatch_x0 + swatch_size)
-        out[swatch_y0:swatch_y1, swatch_x0:swatch_x1] = palette[phase_name]
-        out[max(y0, swatch_y0 - 1):min(y1, swatch_y1 + 1), max(x0, swatch_x0 - 1):swatch_x0] = border_color
-        out[max(y0, swatch_y0 - 1):min(y1, swatch_y1 + 1), swatch_x1:min(x1, swatch_x1 + 1)] = border_color
-        out[max(y0, swatch_y0 - 1):swatch_y0, max(x0, swatch_x0 - 1):min(x1, swatch_x1 + 1)] = border_color
-        out[swatch_y1:min(y1, swatch_y1 + 1), max(x0, swatch_x0 - 1):min(x1, swatch_x1 + 1)] = border_color
-        out = _draw_text_block(
-            out,
-            x=swatch_x1 + 8,
-            y=row_y + 2,
-            text=phase_name,
-            color=(1.0, 1.0, 1.0),
-            scale=1,
-        )
-    return np.clip(out, 0.0, 1.0)
-
-
-_GLYPH_3X5: dict[str, tuple[str, ...]] = {
-    "A": ("010", "101", "111", "101", "101"),
-    "B": ("110", "101", "110", "101", "110"),
-    "C": ("011", "100", "100", "100", "011"),
-    "D": ("110", "101", "101", "101", "110"),
-    "E": ("111", "100", "110", "100", "111"),
-    "G": ("011", "100", "101", "101", "011"),
-    "I": ("111", "010", "010", "010", "111"),
-    "L": ("100", "100", "100", "100", "111"),
-    "N": ("101", "111", "111", "111", "101"),
-    "P": ("110", "101", "110", "100", "100"),
-    "R": ("110", "101", "110", "101", "101"),
-    "U": ("101", "101", "101", "101", "111"),
-    " ": ("000", "000", "000", "000", "000"),
-}
-
-
-def _draw_text_block(
-    image: np.ndarray,
-    *,
-    x: int,
-    y: int,
-    text: str,
-    color: tuple[float, float, float],
-    scale: int = 1,
-) -> np.ndarray:
-    out = image
-    cursor_x = int(x)
-    for char in str(text).upper():
-        glyph = _GLYPH_3X5.get(char, _GLYPH_3X5[" "])
-        for gy, row in enumerate(glyph):
-            for gx, token in enumerate(row):
-                if token != "1":
-                    continue
-                yy0 = y + gy * scale
-                yy1 = yy0 + scale
-                xx0 = cursor_x + gx * scale
-                xx1 = xx0 + scale
-                if yy0 < 0 or xx0 < 0 or yy1 > out.shape[0] or xx1 > out.shape[1]:
-                    continue
-                out[yy0:yy1, xx0:xx1] = np.asarray(color, dtype=np.float32)
-        cursor_x += 4 * scale
-    return out
-
-
 class DropImageLabel(QtWidgets.QLabel):
     imageDropped = QtCore.Signal(str)
 
@@ -430,10 +326,22 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         right.addWidget(self.prediction_label)
 
         self.preview_tabs = QtWidgets.QTabWidget()
+        self.predicted_map_tab = QtWidgets.QWidget()
+        self.predicted_map_layout = QtWidgets.QVBoxLayout(self.predicted_map_tab)
+        self.predicted_map_layout.setContentsMargins(0, 0, 0, 0)
+        self.predicted_map_layout.setSpacing(8)
         self.result_preview = QtWidgets.QLabel("No result")
         self.result_preview.setAlignment(QtCore.Qt.AlignCenter)
         self.result_preview.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.result_preview.setMinimumSize(540, 420)
+        self.predicted_map_layout.addWidget(self.result_preview, stretch=1)
+
+        self.map_legend_widget = QtWidgets.QWidget()
+        self.map_legend_layout = QtWidgets.QHBoxLayout(self.map_legend_widget)
+        self.map_legend_layout.setContentsMargins(12, 2, 12, 6)
+        self.map_legend_layout.setSpacing(18)
+        self.predicted_map_layout.addWidget(self.map_legend_widget, stretch=0)
+
         self.ipf_preview = QtWidgets.QLabel("Load a scan to render the IPF orientation reference.")
         self.ipf_preview.setAlignment(QtCore.Qt.AlignCenter)
         self.ipf_preview.setFrameShape(QtWidgets.QFrame.StyledPanel)
@@ -442,7 +350,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.ipf_map_preview.setAlignment(QtCore.Qt.AlignCenter)
         self.ipf_map_preview.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.ipf_map_preview.setMinimumSize(540, 420)
-        self.preview_tabs.addTab(self.result_preview, "Predicted phase map")
+        self.preview_tabs.addTab(self.predicted_map_tab, "Predicted phase map")
         self.preview_tabs.addTab(self.ipf_preview, "IPF reference")
         self.preview_tabs.addTab(self.ipf_map_preview, "IPF-colored EBSD map")
         right.addWidget(self.preview_tabs, stretch=2)
@@ -680,7 +588,6 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
             result,
             use_confidence_shading=bool(self.confidence_shading_checkbox.isChecked()),
         )
-        rendered = _draw_phase_legend(rendered, class_names=result.class_names)
         self.result_preview.setPixmap(_rgb_array_to_pixmap(rendered, target_size=self.result_preview.size()))
         if self.state.full_scan_ipf_image is not None:
             self.ipf_preview.setPixmap(
@@ -690,6 +597,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
             self.ipf_map_preview.setPixmap(
                 _rgb_array_to_pixmap(self.state.full_scan_ipf_map_image, target_size=self.ipf_map_preview.size())
             )
+        self._refresh_phase_map_legend(result.class_names)
 
     def _update_known_phase_status(self) -> None:
         if self.state.loaded_model is None:
@@ -835,6 +743,41 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.status_label.setText(f"Full-scan inference failed: {message}")
         self.scan_eta_label.setText("ETA: -")
         self._append_log("error", message)
+
+    def _refresh_phase_map_legend(self, class_names: list[str]) -> None:
+        while self.map_legend_layout.count():
+            item = self.map_legend_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+        if not class_names:
+            return
+
+        palette = _phase_color_map(class_names)
+        self.map_legend_layout.addStretch(1)
+        for phase_name in class_names:
+            entry = QtWidgets.QWidget()
+            entry_layout = QtWidgets.QVBoxLayout(entry)
+            entry_layout.setContentsMargins(0, 0, 0, 0)
+            entry_layout.setSpacing(4)
+
+            bar = QtWidgets.QFrame()
+            bar.setFixedSize(80, 16)
+            rgb = tuple(int(round(float(v) * 255.0)) for v in palette[phase_name])
+            bar.setStyleSheet(
+                "QFrame {"
+                f"background-color: rgb({rgb[0]}, {rgb[1]}, {rgb[2]});"
+                "border: 1px solid rgb(210, 210, 210);"
+                "border-radius: 2px;"
+                "}"
+            )
+            label = QtWidgets.QLabel(phase_name)
+            label.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignTop)
+
+            entry_layout.addWidget(bar, alignment=QtCore.Qt.AlignHCenter)
+            entry_layout.addWidget(label, alignment=QtCore.Qt.AlignHCenter)
+            self.map_legend_layout.addWidget(entry, stretch=0)
+        self.map_legend_layout.addStretch(1)
 
 
 def run_inference_gui(*, repo_root: Path, suite_root: Path | None, debug: bool = False) -> int:
