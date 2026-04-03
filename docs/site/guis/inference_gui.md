@@ -23,7 +23,12 @@ The `.oh5` workflow now shows two scan-level diagnostics side by side through ta
 - an **IPF orientation reference** rendered from the scan Euler angles
 - an **IPF-colored EBSD map** rendered per pixel from the scan Euler angles
 
-The clicked-pixel inspector loads the experimental pattern for any map pixel, keeps the display grayscale, and offers optional **histogram normalization** plus **contrast stretch** to improve band visibility without changing the underlying inference result.
+The clicked-pixel inspector loads the experimental pattern for any map pixel into two linked panes:
+
+- **Original pattern**: the raw experimental Kikuchi pattern read from the `.oh5`
+- **Processed pattern**: the same pattern after optional display-only histogram normalization and contrast stretch
+
+The two panes stay synchronized for **fit**, **zoom**, and **pan**, so the user can compare the same spatial region in raw and processed views without manually re-aligning them.
 
 The window also includes a live **log panel** and progress/ETA display so large scans remain inspectable while inference is running.
 
@@ -79,14 +84,15 @@ This mode is deliberately analogous to EBSD-style interpretive maps where catego
 6. run inference
 7. watch the live log and ETA while the scan is processed
 8. click any map pixel to load its experimental Kikuchi pattern
-9. optionally enable histogram normalization and/or contrast stretch for the clicked pattern
+9. optionally enable histogram normalization and/or contrast stretch for the processed clicked-pattern view
 10. inspect the predicted phase map, IPF reference, and IPF-colored EBSD map tabs
 11. inspect the dominant phase, per-phase counts, fractions, and mean scores
+12. use the `Fit`, `Zoom +`, `Zoom -`, and `Reset` controls to inspect raw and processed patterns in lockstep
 
 ## What the panels mean
 
 - **top controls**: model selection and inference mode
-- **left input area**: image browser in image mode, or `.oh5` browser plus clicked-pixel Kikuchi inspector in full-scan mode
+- **left input area**: image browser in image mode, or `.oh5` browser plus a dual-pane clicked-pixel Kikuchi inspector in full-scan mode
 - **right preview tabs**: preprocessed image preview, predicted scan map, IPF reference, and IPF-colored EBSD map
 - **table**: probabilities for image mode, or per-phase pixel counts/fractions/mean scores for full-scan mode
 - **notes**: run metadata, grid size, Euler metadata, confidence state, phase-color legend, and currently selected pixel details
@@ -101,7 +107,9 @@ The GUI is not meant to be a black-box convenience toy. It is designed to make s
 - confidence shading exposes low-trust transition regions
 - clicked-pixel pattern review ties each map decision back to the raw experimental evidence
 - grayscale-only display respects the native character of Kikuchi patterns
+- the paired raw/processed panes make display enhancement inspectable rather than hidden
 - histogram normalization and contrast stretch help reveal weak band structure during qualitative review
+- synchronized zoom and pan let users compare identical band neighborhoods across raw and processed views
 - the IPF reference panel gives orientation-space context for the same scan
 - the IPF-colored EBSD map gives a familiar orientation microstructure view derived from the same Euler data
 - the log pane exposes long-running backend work instead of hiding it behind a frozen window

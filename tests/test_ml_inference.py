@@ -4,11 +4,12 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
+from PySide6 import QtWidgets
 import yaml
 
 from phase_id_xcorr.ml.dataset_io import save_split_npz, write_json
 from phase_id_xcorr.ml.inference import list_model_runs, load_trained_model, predict_image
-from phase_id_xcorr.ml.inference_gui import _contrast_stretch_gray, _prepare_display_gray
+from phase_id_xcorr.ml.inference_gui import _PatternCompareWidget, _contrast_stretch_gray, _prepare_display_gray
 from phase_id_xcorr.ml.training import train_classifier
 
 
@@ -129,3 +130,32 @@ def test_prepare_display_gray_keeps_values_bounded() -> None:
     assert float(out.min()) >= 0.0
     assert float(out.max()) <= 1.0
     assert not np.allclose(out, arr)
+
+
+def test_pattern_compare_widget_keeps_zoom_synchronized() -> None:
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    widget = _PatternCompareWidget()
+    widget.resize(900, 700)
+    widget.show()
+    app.processEvents()
+
+    raw = np.linspace(0.0, 1.0, 256 * 256, dtype=np.float32).reshape(256, 256)
+    processed = np.flipud(raw)
+    widget.set_patterns(raw, processed)
+    app.processEvents()
+
+    widget._zoom_views(1.15)
+    app.processEvents()
+
+    raw_scale = widget.raw_pane.view.transform().m11()
+    processed_scale = widget.processed_pane.view.transform().m11()
+    assert raw_scale > 1.0
+    assert np.isclose(raw_scale, processed_scale)
+
+    widget.raw_pane.view.horizontalScrollBar().setValue(12)
+    widget.raw_pane.view.verticalScrollBar().setValue(18)
+    app.processEvents()
+
+    assert widget.processed_pane.view.horizontalScrollBar().value() == widget.raw_pane.view.horizontalScrollBar().value()
+    assert widget.processed_pane.view.verticalScrollBar().value() == widget.raw_pane.view.verticalScrollBar().value()
+    widget.close()

@@ -38,6 +38,14 @@ def _gray_array_to_pixmap(array: np.ndarray, *, target_size: QtCore.QSize) -> Qt
     return pix.scaled(target_size, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
 
 
+def _gray_array_to_native_pixmap(array: np.ndarray) -> QtGui.QPixmap:
+    arr = np.clip(array, 0.0, 1.0)
+    arr8 = (arr * 255.0).round().astype(np.uint8)
+    h, w = arr8.shape
+    qimg = QtGui.QImage(arr8.data, w, h, w, QtGui.QImage.Format_Grayscale8)
+    return QtGui.QPixmap.fromImage(qimg.copy())
+
+
 def _rgb_array_to_pixmap(array: np.ndarray, *, target_size: QtCore.QSize) -> QtGui.QPixmap:
     arr = np.clip(array, 0.0, 1.0)
     arr8 = (arr * 255.0).round().astype(np.uint8)
@@ -203,6 +211,220 @@ class ClickableImageLabel(QtWidgets.QLabel):
         src_x = min(src_w - 1, max(0, int(rel_x / scale)))
         src_y = min(src_h - 1, max(0, int(rel_y / scale)))
         return src_x, src_y
+
+
+class _SyncedImageView(QtWidgets.QGraphicsView):
+    def __init__(self) -> None:
+        super().__init__()
+        self._scene = QtWidgets.QGraphicsScene(self)
+        self._pixmap_item = self._scene.addPixmap(QtGui.QPixmap())
+        self.setScene(self._scene)
+        self.setAlignment(QtCore.Qt.AlignCenter)
+        self.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        self.setRenderHints(QtGui.QPainter.Antialiasing | QtGui.QPainter.SmoothPixmapTransform)
+        self.setTransformationAnchor(QtWidgets.QGraphicsView.AnchorUnderMouse)
+        self.setResizeAnchor(QtWidgets.QGraphicsView.AnchorViewCenter)
+        self.setDragMode(QtWidgets.QGraphicsView.ScrollHandDrag)
+        self.setMinimumSize(320, 240)
+        self._linked_views: list[_SyncedImageView] = []
+        self._fit_mode = True
+        self._sync_guard = False
+        self.horizontalScrollBar().valueChanged.connect(self._notify_linked_views)
+        self.verticalScrollBar().valueChanged.connect(self._notify_linked_views)
+
+    def link_views(self, peers: list["_SyncedImageView"]) -> None:
+        self._linked_views = [peer for peer in peers if peer is not self]
+
+    def has_image(self) -> bool:
+        return not self._pixmap_item.pixmap().isNull()
+
+    def set_pixmap(self, pixmap: QtGui.QPixmap) -> None:
+        self._pixmap_item.setPixmap(pixmap)
+        self._scene.setSceneRect(QtCore.QRectF(pixmap.rect()))
+        if pixmap.isNull():
+            self.resetTransform()
+            return
+        if self._fit_mode:
+            self.fit_to_scene(notify=False)
+        else:
+            self._notify_linked_views()
+
+    def clear_pixmap(self) -> None:
+        self._pixmap_item.setPixmap(QtGui.QPixmap())
+        self._scene.setSceneRect(QtCore.QRectF())
+        self.resetTransform()
+        self.horizontalScrollBar().setValue(0)
+        self.verticalScrollBar().setValue(0)
+        self._fit_mode = True
+
+    def fit_to_scene(self, *, notify: bool = True) -> None:
+        if not self.has_image():
+            return
+        self._fit_mode = True
+        self.resetTransform()
+        self.fitInView(self._scene.sceneRect(), QtCore.Qt.KeepAspectRatio)
+        if notify:
+            self._notify_linked_views()
+
+    def zoom_by(self, factor: float, *, notify: bool = True) -> None:
+        if not self.has_image():
+            return
+        self._fit_mode = False
+        self.scale(float(factor), float(factor))
+        if notify:
+            self._notify_linked_views()
+
+    def reset_zoom(self) -> None:
+        self.fit_to_scene(notify=True)
+
+    def resizeEvent(self, event: QtGui.QResizeEvent) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        if self._fit_mode and self.has_image():
+            self.fit_to_scene(notify=False)
+
+    def wheelEvent(self, event: QtGui.QWheelEvent) -> None:  # noqa: N802
+        if not self.has_image():
+            super().wheelEvent(event)
+            return
+        delta_y = event.angleDelta().y()
+        if delta_y == 0:
+            super().wheelEvent(event)
+            return
+        factor = 1.15 if delta_y > 0 else 1.0 / 1.15
+        self.zoom_by(factor, notify=True)
+        event.accept()
+
+    def mouseReleaseEvent(self, event: QtGui.QMouseEvent) -> None:  # noqa: N802
+        super().mouseReleaseEvent(event)
+        self._notify_linked_views()
+
+    def _notify_linked_views(self, *_args: object) -> None:
+        if self._sync_guard or not self._linked_views or not self.has_image():
+            return
+        self._sync_guard = True
+        try:
+            transform = QtGui.QTransform(self.transform())
+            h_value = int(self.horizontalScrollBar().value())
+            v_value = int(self.verticalScrollBar().value())
+            fit_mode = bool(self._fit_mode)
+            for peer in self._linked_views:
+                peer._apply_view_state(transform, h_value, v_value, fit_mode)
+        finally:
+            self._sync_guard = False
+
+    def _apply_view_state(
+        self,
+        transform: QtGui.QTransform,
+        h_value: int,
+        v_value: int,
+        fit_mode: bool,
+    ) -> None:
+        if not self.has_image():
+            return
+        self._sync_guard = True
+        try:
+            self._fit_mode = fit_mode
+            if fit_mode:
+                self.fit_to_scene(notify=False)
+            else:
+                self.setTransform(QtGui.QTransform(transform))
+                self.horizontalScrollBar().setValue(
+                    max(self.horizontalScrollBar().minimum(), min(self.horizontalScrollBar().maximum(), int(h_value)))
+                )
+                self.verticalScrollBar().setValue(
+                    max(self.verticalScrollBar().minimum(), min(self.verticalScrollBar().maximum(), int(v_value)))
+                )
+        finally:
+            self._sync_guard = False
+
+
+class _PatternPane(QtWidgets.QWidget):
+    def __init__(self, title: str, placeholder: str) -> None:
+        super().__init__()
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
+
+        self.group = QtWidgets.QGroupBox(title)
+        group_layout = QtWidgets.QVBoxLayout(self.group)
+
+        self.stack = QtWidgets.QStackedWidget()
+        self.placeholder = QtWidgets.QLabel(placeholder)
+        self.placeholder.setAlignment(QtCore.Qt.AlignCenter)
+        self.placeholder.setWordWrap(True)
+        self.placeholder.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        self.view = _SyncedImageView()
+        self.stack.addWidget(self.placeholder)
+        self.stack.addWidget(self.view)
+
+        group_layout.addWidget(self.stack)
+        layout.addWidget(self.group)
+
+    def set_array(self, array: np.ndarray) -> None:
+        pixmap = _gray_array_to_native_pixmap(array)
+        self.view.set_pixmap(pixmap)
+        self.stack.setCurrentWidget(self.view)
+
+    def clear(self, message: str | None = None) -> None:
+        self.view.clear_pixmap()
+        if message:
+            self.placeholder.setText(message)
+        self.stack.setCurrentWidget(self.placeholder)
+
+
+class _PatternCompareWidget(QtWidgets.QWidget):
+    def __init__(self) -> None:
+        super().__init__()
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
+        controls_layout = QtWidgets.QHBoxLayout()
+        controls_layout.setContentsMargins(0, 0, 0, 0)
+        controls_layout.setSpacing(6)
+        self.fit_button = QtWidgets.QPushButton("Fit")
+        self.zoom_in_button = QtWidgets.QPushButton("Zoom +")
+        self.zoom_out_button = QtWidgets.QPushButton("Zoom -")
+        self.reset_button = QtWidgets.QPushButton("Reset")
+        controls_layout.addWidget(self.fit_button)
+        controls_layout.addWidget(self.zoom_in_button)
+        controls_layout.addWidget(self.zoom_out_button)
+        controls_layout.addWidget(self.reset_button)
+        controls_layout.addStretch(1)
+        layout.addLayout(controls_layout)
+
+        self.raw_pane = _PatternPane("Original pattern", "No pixel selected")
+        self.processed_pane = _PatternPane("Processed pattern", "No pixel selected")
+        self.raw_pane.view.link_views([self.processed_pane.view])
+        self.processed_pane.view.link_views([self.raw_pane.view])
+        layout.addWidget(self.raw_pane, stretch=1)
+        layout.addWidget(self.processed_pane, stretch=1)
+
+        self.fit_button.clicked.connect(self.fit_views)
+        self.zoom_in_button.clicked.connect(lambda: self._zoom_views(1.15))
+        self.zoom_out_button.clicked.connect(lambda: self._zoom_views(1.0 / 1.15))
+        self.reset_button.clicked.connect(self.reset_views)
+
+    def set_patterns(self, raw_pattern: np.ndarray, processed_pattern: np.ndarray) -> None:
+        self.raw_pane.set_array(raw_pattern)
+        self.processed_pane.set_array(processed_pattern)
+        self.fit_views()
+
+    def set_processed_pattern(self, processed_pattern: np.ndarray) -> None:
+        self.processed_pane.set_array(processed_pattern)
+
+    def clear(self, message: str = "No pixel selected") -> None:
+        self.raw_pane.clear(message)
+        self.processed_pane.clear(message)
+
+    def fit_views(self) -> None:
+        self.raw_pane.view.fit_to_scene(notify=True)
+
+    def reset_views(self) -> None:
+        self.fit_views()
+
+    def _zoom_views(self, factor: float) -> None:
+        self.raw_pane.view.zoom_by(float(factor), notify=True)
 
 
 class DropImageLabel(QtWidgets.QLabel):
@@ -448,12 +670,6 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         selected_info.addRow("Quality", self.selected_quality_value)
         inspector_layout.addLayout(selected_info)
 
-        self.pattern_preview = QtWidgets.QLabel("No pixel selected")
-        self.pattern_preview.setAlignment(QtCore.Qt.AlignCenter)
-        self.pattern_preview.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        self.pattern_preview.setMinimumSize(320, 320)
-        inspector_layout.addWidget(self.pattern_preview, stretch=1)
-
         display_controls_group = QtWidgets.QGroupBox("Pattern Display")
         display_controls = QtWidgets.QVBoxLayout(display_controls_group)
         self.histogram_normalization_checkbox = QtWidgets.QCheckBox("Histogram normalization")
@@ -467,12 +683,16 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         display_controls.addWidget(btn_reset_pattern_display)
         inspector_layout.addWidget(display_controls_group, stretch=0)
 
+        self.pattern_compare = _PatternCompareWidget()
+        inspector_layout.addWidget(self.pattern_compare, stretch=1)
+
         self.oh5_help = QtWidgets.QPlainTextEdit()
         self.oh5_help.setReadOnly(True)
         self.oh5_help.setPlainText(
             "Full-scan mode runs inference on every available pattern in the selected .oh5 file.\n"
             "Click the predicted phase map to inspect the corresponding experimental Kikuchi pattern.\n"
-            "Pattern display is grayscale-only and can optionally apply histogram normalization and contrast stretch."
+            "The inspector keeps original and processed views synchronized for zoom and pan.\n"
+            "Processed display is grayscale-only and can optionally apply histogram normalization and contrast stretch."
         )
         inspector_layout.addWidget(self.oh5_help, stretch=0)
         oh5_layout.addWidget(inspector_group, stretch=1)
@@ -805,7 +1025,6 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
             self._run_image_prediction()
         elif self.state.inference_mode == INFERENCE_MODE_FULL_SCAN and self.state.full_scan_result is not None:
             self._refresh_full_scan_preview()
-            self._refresh_selected_pattern_preview()
 
     def _set_full_scan_busy(self, busy: bool) -> None:
         self.btn_full_scan.setEnabled(not busy)
@@ -948,8 +1167,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.selected_phase_value.setText("-")
         self.selected_confidence_value.setText("-")
         self.selected_quality_value.setText("-")
-        self.pattern_preview.clear()
-        self.pattern_preview.setText("No pixel selected")
+        self.pattern_compare.clear("No pixel selected")
         self._refresh_full_scan_notes()
 
     def _handle_phase_map_click(self, x: int, y: int) -> None:
@@ -975,8 +1193,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
             self.selected_phase_value.setText("unavailable")
             self.selected_confidence_value.setText("-")
             self.selected_quality_value.setText("No pattern available")
-            self.pattern_preview.clear()
-            self.pattern_preview.setText("No pattern available")
+            self.pattern_compare.clear("No pattern available")
             self._refresh_full_scan_preview()
             self._refresh_full_scan_notes()
             return
@@ -1022,6 +1239,12 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.selected_phase_value.setText(phase)
         self.selected_confidence_value.setText(f"{confidence:.4f}")
         self.selected_quality_value.setText(quality_text)
+        display = _prepare_display_gray(
+            self.state.selected_pattern,
+            histogram_normalization=bool(self.histogram_normalization_checkbox.isChecked()),
+            contrast_stretch=bool(self.contrast_stretch_checkbox.isChecked()),
+        )
+        self.pattern_compare.set_patterns(self.state.selected_pattern, display)
         self._refresh_selected_pattern_preview()
         self._refresh_full_scan_preview()
         self._refresh_full_scan_notes()
@@ -1035,8 +1258,10 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
             histogram_normalization=bool(self.histogram_normalization_checkbox.isChecked()),
             contrast_stretch=bool(self.contrast_stretch_checkbox.isChecked()),
         )
-        self.pattern_preview.setText("")
-        self.pattern_preview.setPixmap(_gray_array_to_pixmap(display, target_size=self.pattern_preview.size()))
+        if not self.pattern_compare.raw_pane.view.has_image():
+            self.pattern_compare.set_patterns(pattern, display)
+            return
+        self.pattern_compare.set_processed_pattern(display)
 
     def _refresh_full_scan_notes(self) -> None:
         result = self.state.full_scan_result
