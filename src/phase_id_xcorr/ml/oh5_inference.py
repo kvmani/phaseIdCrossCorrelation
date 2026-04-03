@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import logging
 from pathlib import Path
-from typing import Any
+import time
+from typing import Any, Callable
 
 import numpy as np
 
@@ -65,6 +66,9 @@ class FullScanInferenceResult:
     phase_counts: dict[str, int]
     phase_fractions: dict[str, float]
     mean_confidence: float
+    euler_rows_deg: np.ndarray | None
+    euler_source_unit: str | None
+    euler_convention: str | None
     rows: list[dict[str, Any]]
 
 
@@ -245,8 +249,33 @@ def run_oh5_full_scan_inference(
     loaded: LoadedModel,
     oh5_path: Path,
     scan_name: str | None = None,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
+    log_callback: Callable[[str, str], None] | None = None,
 ) -> FullScanInferenceResult:
     """Run prediction on every available pattern in one `.oh5` scan."""
+
+    def _emit_log(level: str, message: str) -> None:
+        if log_callback is not None:
+            log_callback(level, message)
+
+    def _emit_progress(processed: int, total: int, start_time: float, *, stage: str) -> None:
+        if progress_callback is None:
+            return
+        elapsed = max(0.0, time.perf_counter() - start_time)
+        fraction = (float(processed) / float(total)) if total > 0 else 0.0
+        rate = (float(processed) / elapsed) if elapsed > 1e-9 else 0.0
+        remaining = max(0, total - processed)
+        eta_seconds = (float(remaining) / rate) if rate > 1e-9 else None
+        progress_callback(
+            {
+                "stage": stage,
+                "processed": int(processed),
+                "total": int(total),
+                "fraction": float(fraction),
+                "elapsed_seconds": float(elapsed),
+                "eta_seconds": None if eta_seconds is None else float(eta_seconds),
+            }
+        )
 
     resolved_path = oh5_path.expanduser().resolve()
     if not resolved_path.exists():
@@ -260,7 +289,31 @@ def run_oh5_full_scan_inference(
 
         predicted_indices = np.full((reader.header_total_pixels,), -1, dtype=np.int32)
         confidences = np.full((reader.header_total_pixels,), np.nan, dtype=np.float32)
+        euler_rows_deg = (
+            np.full((reader.header_total_pixels, 3), np.nan, dtype=np.float32)
+            if reader.euler_present
+            else None
+        )
         rows: list[dict[str, Any]] = []
+        start_time = time.perf_counter()
+        progress_stride = max(1, min(500, reader.total_pixels // 50 if reader.total_pixels > 0 else 1))
+
+        _emit_log(
+            "info",
+            (
+                f"Opened scan '{scan_name or resolved_path.stem}' from {resolved_path}. "
+                f"Grid={reader.nx}x{reader.ny}, patterns={reader.total_pixels}, "
+                f"Euler={'present' if reader.euler_present else 'missing'}."
+            ),
+        )
+        if reader.euler_present:
+            _emit_log(
+                "info",
+                f"Euler fields detected with convention {reader.euler_convention} and source unit {reader.euler_unit}.",
+            )
+        else:
+            _emit_log("warning", "Euler angle fields were not found; IPF reference plot will be unavailable.")
+        _emit_progress(0, reader.total_pixels, start_time, stage="scan_open")
 
         for flat_index in range(reader.total_pixels):
             x, y = reader.flat_to_xy(flat_index)
@@ -269,6 +322,12 @@ def run_oh5_full_scan_inference(
             prediction = predict_pattern_array(loaded=loaded, pattern=pattern)
             predicted_indices[flat_index] = int(prediction.predicted_index)
             confidences[flat_index] = float(prediction.confidence)
+            euler_row = None
+            if euler_rows_deg is not None:
+                euler_row = reader.read_euler_row(flat_index=flat_index, degrees=True)
+                euler_rows_deg[flat_index, 0] = float(euler_row["phi1"])
+                euler_rows_deg[flat_index, 1] = float(euler_row["Phi"])
+                euler_rows_deg[flat_index, 2] = float(euler_row["phi2"])
 
             row: dict[str, Any] = {
                 "pattern_index": int(flat_index),
@@ -282,9 +341,24 @@ def run_oh5_full_scan_inference(
                 "fit": quality_row.get("fit"),
                 "valid": quality_row.get("valid"),
             }
+            if euler_row is not None:
+                row["euler_phi1"] = round(float(euler_row["phi1"]), 6)
+                row["euler_Phi"] = round(float(euler_row["Phi"]), 6)
+                row["euler_phi2"] = round(float(euler_row["phi2"]), 6)
             for phase_name, prob in prediction.probabilities.items():
                 row[f"prob_{phase_name}"] = round(float(prob), 6)
             rows.append(row)
+
+            processed = flat_index + 1
+            if processed == reader.total_pixels or processed % progress_stride == 0:
+                _emit_progress(processed, reader.total_pixels, start_time, stage="infer")
+                _emit_log(
+                    "info",
+                    (
+                        f"Inference progress: {processed}/{reader.total_pixels} pixels "
+                        f"({100.0 * processed / max(1, reader.total_pixels):.1f}%)."
+                    ),
+                )
 
     valid_mask = predicted_indices >= 0
     class_names = list(loaded.class_names)
@@ -298,6 +372,14 @@ def run_oh5_full_scan_inference(
         for phase, count in phase_counts.items()
     }
     mean_confidence = float(np.nanmean(confidences[valid_mask])) if inferred_total > 0 else 0.0
+    _emit_log(
+        "info",
+        (
+            f"Full-scan inference complete. Inferred {inferred_total} pixels with mean confidence "
+            f"{mean_confidence:.4f}."
+        ),
+    )
+    _emit_progress(inferred_total, inferred_total, start_time, stage="complete")
 
     return FullScanInferenceResult(
         oh5_path=resolved_path,
@@ -312,6 +394,9 @@ def run_oh5_full_scan_inference(
         phase_counts=phase_counts,
         phase_fractions=phase_fractions,
         mean_confidence=mean_confidence,
+        euler_rows_deg=euler_rows_deg,
+        euler_source_unit=reader.euler_unit,
+        euler_convention=reader.euler_convention,
         rows=rows,
     )
 

@@ -72,6 +72,12 @@ python .\scripts\run_ml_phase_explorer.py --config .\configs\ml\phase_explorer.n
 python .\scripts\run_ml_diagnostic_gallery.py --config .\configs\ml\diagnostic_gallery.example.yml --debug
 ```
 
+The inference GUI supports both single-image prediction and full-scan `.oh5` mapping. In full-scan mode it renders:
+
+- the predicted phase map
+- an IPF orientation reference from scan Euler angles when available
+- live progress, ETA, and backend log messages for long-running scans
+
 ## Repository Layout
 
 ```text

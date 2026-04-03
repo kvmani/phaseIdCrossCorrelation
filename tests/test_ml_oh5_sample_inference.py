@@ -10,6 +10,7 @@ import yaml
 from phase_id_xcorr.ml.dataset_io import read_json, save_split_npz, write_json
 from phase_id_xcorr.ml.inference import load_trained_model
 from phase_id_xcorr.ml.oh5_inference import run_oh5_full_scan_inference, run_oh5_sample_inference
+from phase_id_xcorr.ml.orientation_diagnostics import render_ipf_reference_panel
 from phase_id_xcorr.ml.training import train_classifier
 
 
@@ -44,7 +45,15 @@ def _make_patterns(n: int, h: int, w: int, seed: int) -> tuple[np.ndarray, np.nd
     return patterns, labels
 
 
-def _write_minimal_oh5(path: Path, *, patterns: np.ndarray, ci: np.ndarray, fit: np.ndarray, iq: np.ndarray) -> None:
+def _write_minimal_oh5(
+    path: Path,
+    *,
+    patterns: np.ndarray,
+    ci: np.ndarray,
+    fit: np.ndarray,
+    iq: np.ndarray,
+    eulers_deg: np.ndarray | None = None,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     total_pixels, h, w = patterns.shape
     with h5py.File(path, "w") as h5:
@@ -58,6 +67,11 @@ def _write_minimal_oh5(path: Path, *, patterns: np.ndarray, ci: np.ndarray, fit:
         data.create_dataset("CI", data=np.asarray(ci, dtype=np.float32))
         data.create_dataset("Fit", data=np.asarray(fit, dtype=np.float32))
         data.create_dataset("IQ", data=np.asarray(iq, dtype=np.float32))
+        if eulers_deg is not None:
+            eulers = np.asarray(eulers_deg, dtype=np.float32)
+            data.create_dataset("Phi1", data=eulers[:, 0])
+            data.create_dataset("Phi", data=eulers[:, 1])
+            data.create_dataset("Phi2", data=eulers[:, 2])
 
 
 def test_run_oh5_sample_inference_supports_relative_and_absolute_paths(tmp_path: Path) -> None:
@@ -240,12 +254,24 @@ def test_run_oh5_full_scan_inference_processes_entire_scan(tmp_path: Path) -> No
 
     scan_patterns = np.stack([train_p[idx] for idx in range(6)], axis=0)
     scan_path = tmp_path / "incoming_data" / "full_scan.oh5"
+    eulers_deg = np.asarray(
+        [
+            [0.0, 15.0, 30.0],
+            [10.0, 20.0, 40.0],
+            [15.0, 25.0, 60.0],
+            [30.0, 35.0, 75.0],
+            [45.0, 55.0, 90.0],
+            [60.0, 65.0, 105.0],
+        ],
+        dtype=np.float32,
+    )
     _write_minimal_oh5(
         scan_path,
         patterns=scan_patterns,
         ci=np.full((6,), 0.9, dtype=np.float32),
         fit=np.full((6,), 0.5, dtype=np.float32),
         iq=np.full((6,), 120.0, dtype=np.float32),
+        eulers_deg=eulers_deg,
     )
 
     result = run_oh5_full_scan_inference(loaded=loaded, oh5_path=scan_path)
@@ -256,10 +282,32 @@ def test_run_oh5_full_scan_inference_processes_entire_scan(tmp_path: Path) -> No
     assert result.header_total_pixels == 6
     assert result.predicted_indices.shape == (6,)
     assert result.confidences.shape == (6,)
+    assert result.euler_rows_deg is not None
+    assert result.euler_rows_deg.shape == (6, 3)
+    assert result.euler_source_unit == "degree"
+    assert result.euler_convention == "Bunge ZXZ"
     assert len(result.rows) == 6
     assert sum(result.phase_counts.values()) == 6
     assert abs(sum(result.phase_fractions.values()) - 1.0) < 1e-6
     assert 0.0 <= result.mean_confidence <= 1.0
+
+
+def test_render_ipf_reference_panel_returns_rgb_image() -> None:
+    eulers_by_phase = {
+        "Al": np.asarray([[0.0, 10.0, 20.0], [25.0, 35.0, 45.0]], dtype=np.float64),
+        "Ni": np.asarray([[5.0, 15.0, 30.0]], dtype=np.float64),
+        "Cu": np.asarray([[10.0, 20.0, 40.0], [50.0, 60.0, 70.0]], dtype=np.float64),
+    }
+    image = render_ipf_reference_panel(
+        eulers_deg_by_phase=eulers_by_phase,
+        phase_names=["Al", "Ni", "Cu"],
+        phase_colors={"Al": (0.9, 0.2, 0.2), "Ni": (0.2, 0.7, 0.3), "Cu": (0.2, 0.4, 0.9)},
+    )
+
+    assert image.ndim == 3
+    assert image.shape[2] == 3
+    assert image.shape[0] > 0
+    assert image.shape[1] > 0
 
 
 def test_prediction_table_formats_requested_columns() -> None:

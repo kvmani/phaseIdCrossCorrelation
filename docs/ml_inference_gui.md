@@ -70,7 +70,9 @@ GUI features:
 - inspect original and preprocessed grayscale views in image mode
 - browse a `.oh5` scan and run inference on every available pattern in full-scan mode
 - render a predicted phase map on the scan grid using class colors
+- render an IPF orientation-reference panel from the scan Euler angles when present
 - optionally dull low-confidence pixels using `Use confidence shading`
+- stream backend progress, ETA, and errors in a live log panel during large-scan processing
 - view per-phase probabilities for single-image mode
 - view per-phase pixel counts, fractions, and mean scores for full-scan mode
 - optionally set the known phase and compare prediction vs truth or dominant predicted phase
@@ -87,7 +89,9 @@ Behavior:
 - reconstructs the `nRows x nColumns` scan grid
 - assigns each pixel the predicted phase color
 - optionally scales color vividness by the model confidence for that pixel
+- reads Euler angles from the `.oh5` when available and renders an IPF reference grouped by predicted phase
 - leaves missing/unavailable pixels dark
+- emits progress, ETA, and backend status messages in a GUI log window
 
 This makes it easy to spot:
 
@@ -95,6 +99,7 @@ This makes it easy to spot:
 - isolated misclassified islands
 - low-confidence transition regions
 - scan-wide phase dominance or unexpected fragmentation
+- orientation clustering or coverage differences across predicted phases
 
 ## 4. Recommended Production Use
 

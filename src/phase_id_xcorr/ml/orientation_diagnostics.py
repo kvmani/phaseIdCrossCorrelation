@@ -180,3 +180,51 @@ def generate_ipf_diagnostics(
     }
     write_json(index_path, index_payload)
     return index_path, index_payload
+
+
+def render_ipf_reference_panel(
+    *,
+    eulers_deg_by_phase: dict[str, np.ndarray],
+    phase_names: list[str],
+    phase_colors: dict[str, tuple[float, float, float]] | None = None,
+    title: str = "Orientation Reference IPF",
+) -> np.ndarray:
+    """Render a multi-panel IPF reference image for GUI display."""
+
+    if not phase_names:
+        raise ValueError("phase_names must not be empty")
+
+    ncols = max(1, len(phase_names))
+    fig = plt.figure(figsize=(4.0 * ncols, 4.6))
+    fig.suptitle(title)
+
+    for idx, phase_name in enumerate(phase_names, start=1):
+        phase = _phase_for_name(phase_name)
+        ax = fig.add_subplot(1, ncols, idx, projection="ipf", symmetry=phase.point_group)
+        eulers = np.asarray(eulers_deg_by_phase.get(phase_name, np.empty((0, 3), dtype=np.float64)), dtype=np.float64)
+        if eulers.size == 0:
+            ax.set_title(f"{phase_name}\n(no Euler data)")
+            ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
+            continue
+
+        finite_mask = np.all(np.isfinite(eulers), axis=1)
+        if not np.any(finite_mask):
+            ax.set_title(f"{phase_name}\n(no finite Euler data)")
+            ax.text(0.5, 0.5, "No finite data", ha="center", va="center", transform=ax.transAxes)
+            continue
+
+        orientations = Orientation.from_euler(eulers[finite_mask], symmetry=phase.point_group, degrees=True)
+        color: str | tuple[float, float, float] = "tab:blue"
+        if phase_colors is not None and phase_name in phase_colors:
+            rgb = tuple(float(v) for v in phase_colors[phase_name])
+            color = rgb
+        colors = [color] * int(np.sum(finite_mask))
+        ax.scatter(orientations, c=colors, s=9, alpha=0.78)
+        ax.set_title(f"{phase_name}\nN={int(np.sum(finite_mask))}")
+
+    fig.tight_layout()
+    fig.canvas.draw()
+    width, height = fig.canvas.get_width_height()
+    image = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8).reshape(height, width, 4)[..., :3].copy()
+    plt.close(fig)
+    return image.astype(np.float32) / 255.0

@@ -5,12 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from .inference import LoadedModel, list_model_runs, load_trained_model, predict_image
 from .oh5_inference import FullScanInferenceResult, run_oh5_full_scan_inference
+from .orientation_diagnostics import render_ipf_reference_panel
 
 
 INFERENCE_MODE_IMAGE = "image"
@@ -120,6 +122,72 @@ class GuiState:
     oh5_path: Path | None = None
     inference_mode: str = INFERENCE_MODE_IMAGE
     full_scan_result: FullScanInferenceResult | None = None
+    full_scan_ipf_image: np.ndarray | None = None
+
+
+def _format_duration(seconds: float | None) -> str:
+    if seconds is None or not np.isfinite(seconds):
+        return "-"
+    total = max(0, int(round(float(seconds))))
+    mins, secs = divmod(total, 60)
+    hours, mins = divmod(mins, 60)
+    if hours > 0:
+        return f"{hours:d}:{mins:02d}:{secs:02d}"
+    return f"{mins:02d}:{secs:02d}"
+
+
+class FullScanWorker(QtCore.QObject):
+    progress = QtCore.Signal(object)
+    log_message = QtCore.Signal(str, str)
+    finished = QtCore.Signal(object, object)
+    failed = QtCore.Signal(str)
+
+    def __init__(self, *, loaded: LoadedModel, oh5_path: Path):
+        super().__init__()
+        self.loaded = loaded
+        self.oh5_path = oh5_path
+
+    def run(self) -> None:
+        try:
+            result = run_oh5_full_scan_inference(
+                loaded=self.loaded,
+                oh5_path=self.oh5_path,
+                scan_name=self.oh5_path.stem,
+                progress_callback=self._emit_progress,
+                log_callback=self._emit_log,
+            )
+            ipf_image: np.ndarray | None = None
+            if result.euler_rows_deg is not None:
+                self._emit_log("info", "Rendering IPF reference view from scan Euler angles.")
+                eulers_by_phase: dict[str, np.ndarray] = {}
+                palette = _phase_color_map(result.class_names)
+                for class_idx, phase_name in enumerate(result.class_names):
+                    class_mask = result.predicted_indices == class_idx
+                    if not np.any(class_mask):
+                        eulers_by_phase[phase_name] = np.empty((0, 3), dtype=np.float64)
+                        continue
+                    eulers = np.asarray(result.euler_rows_deg[class_mask], dtype=np.float64)
+                    finite_mask = np.all(np.isfinite(eulers), axis=1)
+                    eulers_by_phase[phase_name] = eulers[finite_mask]
+                try:
+                    ipf_image = render_ipf_reference_panel(
+                        eulers_deg_by_phase=eulers_by_phase,
+                        phase_names=list(result.class_names),
+                        phase_colors={k: tuple(float(v) for v in rgb) for k, rgb in palette.items()},
+                        title=f"{result.scan_name} orientation reference",
+                    )
+                    self._emit_log("info", "IPF reference rendering complete.")
+                except Exception as exc:
+                    self._emit_log("warning", f"IPF reference rendering skipped: {exc}")
+            self.finished.emit(result, ipf_image)
+        except Exception as exc:  # pragma: no cover - Qt worker delivery
+            self.failed.emit(str(exc))
+
+    def _emit_progress(self, payload: dict[str, Any]) -> None:
+        self.progress.emit(payload)
+
+    def _emit_log(self, level: str, message: str) -> None:
+        self.log_message.emit(level, message)
 
 
 class InferenceMainWindow(QtWidgets.QMainWindow):
@@ -128,6 +196,8 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.repo_root = repo_root
         self.log = logger
         self.state = GuiState(suite_root=initial_root, run_dirs=[])
+        self._full_scan_thread: QtCore.QThread | None = None
+        self._full_scan_worker: FullScanWorker | None = None
         self.setWindowTitle("ML Phase ID Inference")
         self.resize(1320, 820)
 
@@ -152,6 +222,10 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.known_phase_combo.currentIndexChanged.connect(self._update_known_phase_status)
         self.status_label = QtWidgets.QLabel("Select a suite root or run directory.")
         self.status_label.setWordWrap(True)
+        self.scan_progress = QtWidgets.QProgressBar()
+        self.scan_progress.setRange(0, 100)
+        self.scan_progress.setValue(0)
+        self.scan_eta_label = QtWidgets.QLabel("ETA: -")
 
         top.addWidget(QtWidgets.QLabel("Suite root / run dir"), 0, 0)
         top.addWidget(self.root_edit, 0, 1)
@@ -162,7 +236,9 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         top.addWidget(self.mode_combo, 2, 1, 1, 2)
         top.addWidget(QtWidgets.QLabel("Known phase"), 3, 0)
         top.addWidget(self.known_phase_combo, 3, 1, 1, 2)
-        top.addWidget(self.status_label, 4, 0, 1, 3)
+        top.addWidget(self.status_label, 4, 0, 1, 2)
+        top.addWidget(self.scan_eta_label, 4, 2)
+        top.addWidget(self.scan_progress, 5, 0, 1, 3)
 
         mid = QtWidgets.QHBoxLayout()
         layout.addLayout(mid, stretch=1)
@@ -201,11 +277,13 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.oh5_edit = QtWidgets.QLineEdit()
         btn_oh5 = QtWidgets.QPushButton("Browse .oh5")
         btn_oh5.clicked.connect(self._browse_oh5)
+        self.btn_oh5 = btn_oh5
         self.confidence_shading_checkbox = QtWidgets.QCheckBox("Use confidence shading")
         self.confidence_shading_checkbox.setChecked(True)
         self.confidence_shading_checkbox.toggled.connect(self._refresh_full_scan_preview)
         btn_full_scan = QtWidgets.QPushButton("Run Full-Scan Inference")
         btn_full_scan.clicked.connect(self._run_inference)
+        self.btn_full_scan = btn_full_scan
         oh5_controls.addWidget(QtWidgets.QLabel(".oh5 file"), 0, 0)
         oh5_controls.addWidget(self.oh5_edit, 0, 1)
         oh5_controls.addWidget(btn_oh5, 0, 2)
@@ -230,13 +308,18 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.prediction_label.setFont(font)
         right.addWidget(self.prediction_label)
 
-        self.result_preview_title = QtWidgets.QLabel("Result preview")
-        right.addWidget(self.result_preview_title)
+        self.preview_tabs = QtWidgets.QTabWidget()
         self.result_preview = QtWidgets.QLabel("No result")
         self.result_preview.setAlignment(QtCore.Qt.AlignCenter)
         self.result_preview.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.result_preview.setMinimumSize(540, 420)
-        right.addWidget(self.result_preview, stretch=2)
+        self.ipf_preview = QtWidgets.QLabel("Load a scan to render the IPF orientation reference.")
+        self.ipf_preview.setAlignment(QtCore.Qt.AlignCenter)
+        self.ipf_preview.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        self.ipf_preview.setMinimumSize(540, 420)
+        self.preview_tabs.addTab(self.result_preview, "Predicted phase map")
+        self.preview_tabs.addTab(self.ipf_preview, "IPF reference")
+        right.addWidget(self.preview_tabs, stretch=2)
 
         self.prob_table = QtWidgets.QTableWidget(0, 2)
         self.prob_table.setHorizontalHeaderLabels(["Phase", "Probability"])
@@ -247,6 +330,12 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.notes = QtWidgets.QPlainTextEdit()
         self.notes.setReadOnly(True)
         right.addWidget(self.notes, stretch=1)
+
+        self.log_output = QtWidgets.QPlainTextEdit()
+        self.log_output.setReadOnly(True)
+        self.log_output.document().setMaximumBlockCount(2000)
+        self.log_output.setPlaceholderText("Backend progress and errors will appear here.")
+        right.addWidget(self.log_output, stretch=1)
 
         self._update_mode_ui()
         if initial_root is not None:
@@ -323,19 +412,23 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.state.inference_mode = mode
         self.input_stack.setCurrentIndex(0 if mode == INFERENCE_MODE_IMAGE else 1)
         if mode == INFERENCE_MODE_IMAGE:
-            self.result_preview_title.setText("Image inference preview")
             if self.state.image_path is not None:
                 self._run_inference()
             else:
                 self.result_preview.setText("Load an image to predict.")
+            self.preview_tabs.setTabText(0, "Image preview")
+            self.preview_tabs.setTabText(1, "IPF reference")
+            self.ipf_preview.setText("IPF reference is only available in full .oh5 scan mode.")
         else:
-            self.result_preview_title.setText("Predicted phase map")
+            self.preview_tabs.setTabText(0, "Predicted phase map")
+            self.preview_tabs.setTabText(1, "IPF reference")
             if self.state.full_scan_result is not None:
                 self._refresh_full_scan_preview()
             elif self.state.oh5_path is not None:
                 self._run_inference()
             else:
                 self.result_preview.setText("Select a .oh5 file to run full-scan inference.")
+                self.ipf_preview.setText("Select a .oh5 file to render the IPF orientation reference.")
 
     def _set_image_path(self, image_path: str) -> None:
         self.state.image_path = Path(image_path).expanduser().resolve()
@@ -347,6 +440,9 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.state.oh5_path = Path(oh5_path).expanduser().resolve()
         self.oh5_edit.setText(str(self.state.oh5_path))
         self.state.full_scan_result = None
+        self.state.full_scan_ipf_image = None
+        self.ipf_preview.setText("Scan selected. Run full-scan inference to populate the IPF reference.")
+        self._append_log("info", f"Selected .oh5 scan: {self.state.oh5_path}")
         if self.state.inference_mode == INFERENCE_MODE_FULL_SCAN:
             self._run_inference()
 
@@ -398,6 +494,8 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
                 ]
             )
         )
+        self.scan_progress.setValue(0)
+        self.scan_eta_label.setText("ETA: -")
         self._update_known_phase_status()
 
     def _run_full_scan_prediction(self) -> None:
@@ -406,24 +504,123 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         oh5_path = Path(self.oh5_edit.text().strip()).expanduser() if self.oh5_edit.text().strip() else self.state.oh5_path
         if oh5_path is None:
             return
-        try:
-            result = run_oh5_full_scan_inference(
-                loaded=self.state.loaded_model,
-                oh5_path=oh5_path,
-                scan_name=oh5_path.stem,
-            )
-        except Exception as exc:
-            self.status_label.setText(f"Full-scan inference failed: {exc}")
+        if self._full_scan_thread is not None:
+            self._append_log("warning", "Full-scan inference is already running.")
             return
+        resolved = oh5_path.resolve()
+        self.state.oh5_path = resolved
+        self.state.full_scan_result = None
+        self.state.full_scan_ipf_image = None
+        self.result_preview.setText("Running full-scan inference...")
+        self.ipf_preview.setText("Waiting for Euler/IPF reference...")
+        self.status_label.setText(f"Running full-scan inference for {resolved.name}...")
+        self.scan_progress.setValue(0)
+        self.scan_eta_label.setText("ETA: estimating...")
+        self._append_log("info", f"Starting full-scan inference for {resolved}")
+        self._set_full_scan_busy(True)
 
-        self.state.oh5_path = oh5_path.resolve()
+        thread = QtCore.QThread(self)
+        worker = FullScanWorker(loaded=self.state.loaded_model, oh5_path=resolved)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.progress.connect(self._on_full_scan_progress)
+        worker.log_message.connect(self._append_log)
+        worker.finished.connect(self._on_full_scan_finished)
+        worker.failed.connect(self._on_full_scan_failed)
+        worker.finished.connect(thread.quit)
+        worker.failed.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        worker.failed.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        self._full_scan_thread = thread
+        self._full_scan_worker = worker
+        thread.start()
+
+    def _refresh_full_scan_preview(self) -> None:
+        if self.state.inference_mode != INFERENCE_MODE_FULL_SCAN:
+            return
+        result = self.state.full_scan_result
+        if result is None:
+            return
+        rendered = _render_full_scan_phase_map(
+            result,
+            use_confidence_shading=bool(self.confidence_shading_checkbox.isChecked()),
+        )
+        self.result_preview.setPixmap(_rgb_array_to_pixmap(rendered, target_size=self.result_preview.size()))
+        if self.state.full_scan_ipf_image is not None:
+            self.ipf_preview.setPixmap(
+                _rgb_array_to_pixmap(self.state.full_scan_ipf_image, target_size=self.ipf_preview.size())
+            )
+
+    def _update_known_phase_status(self) -> None:
+        if self.state.loaded_model is None:
+            return
+        known = self.known_phase_combo.currentText().strip()
+        if known == "(unknown)":
+            return
+        if self.state.inference_mode == INFERENCE_MODE_IMAGE:
+            predicted = self.prediction_label.text()
+            match = known in predicted
+            self.status_label.setText(
+                f"Known phase: {known} | Prediction status: {'correct' if match else 'mismatch'}"
+            )
+            return
+        result = self.state.full_scan_result
+        if result is None:
+            return
+        dominant_phase = max(result.phase_counts.items(), key=lambda kv: (kv[1], kv[0]))[0] if result.phase_counts else ""
+        match = dominant_phase == known
+        self.status_label.setText(
+            f"Known phase: {known} | Dominant predicted phase: {dominant_phase or 'n/a'} | "
+            f"Status: {'match' if match else 'mismatch'}"
+        )
+
+    def resizeEvent(self, event: QtGui.QResizeEvent) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        if self.state.inference_mode == INFERENCE_MODE_IMAGE and self.result_preview.pixmap() is not None and self.state.image_path is not None:
+            self._run_image_prediction()
+        elif self.state.inference_mode == INFERENCE_MODE_FULL_SCAN and self.state.full_scan_result is not None:
+            self._refresh_full_scan_preview()
+
+    def _set_full_scan_busy(self, busy: bool) -> None:
+        self.btn_full_scan.setEnabled(not busy)
+        self.btn_oh5.setEnabled(not busy)
+        self.model_combo.setEnabled(not busy)
+        self.mode_combo.setEnabled(not busy)
+        self.root_edit.setEnabled(not busy)
+        self.confidence_shading_checkbox.setEnabled(not busy)
+
+    def _append_log(self, level: str, message: str) -> None:
+        timestamp = QtCore.QDateTime.currentDateTime().toString("HH:mm:ss")
+        line = f"[{timestamp}] {level.upper()}: {message}"
+        self.log_output.appendPlainText(line)
+        self.log_output.verticalScrollBar().setValue(self.log_output.verticalScrollBar().maximum())
+
+    def _on_full_scan_progress(self, payload: dict[str, Any]) -> None:
+        fraction = float(payload.get("fraction", 0.0))
+        value = int(round(np.clip(fraction, 0.0, 1.0) * 100.0))
+        self.scan_progress.setValue(value)
+        processed = int(payload.get("processed", 0))
+        total = int(payload.get("total", 0))
+        stage = str(payload.get("stage", "infer"))
+        eta_seconds = payload.get("eta_seconds")
+        elapsed_seconds = float(payload.get("elapsed_seconds", 0.0))
+        self.scan_eta_label.setText(
+            f"ETA: {_format_duration(None if eta_seconds is None else float(eta_seconds))} | "
+            f"elapsed: {_format_duration(elapsed_seconds)}"
+        )
+        self.status_label.setText(f"{stage}: {processed}/{total} pixels processed")
+
+    def _on_full_scan_finished(self, result: FullScanInferenceResult, ipf_image: np.ndarray | None) -> None:
+        self._full_scan_thread = None
+        self._full_scan_worker = None
+        self._set_full_scan_busy(False)
         self.state.full_scan_result = result
+        self.state.full_scan_ipf_image = ipf_image
         dominant_phase = max(result.phase_counts.items(), key=lambda kv: (kv[1], kv[0]))[0] if result.phase_counts else "-"
         self.prediction_label.setText(
             f"Full scan: {dominant_phase} dominant | mean confidence {result.mean_confidence:.4f}"
         )
-        self._refresh_full_scan_preview()
-
         items = sorted(result.phase_counts.items(), key=lambda kv: (-kv[1], kv[0]))
         self.prob_table.clear()
         self.prob_table.setColumnCount(4)
@@ -455,57 +652,34 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
                     f"Inferred pixels: {result.total_pixels}",
                     f"Header grid cells: {result.header_total_pixels}",
                     f"Mean confidence: {result.mean_confidence:.6f}",
+                    f"Euler convention: {result.euler_convention or 'unavailable'}",
+                    f"Euler source unit: {result.euler_source_unit or 'unavailable'}",
+                    f"IPF reference: {'available' if ipf_image is not None else 'unavailable'}",
                     f"Confidence shading: {'on' if self.confidence_shading_checkbox.isChecked() else 'off'}",
                     "",
                     "Legend:",
                     *legend_lines,
+                    "",
+                    "IPF note:",
+                    "Reference IPF panels are built from scan Euler angles grouped by predicted phase.",
                 ]
             )
         )
         self.status_label.setText(f"Full-scan inference complete for {result.oh5_path.name}")
+        self.scan_progress.setValue(100)
+        self.scan_eta_label.setText("ETA: 00:00 | elapsed: complete")
+        if ipf_image is None:
+            self.ipf_preview.setText("No Euler angle fields were available in the scan, so no IPF reference could be rendered.")
+        self._refresh_full_scan_preview()
         self._update_known_phase_status()
 
-    def _refresh_full_scan_preview(self) -> None:
-        if self.state.inference_mode != INFERENCE_MODE_FULL_SCAN:
-            return
-        result = self.state.full_scan_result
-        if result is None:
-            return
-        rendered = _render_full_scan_phase_map(
-            result,
-            use_confidence_shading=bool(self.confidence_shading_checkbox.isChecked()),
-        )
-        self.result_preview.setPixmap(_rgb_array_to_pixmap(rendered, target_size=self.result_preview.size()))
-
-    def _update_known_phase_status(self) -> None:
-        if self.state.loaded_model is None:
-            return
-        known = self.known_phase_combo.currentText().strip()
-        if known == "(unknown)":
-            return
-        if self.state.inference_mode == INFERENCE_MODE_IMAGE:
-            predicted = self.prediction_label.text()
-            match = known in predicted
-            self.status_label.setText(
-                f"Known phase: {known} | Prediction status: {'correct' if match else 'mismatch'}"
-            )
-            return
-        result = self.state.full_scan_result
-        if result is None:
-            return
-        dominant_phase = max(result.phase_counts.items(), key=lambda kv: (kv[1], kv[0]))[0] if result.phase_counts else ""
-        match = dominant_phase == known
-        self.status_label.setText(
-            f"Known phase: {known} | Dominant predicted phase: {dominant_phase or 'n/a'} | "
-            f"Status: {'match' if match else 'mismatch'}"
-        )
-
-    def resizeEvent(self, event: QtGui.QResizeEvent) -> None:  # noqa: N802
-        super().resizeEvent(event)
-        if self.state.inference_mode == INFERENCE_MODE_IMAGE and self.result_preview.pixmap() is not None and self.state.image_path is not None:
-            self._run_image_prediction()
-        elif self.state.inference_mode == INFERENCE_MODE_FULL_SCAN and self.state.full_scan_result is not None:
-            self._refresh_full_scan_preview()
+    def _on_full_scan_failed(self, message: str) -> None:
+        self._full_scan_thread = None
+        self._full_scan_worker = None
+        self._set_full_scan_busy(False)
+        self.status_label.setText(f"Full-scan inference failed: {message}")
+        self.scan_eta_label.setText("ETA: -")
+        self._append_log("error", message)
 
 
 def run_inference_gui(*, repo_root: Path, suite_root: Path | None, debug: bool = False) -> int:
