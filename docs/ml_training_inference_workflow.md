@@ -11,7 +11,7 @@ Current ML CLI support includes:
 - multi-model benchmark suite (`run_ml_benchmark_suite.py`)
 - single-image inference CLI (`run_ml_inference.py`)
 - sampled unseen-scan `.oh5` inference CLI (`run_ml_oh5_sample_inference.py`)
-- desktop inference GUI (`run_ml_inference_gui.py`)
+- desktop inference GUI (`run_ml_inference_gui.py`) with both single-image and full-scan `.oh5` modes
 
 In this repository, "inference" includes evaluation on validation/test splits during training or suite runs, single-image saved-model inference, and sampled unseen-scan `.oh5` inference through a dedicated CLI.
 
@@ -25,7 +25,10 @@ In this repository, "inference" includes evaluation on validation/test splits du
 3. Run benchmark suite across model variants.
 4. Auto-generate a lab-meeting PPTX from suite artifacts.
 5. Use the saved best model for unknown-image inference and qualitative review.
-6. Prefer one-go execution with full-cycle orchestration for reproducible and machine-ingestible reporting.
+6. Use the inference GUI for either:
+   - single unknown-image review, or
+   - full `.oh5` scan rendering as a predicted phase map with optional confidence shading.
+7. Prefer one-go execution with full-cycle orchestration for reproducible and machine-ingestible reporting.
 
 ## 3. Commands
 
@@ -116,6 +119,12 @@ GUI:
 python scripts/run_ml_inference_gui.py \
   --suite-root reports/ml/benchmarks/ni_cu_al_production
 ```
+
+GUI highlights:
+
+- single-image mode preserves the original/preprocessed preview workflow
+- full-scan `.oh5` mode runs inference across every pattern in the scan
+- predicted scan maps use per-class colors and optional confidence-based dulling for low-score pixels
 
 ### 3.7 Sampled Inference From Unseen `.oh5` Scans
 

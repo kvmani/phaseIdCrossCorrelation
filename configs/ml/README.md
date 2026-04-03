@@ -2,6 +2,21 @@
 
 YAML configs for the ML classifier branch.
 
+The canonical user-facing workflow documentation now lives in the Sphinx site under `docs/site/`.
+Build it with:
+
+```powershell
+python -m pip install -r .\docs\requirements.txt
+python .\scripts\build_docs.py --clean
+```
+
+Primary pages for these configs:
+
+- `docs/site/workflows/dataset_preparation.md`
+- `docs/site/workflows/benchmark_and_full_cycle.md`
+- `docs/site/workflows/inference_workflows.md`
+- `docs/site/reference/configs.md`
+
 Files:
 
 - `dataset_prepare.default.yml`: build combined train/val/test dataset from `.oh5` + CSV label pairs (`input_mode: oh5_csv_labels`).
@@ -51,5 +66,7 @@ python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.data_march202
 ```
 
 Each workflow writes both `manifest.json` and `events.jsonl` under its output directory. The sampled `.oh5` inference workflow now also writes `sample_predictions.json` alongside the existing CSV summaries. Dataset prep now also exports per-sample Euler angles to `orientation_exports/qualified_orientations.*` and `orientation_exports/selected_orientations.*`, plus per-phase/per-split IPF scatter diagnostics under `orientation_exports/ipf/`. Dataset HTML summaries also include phase-wise split composition, CI/Fit/IQ statistics, modal intensity values, and links to orientation artifacts. Benchmark HTML summaries include best-model selection, confusion matrices, per-class metrics, and links to per-run artifacts.
+
+The inference GUI supports both single-image prediction and full-scan `.oh5` rendering. In full-scan mode it runs the selected model on every available pattern in the scan and displays a predicted phase map with optional confidence-based color dulling.
 
 For the phase explorer, publication-export styling is set under `explorer.export`. Supported fields now include `dpi`, `figure_size_inches`, `font_family`, `font_size`, `title_font_size`, `label_font_size`, `tick_label_size`, `x_tick_label_size`, `y_tick_label_size`, `tick_width`, `tick_length`, `minor_tick_width`, `minor_tick_length`, `tick_direction`, `x_tick_rotation`, `y_tick_rotation`, `spine_line_width`, `grid_line_width`, `grid_alpha`, `title_pad`, `label_pad`, `figure_facecolor`, `axes_facecolor`, `show_minor_ticks`, and `savefig_pad_inches`. Plot-specific limits and labeling are controlled under `explorer.intensity_plot` and `explorer.attribute_plot`, including `x_min`, `x_max`, `y_min`, `y_max`, `field_ranges`, `field_y_ranges`, `title(_template)`, `x_label(_template)`, `y_label(_template)`, `color`, `edge_color`, and `bar_line_width`.

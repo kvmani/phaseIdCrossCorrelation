@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640">
+  <rect width="1200" height="640" fill="#fbfaf6"/>
+  <text x="50" y="55" font-family="Arial" font-size="28" font-weight="700" fill="#0d3b66">Full-Scan .oh5 Mapping Mode</text>
+  <rect x="50" y="100" width="270" height="460" rx="14" fill="#ffffff" stroke="#9aa6b2"/>
+  <text x="75" y="138" font-family="Arial" font-size="22" font-weight="700">Mode controls</text>
+  <rect x="75" y="165" width="220" height="34" rx="6" fill="#fff" stroke="#7c8792"/>
+  <text x="185" y="188" text-anchor="middle" font-family="Arial" font-size="16">Full .oh5 scan</text>
+  <text x="75" y="235" font-family="Arial" font-size="18" font-weight="700">.oh5 file</text>
+  <rect x="75" y="250" width="220" height="34" rx="6" fill="#fff" stroke="#7c8792"/>
+  <rect x="75" y="320" width="220" height="34" rx="6" fill="#e0f3e6" stroke="#2f6f3e"/>
+  <text x="185" y="342" text-anchor="middle" font-family="Arial" font-size="16">Use confidence shading</text>
+  <rect x="75" y="390" width="220" height="40" rx="6" fill="#d9eaf7" stroke="#0d3b66"/>
+  <text x="185" y="416" text-anchor="middle" font-family="Arial" font-size="16">Run Full-Scan Inference</text>
+  <rect x="360" y="100" width="520" height="460" rx="14" fill="#ffffff" stroke="#9aa6b2"/>
+  <text x="390" y="138" font-family="Arial" font-size="22" font-weight="700">Predicted phase map</text>
+  <rect x="395" y="175" width="450" height="340" rx="8" fill="#f5f5f5" stroke="#7c8792"/>
+  <g transform="translate(430,210)">
+    <rect x="0" y="0" width="55" height="55" fill="#d84b3b"/>
+    <rect x="55" y="0" width="55" height="55" fill="#d84b3b"/>
+    <rect x="110" y="0" width="55" height="55" fill="#2da157"/>
+    <rect x="165" y="0" width="55" height="55" fill="#2da157"/>
+    <rect x="220" y="0" width="55" height="55" fill="#3378d6"/>
+    <rect x="275" y="0" width="55" height="55" fill="#3378d6"/>
+    <rect x="0" y="55" width="55" height="55" fill="#b86d63"/>
+    <rect x="55" y="55" width="55" height="55" fill="#d84b3b"/>
+    <rect x="110" y="55" width="55" height="55" fill="#88b58d"/>
+    <rect x="165" y="55" width="55" height="55" fill="#2da157"/>
+    <rect x="220" y="55" width="55" height="55" fill="#7a97c7"/>
+    <rect x="275" y="55" width="55" height="55" fill="#3378d6"/>
+    <rect x="0" y="110" width="55" height="55" fill="#d84b3b"/>
+    <rect x="55" y="110" width="55" height="55" fill="#d84b3b"/>
+    <rect x="110" y="110" width="55" height="55" fill="#2da157"/>
+    <rect x="165" y="110" width="55" height="55" fill="#2da157"/>
+    <rect x="220" y="110" width="55" height="55" fill="#3378d6"/>
+    <rect x="275" y="110" width="55" height="55" fill="#3378d6"/>
+    <rect x="0" y="165" width="55" height="55" fill="#d84b3b"/>
+    <rect x="55" y="165" width="55" height="55" fill="#c76a5f"/>
+    <rect x="110" y="165" width="55" height="55" fill="#2da157"/>
+    <rect x="165" y="165" width="55" height="55" fill="#8db89b"/>
+    <rect x="220" y="165" width="55" height="55" fill="#3378d6"/>
+    <rect x="275" y="165" width="55" height="55" fill="#7a97c7"/>
+  </g>
+  <rect x="910" y="100" width="240" height="460" rx="14" fill="#ffffff" stroke="#9aa6b2"/>
+  <text x="930" y="138" font-family="Arial" font-size="22" font-weight="700">Summary</text>
+  <text x="930" y="190" font-family="Arial" font-size="18">Al: 34%</text>
+  <text x="930" y="225" font-family="Arial" font-size="18">Ni: 33%</text>
+  <text x="930" y="260" font-family="Arial" font-size="18">Cu: 33%</text>
+  <text x="930" y="310" font-family="Arial" font-size="18">Mean confidence: 0.81</text>
+  <rect x="930" y="360" width="24" height="24" fill="#d84b3b"/>
+  <text x="970" y="378" font-family="Arial" font-size="18">Al</text>
+  <rect x="930" y="400" width="24" height="24" fill="#2da157"/>
+  <text x="970" y="418" font-family="Arial" font-size="18">Ni</text>
+  <rect x="930" y="440" width="24" height="24" fill="#3378d6"/>
+  <text x="970" y="458" font-family="Arial" font-size="18">Cu</text>
+</svg>

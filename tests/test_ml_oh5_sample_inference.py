@@ -8,7 +8,8 @@ import numpy as np
 import yaml
 
 from phase_id_xcorr.ml.dataset_io import read_json, save_split_npz, write_json
-from phase_id_xcorr.ml.oh5_inference import run_oh5_sample_inference
+from phase_id_xcorr.ml.inference import load_trained_model
+from phase_id_xcorr.ml.oh5_inference import run_oh5_full_scan_inference, run_oh5_sample_inference
 from phase_id_xcorr.ml.training import train_classifier
 
 
@@ -179,6 +180,86 @@ def test_run_oh5_sample_inference_supports_relative_and_absolute_paths(tmp_path:
     assert len(pattern_lines) == 5
     assert len(scan_lines) == 3
     assert "WD14" in result.summary_md.read_text(encoding="utf-8")
+
+
+def test_run_oh5_full_scan_inference_processes_entire_scan(tmp_path: Path) -> None:
+    repo_root = tmp_path
+    out_dataset = tmp_path / "dataset"
+    out_dataset.mkdir(parents=True, exist_ok=True)
+
+    train_p, train_y = _make_patterns(36, 16, 16, seed=21)
+    val_p, val_y = _make_patterns(18, 16, 16, seed=22)
+    test_p, test_y = _make_patterns(18, 16, 16, seed=23)
+
+    save_split_npz(out_dataset / "train.npz", patterns=train_p, labels=train_y, sample_ids=[f"tr_{i}" for i in range(len(train_y))])
+    save_split_npz(out_dataset / "val.npz", patterns=val_p, labels=val_y, sample_ids=[f"va_{i}" for i in range(len(val_y))])
+    save_split_npz(out_dataset / "test.npz", patterns=test_p, labels=test_y, sample_ids=[f"te_{i}" for i in range(len(test_y))])
+
+    manifest = {
+        "schema_version": "phase_id_xcorr.ml_dataset_manifest.v1",
+        "phase_to_label": {"Al": 0, "Ni": 1, "Cu": 2},
+        "preprocessing_policy": {
+            "resize_hw": [16, 16],
+            "apply_circular_mask": False,
+            "normalize_mode": "none",
+        },
+        "artifacts": {
+            "train_npz": "dataset/train.npz",
+            "val_npz": "dataset/val.npz",
+            "test_npz": "dataset/test.npz",
+        },
+    }
+    write_json(tmp_path / "dataset_manifest.json", manifest)
+
+    train_cfg = {
+        "dataset_manifest_path": "dataset_manifest.json",
+        "output_dir": "suite_run/simple_cnn_w8",
+        "seed": 7,
+        "device": "cpu",
+        "amp": False,
+        "batch_size": 12,
+        "epochs": 2,
+        "learning_rate": 0.001,
+        "weight_decay": 0.0001,
+        "input": {
+            "resize_hw": [16, 16],
+            "apply_circular_mask": False,
+            "normalize": {"mean": [0.0], "std": [1.0]},
+        },
+        "model": {
+            "family": "simple_cnn",
+            "width": 8,
+            "in_chans": 1,
+        },
+    }
+    train_cfg_path = tmp_path / "train_full_scan.yml"
+    train_cfg_path.write_text(yaml.safe_dump(train_cfg, sort_keys=False), encoding="utf-8")
+    train_classifier(config_path=train_cfg_path, repo_root=repo_root, debug=True)
+
+    loaded = load_trained_model(run_dir=tmp_path / "suite_run" / "simple_cnn_w8", repo_root=repo_root, device="cpu")
+
+    scan_patterns = np.stack([train_p[idx] for idx in range(6)], axis=0)
+    scan_path = tmp_path / "incoming_data" / "full_scan.oh5"
+    _write_minimal_oh5(
+        scan_path,
+        patterns=scan_patterns,
+        ci=np.full((6,), 0.9, dtype=np.float32),
+        fit=np.full((6,), 0.5, dtype=np.float32),
+        iq=np.full((6,), 120.0, dtype=np.float32),
+    )
+
+    result = run_oh5_full_scan_inference(loaded=loaded, oh5_path=scan_path)
+
+    assert result.nx == 6
+    assert result.ny == 1
+    assert result.total_pixels == 6
+    assert result.header_total_pixels == 6
+    assert result.predicted_indices.shape == (6,)
+    assert result.confidences.shape == (6,)
+    assert len(result.rows) == 6
+    assert sum(result.phase_counts.values()) == 6
+    assert abs(sum(result.phase_fractions.values()) - 1.0) < 1e-6
+    assert 0.0 <= result.mean_confidence <= 1.0
 
 
 def test_prediction_table_formats_requested_columns() -> None:

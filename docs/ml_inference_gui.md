@@ -1,6 +1,6 @@
 # ML Inference CLI and GUI
 
-Use this workflow to load a trained classifier run, preprocess an unknown image so it matches training input handling, and predict the phase ID.
+Use this workflow to load a trained classifier run, preprocess unknown inputs so they match training input handling, and predict the phase ID either for one image or for every pattern in a full `.oh5` scan.
 
 ## 1. Inputs
 
@@ -19,6 +19,12 @@ Supported image formats:
 - `.bmp`
 
 Images are converted to grayscale, scaled to `[0, 1]`, then preprocessed using the stored dataset preprocessing policy from the training report.
+
+For full-scan `.oh5` GUI inference, the scan must contain:
+
+- `/<scan>/EBSD/Header/nColumns`
+- `/<scan>/EBSD/Header/nRows`
+- `/<scan>/EBSD/Data/Pattern` or `Patterns`
 
 ## 2. CLI
 
@@ -39,6 +45,14 @@ This prints machine-readable JSON with:
 - model name
 - run directory
 
+For sampled unseen-scan `.oh5` CLI inference, use:
+
+```bash
+python scripts/run_ml_oh5_sample_inference.py \
+  --config configs/ml/oh5_sample_inference.ni_different_condition.example.yml \
+  --debug
+```
+
 ## 3. GUI
 
 Launch the desktop GUI on a benchmark suite root:
@@ -51,16 +65,43 @@ python scripts/run_ml_inference_gui.py \
 GUI features:
 
 - choose any available model from the suite
+- switch between `Single image` and `Full .oh5 scan` inference modes
 - drag-and-drop or browse an unknown image
-- inspect original and preprocessed grayscale views
-- view per-phase probabilities
-- optionally set the known phase and compare prediction vs truth
+- inspect original and preprocessed grayscale views in image mode
+- browse a `.oh5` scan and run inference on every available pattern in full-scan mode
+- render a predicted phase map on the scan grid using class colors
+- optionally dull low-confidence pixels using `Use confidence shading`
+- view per-phase probabilities for single-image mode
+- view per-phase pixel counts, fractions, and mean scores for full-scan mode
+- optionally set the known phase and compare prediction vs truth or dominant predicted phase
 
 You can also point the GUI directly at one run directory instead of the suite root.
+
+### 3.1 Full-Scan `.oh5` Mode
+
+Full-scan mode is intended for qualitative review of a new EBSD scan against a trained phase classifier.
+
+Behavior:
+
+- runs inference on all available patterns in the selected `.oh5`
+- reconstructs the `nRows x nColumns` scan grid
+- assigns each pixel the predicted phase color
+- optionally scales color vividness by the model confidence for that pixel
+- leaves missing/unavailable pixels dark
+
+This makes it easy to spot:
+
+- obvious phase-region boundaries
+- isolated misclassified islands
+- low-confidence transition regions
+- scan-wide phase dominance or unexpected fragmentation
 
 ## 4. Recommended Production Use
 
 1. Run dataset prep and benchmark suite.
 2. Select the practical winner model, not just the absolute highest score.
-3. Use the inference GUI for rapid qualitative inspection of unknown patterns.
-4. Use the CLI for scripted batch checks or integration with other tooling.
+3. Use the inference GUI for:
+   - rapid qualitative inspection of unknown single patterns,
+   - full-scan `.oh5` predicted phase-map review.
+4. Use the sampled `.oh5` CLI when you want tabular outputs and deterministic random spot-checking across many scans.
+5. Use the single-image CLI for scripted checks or integration with other tooling.

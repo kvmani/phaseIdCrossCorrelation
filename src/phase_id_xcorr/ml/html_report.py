@@ -3,12 +3,25 @@
 from __future__ import annotations
 
 import html
+import os
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from .dataset_io import read_json, rel_path
+
+
+def _html_rel_path(target: str, *, html_path: Path, repo_root: Path) -> str:
+    if not target:
+        return ""
+    candidate = Path(target)
+    if not candidate.is_absolute():
+        candidate = (repo_root / candidate).resolve()
+    try:
+        return Path(os.path.relpath(candidate, html_path.parent.resolve())).as_posix()
+    except ValueError:
+        return candidate.as_posix()
 
 
 def _fmt(value: Any, digits: int = 4) -> str:
@@ -152,6 +165,7 @@ def generate_suite_html_report(*, summary_json_path: Path, output_html: Path, re
                 f"<b>Mean epoch:</b> {_fmt(float(np.mean(epoch_seconds)) if epoch_seconds else None)} s | "
                 f"<b>Test macro-F1:</b> {_fmt(test_metrics.get('macro_f1'))}</p>"
             )
+        report_href = _html_rel_path(report_link, html_path=output_html, repo_root=repo_root)
 
         table_rows.append(
             "<tr>"
@@ -162,7 +176,7 @@ def generate_suite_html_report(*, summary_json_path: Path, output_html: Path, re
             f"<td>{_fmt(row.get('test_accuracy'))}</td>"
             f"<td>{_fmt(row.get('test_macro_f1'))}</td>"
             f"<td>{_fmt(row.get('runtime_seconds'))}</td>"
-            f"<td><a href='../{html.escape(report_link)}'>report.json</a><br/><code>{resolved_cfg}</code></td>"
+            f"<td><a href='{html.escape(report_href)}'>report.json</a><br/><code>{resolved_cfg}</code></td>"
             "</tr>"
         )
 

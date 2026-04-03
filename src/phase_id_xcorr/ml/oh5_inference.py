@@ -49,6 +49,25 @@ class Oh5InferenceResult:
     labeled_accuracy: float | None
 
 
+@dataclass(slots=True)
+class FullScanInferenceResult:
+    """In-memory full-scan inference result for GUI rendering."""
+
+    oh5_path: Path
+    scan_name: str
+    nx: int
+    ny: int
+    total_pixels: int
+    header_total_pixels: int
+    class_names: list[str]
+    predicted_indices: np.ndarray
+    confidences: np.ndarray
+    phase_counts: dict[str, int]
+    phase_fractions: dict[str, float]
+    mean_confidence: float
+    rows: list[dict[str, Any]]
+
+
 def _as_int(value: Any, *, field_name: str) -> int:
     out = int(value)
     if out <= 0:
@@ -219,6 +238,82 @@ def _prediction_row(
     for phase_name, prob in prediction.probabilities.items():
         row[f"prob_{phase_name}"] = round(float(prob), 6)
     return row
+
+
+def run_oh5_full_scan_inference(
+    *,
+    loaded: LoadedModel,
+    oh5_path: Path,
+    scan_name: str | None = None,
+) -> FullScanInferenceResult:
+    """Run prediction on every available pattern in one `.oh5` scan."""
+
+    resolved_path = oh5_path.expanduser().resolve()
+    if not resolved_path.exists():
+        raise FileNotFoundError(f".oh5 file not found: {resolved_path}")
+    if resolved_path.suffix.lower() != ".oh5":
+        raise ValueError(f"Expected .oh5 file, got: {resolved_path}")
+
+    with Oh5ScanReader(resolved_path) as reader:
+        if not reader.pattern_present:
+            raise ValueError(f"Pattern dataset missing in .oh5 file: {resolved_path}")
+
+        predicted_indices = np.full((reader.header_total_pixels,), -1, dtype=np.int32)
+        confidences = np.full((reader.header_total_pixels,), np.nan, dtype=np.float32)
+        rows: list[dict[str, Any]] = []
+
+        for flat_index in range(reader.total_pixels):
+            x, y = reader.flat_to_xy(flat_index)
+            quality_row = reader.read_quality_row(flat_index=flat_index)
+            pattern = reader.read_pattern(flat_index=flat_index)
+            prediction = predict_pattern_array(loaded=loaded, pattern=pattern)
+            predicted_indices[flat_index] = int(prediction.predicted_index)
+            confidences[flat_index] = float(prediction.confidence)
+
+            row: dict[str, Any] = {
+                "pattern_index": int(flat_index),
+                "x": int(x),
+                "y": int(y),
+                "predicted_phase": prediction.predicted_phase,
+                "predicted_index": prediction.predicted_index,
+                "confidence": round(float(prediction.confidence), 6),
+                "confidence_index": quality_row.get("confidence_index"),
+                "image_quality": quality_row.get("image_quality"),
+                "fit": quality_row.get("fit"),
+                "valid": quality_row.get("valid"),
+            }
+            for phase_name, prob in prediction.probabilities.items():
+                row[f"prob_{phase_name}"] = round(float(prob), 6)
+            rows.append(row)
+
+    valid_mask = predicted_indices >= 0
+    class_names = list(loaded.class_names)
+    phase_counts = {phase: 0 for phase in class_names}
+    for idx in predicted_indices[valid_mask]:
+        phase_counts[class_names[int(idx)]] += 1
+
+    inferred_total = int(np.sum(valid_mask))
+    phase_fractions = {
+        phase: (float(count) / float(inferred_total) if inferred_total > 0 else 0.0)
+        for phase, count in phase_counts.items()
+    }
+    mean_confidence = float(np.nanmean(confidences[valid_mask])) if inferred_total > 0 else 0.0
+
+    return FullScanInferenceResult(
+        oh5_path=resolved_path,
+        scan_name=scan_name or resolved_path.stem,
+        nx=reader.nx,
+        ny=reader.ny,
+        total_pixels=reader.total_pixels,
+        header_total_pixels=reader.header_total_pixels,
+        class_names=class_names,
+        predicted_indices=predicted_indices,
+        confidences=confidences,
+        phase_counts=phase_counts,
+        phase_fractions=phase_fractions,
+        mean_confidence=mean_confidence,
+        rows=rows,
+    )
 
 
 def _scan_summary_row(

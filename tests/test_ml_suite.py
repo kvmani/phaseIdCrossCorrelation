@@ -124,3 +124,6 @@ def test_ml_benchmark_suite_smoke(tmp_path: Path) -> None:
     html_path = tmp_path / manifest["artifacts"]["suite_report_html"]
     assert events_path.exists()
     assert html_path.exists()
+    html_text = html_path.read_text(encoding="utf-8")
+    assert "href='run_a/report.json'" in html_text
+    assert "href='run_b/report.json'" in html_text

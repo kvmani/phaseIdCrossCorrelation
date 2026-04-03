@@ -1,20 +1,35 @@
 # OS/editor noise
 .DS_Store
+Thumbs.db
 
-# Python caches
+# Python caches and virtualenvs
 __pycache__/
+*.py[cod]
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+.venv/
+venv/
 
-# Local scratch/build folders
+# Local scratch and packaging outputs
 tmp/
+build/
+dist/
+*.egg-info/
 node_modules/
 
-# Large EBSD scan files (keep JSON and image assets tracked)
+# Sphinx and documentation build outputs
+docs/_build/
+docs/site/.ipynb_checkpoints/
+docs/site/**/.ipynb_checkpoints/
+
+# Large EBSD scan files (keep JSON and source image/doc assets tracked)
 data/test/student_data_packet_phaseid/scan_files/*.oh5
 data/classiication_training_data/
 
-# Generated run artifacts and presentations
+# Generated workflow artifacts and presentations
 reports/ml/
 reports/presentations/
 reports/student_data_packet_phaseid2_method_comparison/

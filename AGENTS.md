@@ -66,6 +66,16 @@ Any change affecting behavior, inputs/outputs, assumptions, or CLI flags must up
 - user-facing usage docs,
 - algorithm/method assumptions,
 - roadmap/status/todo entries.
+- the canonical Sphinx site under `docs/site/`.
+
+Documentation is a foundational repository interface. Users should be able to operate the repository primarily from the documentation.
+
+When changes materially affect workflows or GUIs, prefer version-controlled documentation figures:
+
+- SVG for schematic screenshots and architecture/workflow diagrams,
+- Mermaid for flow sheets embedded in docs pages.
+
+When changes materially affect scientific interpretation, notation, conventions, or algorithm meaning, update the relevant mathematical and citation-bearing docs pages in the same change.
 
 ## 8. Testing Expectations
 

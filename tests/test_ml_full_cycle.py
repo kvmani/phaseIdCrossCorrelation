@@ -53,7 +53,13 @@ generate_ppt: false
     class _DSResult:
         def __init__(self) -> None:
             self.manifest_path = tmp_path / "dataset_manifest.json"
-            self.manifest_path.write_text('{"ok": true}', encoding="utf-8")
+            self.manifest_path.write_text(
+                '{"ok": true, "artifacts": {"summary_html": "dataset_out/summary.html"}}',
+                encoding="utf-8",
+            )
+            dataset_out = tmp_path / "dataset_out"
+            dataset_out.mkdir(parents=True, exist_ok=True)
+            (dataset_out / "summary.html").write_text("<html>dataset</html>", encoding="utf-8")
 
     class _SuiteResult:
         def __init__(self) -> None:
@@ -77,3 +83,8 @@ generate_ppt: false
     assert result.summary_html.exists()
     payload = json.loads(result.summary_json.read_text(encoding="utf-8"))
     assert payload["status"] == "completed"
+    html_text = result.summary_html.read_text(encoding="utf-8")
+    assert 'href="../dataset_manifest.json"' in html_text
+    assert 'href="../dataset_out/summary.html"' in html_text
+    assert 'href="../suite_out/suite_summary.json"' in html_text
+    assert 'href="../suite_out/suite_report.html"' in html_text

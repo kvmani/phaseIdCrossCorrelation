@@ -11,6 +11,7 @@ Thin CLI entry points live here.
 
 ## ML
 
+- `scripts/build_docs.py` (build, clean, and optionally open the Sphinx documentation site)
 - `scripts/run_ml_dataset_prepare.py`
 - `scripts/run_ml_train_classifier.py`
 - `scripts/run_ml_benchmark_suite.py`
@@ -24,4 +25,4 @@ Thin CLI entry points live here.
 - `scripts/run_ml_full_cycle.py` (one-go workflow from raw `.oh5` dataset prep to multi-model suite, HTML summaries, and PPTX)
 - `scripts/ml_results_presentation/generate_executive_assessment_ppt.py` (build a graphics-first lab-meeting PPTX from balanced benchmark, dataset, and diagnostic gallery artifacts)
 - `scripts/generate_cnn32_architecture_svg.py` (generate a publication-ready SVG of the exact `simple_cnn_w32` architecture used in the balanced Al/Cu/Ni work)
-See `docs/README.md` for the doc map behind each runner.
+See `docs/site/index.md` for the canonical documentation map and `docs/README.md` for the legacy-source bridge.

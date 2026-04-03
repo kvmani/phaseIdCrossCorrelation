@@ -1,13 +1,28 @@
 # Documentation Guide
 
-Use this file as the entry point to the documentation set.
+Use this file as the bridge between the canonical Sphinx site and the legacy Markdown source material.
+
+## Canonical Surface
+
+The canonical user-facing documentation now lives in:
+
+- source: `docs/site/`
+- built HTML: `docs/_build/html/index.html`
+
+Build it with:
+
+```powershell
+python -m pip install -r .\docs\requirements.txt
+python .\scripts\build_docs.py --clean
+```
 
 ## Start in Order
 
-1. `docs/mission_statement.md`: scientific objective, scope, and success criteria.
-2. `docs/status.md`: current implementation snapshot, risks, and next steps.
-3. `todo_list.md`: active work queue.
-4. `docs/architecture.md`: code layout and workflow boundaries.
+1. `docs/site/index.md`
+2. `docs/site/getting_started/index.md`
+3. `docs/site/workflows/index.md`
+4. `docs/site/guis/index.md`
+5. `docs/site/reference/index.md`
 
 ## By Task
 
@@ -16,6 +31,8 @@ Use this file as the entry point to the documentation set.
 - `README.md`: high-level project summary.
 - `AGENTS.md`: repo rules and contribution constraints.
 - `docs/roadmap.md`: longer-horizon plan.
+- `docs/site/mission/index.md`: mission, principles, and scientific posture.
+- `docs/site/concepts/index.md`: concepts, formulations, and rationale.
 
 ### Run NCC and Hough workflows
 
@@ -26,17 +43,17 @@ Use this file as the entry point to the documentation set.
 
 ### Run ML workflows
 
-- `docs/ml_classifier_workflow.md`: ML pipeline overview and artifact contract.
-- `docs/ml_input_data_runbook.md`: dataset config modes, source requirements, and environment-specific commands.
-- `docs/ml_training_inference_workflow.md`: recommended experiment sequence and reporting flow.
-- `docs/ml_windows_pycharm_production_runbook.md`: exact Windows 11 + PyCharm commands for the production `Ni-Cu-Al` run.
-- `docs/ml_phase_explorer_gui.md`: raw `.oh5` exploration GUI.
-- `docs/ml_diagnostic_gallery_gui.md`: cross-condition pattern gallery for model diagnosis.
-- `docs/ml_model_selection.md`: backbone shortlist and selection rationale.
+- `docs/site/workflows/dataset_preparation.md`
+- `docs/site/workflows/benchmark_and_full_cycle.md`
+- `docs/site/workflows/inference_workflows.md`
+- `docs/site/guis/inference_gui.md`
+- `docs/site/guis/phase_explorer_gui.md`
+- `docs/site/guis/diagnostic_gallery_gui.md`
 
 ### Understand data contracts
 
-- `docs/oh5_structure.md`: canonical `.oh5` layout and aliasing notes.
+- `docs/site/data_contracts/oh5_contracts.md`
+- `docs/site/data_contracts/manifests_and_outputs.md`
 - `docs/test_data_setup_plan.md`: in-repo fixture and packet setup expectations.
 
 ### Understand scientific planning
@@ -52,3 +69,4 @@ Use this file as the entry point to the documentation set.
 - Want module ownership: `src/README.md`
 - Want test coverage map: `tests/README.md`
 - Want generated outputs: `reports/README.md`
+- Want old Markdown source docs directly: browse `docs/`

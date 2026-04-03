@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 import logging
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -45,7 +46,24 @@ def _find_generated_pptx(output_dir: Path, *, started_at: float) -> Path | None:
     return candidates[0] if candidates else None
 
 
-def _write_html_summary(*, path: Path, summary: dict[str, Any], links: dict[str, str]) -> None:
+def _html_rel_path(target: str, *, html_path: Path, repo_root: Path) -> str:
+    if not target:
+        return ""
+    candidate = Path(target)
+    if not candidate.is_absolute():
+        candidate = (repo_root / candidate).resolve()
+    try:
+        return Path(os.path.relpath(candidate, html_path.parent.resolve())).as_posix()
+    except ValueError:
+        return candidate.as_posix()
+
+
+def _write_html_summary(*, path: Path, summary: dict[str, Any], links: dict[str, str], repo_root: Path) -> None:
+    dataset_manifest_href = _html_rel_path(links.get("dataset_manifest", ""), html_path=path, repo_root=repo_root)
+    dataset_summary_href = _html_rel_path(links.get("dataset_summary_html", ""), html_path=path, repo_root=repo_root)
+    suite_summary_href = _html_rel_path(links.get("suite_summary", ""), html_path=path, repo_root=repo_root)
+    suite_report_href = _html_rel_path(links.get("suite_report_html", ""), html_path=path, repo_root=repo_root)
+    pptx_href = _html_rel_path(links.get("pptx", ""), html_path=path, repo_root=repo_root) if links.get("pptx") else ""
     html = f"""<!DOCTYPE html>
 <html><head><meta charset='utf-8'><title>ML Full Cycle Summary</title>
 <style>body{{font-family:Arial,sans-serif;margin:20px}} table{{border-collapse:collapse}} th,td{{border:1px solid #ccc;padding:8px}}</style>
@@ -54,11 +72,11 @@ def _write_html_summary(*, path: Path, summary: dict[str, Any], links: dict[str,
 <p>Status: <b>{summary.get('status')}</b></p>
 <table>
 <tr><th>Stage</th><th>Artifact</th></tr>
-<tr><td>Dataset prep manifest</td><td><a href="../{links.get('dataset_manifest','')}">{links.get('dataset_manifest','')}</a></td></tr>
-<tr><td>Dataset prep HTML</td><td><a href="../{links.get('dataset_summary_html','')}">{links.get('dataset_summary_html','')}</a></td></tr>
-<tr><td>Benchmark suite summary</td><td><a href="../{links.get('suite_summary','')}">{links.get('suite_summary','')}</a></td></tr>
-<tr><td>Benchmark suite HTML</td><td><a href="../{links.get('suite_report_html','')}">{links.get('suite_report_html','')}</a></td></tr>
-<tr><td>PPTX</td><td>{('<a href="../'+links.get('pptx','')+'">'+links.get('pptx','')+'</a>') if links.get('pptx') else 'not generated'}</td></tr>
+<tr><td>Dataset prep manifest</td><td><a href="{dataset_manifest_href}">{links.get('dataset_manifest','')}</a></td></tr>
+<tr><td>Dataset prep HTML</td><td><a href="{dataset_summary_href}">{links.get('dataset_summary_html','')}</a></td></tr>
+<tr><td>Benchmark suite summary</td><td><a href="{suite_summary_href}">{links.get('suite_summary','')}</a></td></tr>
+<tr><td>Benchmark suite HTML</td><td><a href="{suite_report_href}">{links.get('suite_report_html','')}</a></td></tr>
+<tr><td>PPTX</td><td>{('<a href="'+pptx_href+'">'+links.get('pptx','')+'</a>') if links.get('pptx') else 'not generated'}</td></tr>
 </table>
 <p>Use suite HTML for concise metrics comparison and drill-down links per experiment.</p>
 </body></html>"""
@@ -241,6 +259,7 @@ def run_full_cycle(
     _write_html_summary(
         path=summary_html,
         summary=summary,
+        repo_root=repo_root,
         links={
             "dataset_manifest": summary["dataset_manifest_path"],
             "dataset_summary_html": dataset_summary_html,

@@ -66,6 +66,7 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [x] M16: Add sampled unseen-scan `.oh5` CNN inference runner with YAML-configured quality filtering, random per-scan sampling, and per-pattern/per-scan summary outputs.
 - [x] M17: Add optional per-phase balancing during dataset prep by downsampling accepted samples to the smallest accepted phase count before split assignment.
 - [x] M20: Export per-sample Euler angles from dataset prep with provenance-rich CSV/JSON outputs plus per-phase IPF split diagnostics for orientation-space coverage review.
+- [x] M21: Extend the inference GUI with full-scan `.oh5` prediction-map rendering and optional confidence-based color shading.
 - [x] M18: Add diagnostic pattern gallery GUI with cross-condition source grouping, manual index lookup, and manifest/contact-sheet export.
 - [x] M19: Add graphics-first lab-meeting PPT generation for balanced benchmark plus diagnostic-gallery assessment artifacts.
 
@@ -87,6 +88,7 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 ## Documentation and Reporting
 
 - [x] Add documentation hub and tighten top-level navigation for workflow discovery.
+- [x] Add Sphinx-first canonical scientific documentation site with cross-linked workflow help, SVG GUI schematics, Mermaid flow diagrams, and citation-bearing standards pages.
 - [ ] Add methods doc for exact preprocessing + masked NCC formula used in code.
 - [x] Add usage doc for curated NCC CLI workflow (`docs/curated_ncc_workflow.md`).
 - [x] Add usage doc for curated image-vs-hough workflow (`docs/curated_hough_vs_ncc_workflow.md`).

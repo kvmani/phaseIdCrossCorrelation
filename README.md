@@ -1,80 +1,98 @@
 # phaseIdCrossCorrelation
 
-Accuracy-first EBSD phase identification for mixed-phase scans using two evidence tracks:
+Accuracy-first EBSD phase identification for mixed-phase scans using two complementary evidence tracks:
 
-- masked NCC against externally simulated patterns,
+- masked NCC against externally simulated or curated patterns,
 - supervised ML classification from experimental Kikuchi patterns.
 
-## What This Repo Does
+## Canonical Documentation
 
-The current target problem is phase discrimination among magnetite, wustite, and iron when conventional indexing is unstable. The repository keeps both evidence tracks reproducible and traceable so they can later be compared or fused.
+The primary user-facing documentation surface is the Sphinx site under `docs/site/`.
 
-Implemented today:
+Install the docs dependencies:
 
-- curated NCC workflow,
-- curated image-vs-Hough comparison workflow,
-- ML dataset preparation from `.oh5`,
-- ML training and benchmark-suite runners,
-- raw `.oh5` phase explorer GUI,
-- diagnostic pattern gallery GUI for cross-condition model inspection.
+```powershell
+python -m pip install -r .\docs\requirements.txt
+```
+
+Build the HTML site:
+
+```powershell
+python .\scripts\build_docs.py --clean
+```
+
+Build and open it:
+
+```powershell
+python .\scripts\build_docs.py --clean --open
+```
+
+Main local review entry point:
+
+- `docs/_build/html/index.html`
 
 ## Start Here
 
-- New to the project: `docs/README.md`
+- Sphinx source home: `docs/site/index.md`
+- Legacy docs bridge: `docs/README.md`
 - Scientific scope and success criteria: `docs/mission_statement.md`
-- Current state and near-term risks: `docs/status.md`
-- Active task list: `todo_list.md`
-- Repo working rules: `AGENTS.md`
+- Current implementation status: `docs/status.md`
+- Active work queue: `todo_list.md`
+- Repo rules: `AGENTS.md`
 
-## Common Entry Points
+## Main Commands
 
-### NCC and Hough
+### Dataset prep
 
-- `docs/curated_ncc_workflow.md`
-- `docs/curated_hough_vs_ncc_workflow.md`
-- `docs/mcc_vs_hough_full_cycle_runbook.md`
+```powershell
+python .\scripts\run_ml_dataset_prepare.py --config .\configs\ml\dataset_prepare.data_march2026.balanced.debug.yml --debug
+python .\scripts\run_ml_dataset_prepare.py --config .\configs\ml\dataset_prepare.data_march2026.balanced.yml --debug
+```
 
-### ML
+### Benchmark suite
 
-- `docs/ml_classifier_workflow.md`
-- `docs/ml_input_data_runbook.md`
-- `docs/ml_training_inference_workflow.md`
-- `docs/ml_phase_explorer_gui.md`
-- `docs/ml_diagnostic_gallery_gui.md`
-- `docs/ml_model_selection.md`
+```powershell
+python .\scripts\run_ml_benchmark_suite.py --config .\configs\ml\benchmark_suite.data_march2026.balanced.debug.yml --debug
+python .\scripts\run_ml_benchmark_suite.py --config .\configs\ml\benchmark_suite.data_march2026.balanced.yml --debug
+```
 
-### Data Contracts
+### Full cycle
 
-- `docs/oh5_structure.md`
-- `docs/g0_data_intake_validation.md`
-- `configs/ml/README.md`
+```powershell
+python .\scripts\run_ml_full_cycle.py --config .\configs\ml\full_cycle.data_march2026.balanced.debug.yml --debug
+python .\scripts\run_ml_full_cycle.py --config .\configs\ml\full_cycle.data_march2026.balanced.yml --debug
+```
+
+### Inference and GUIs
+
+```powershell
+python .\scripts\run_ml_inference_gui.py --suite-root .\reports\ml\benchmarks\data_march2026_balanced_3scansEach
+python .\scripts\run_ml_oh5_sample_inference.py --config .\configs\ml\oh5_sample_inference.data_march2026.example.yml --debug
+python .\scripts\run_ml_phase_explorer.py --config .\configs\ml\phase_explorer.ni_cu_al.production.yml --debug
+python .\scripts\run_ml_diagnostic_gallery.py --config .\configs\ml\diagnostic_gallery.example.yml --debug
+```
 
 ## Repository Layout
 
 ```text
 phaseIdCrossCorrelation/
-├─ AGENTS.md
-├─ README.md
-├─ todo_list.md
-├─ docs/
-├─ configs/
-├─ data/
-├─ scripts/
-├─ src/
-├─ tests/
-└─ reports/
++-- AGENTS.md
++-- README.md
++-- docs/
+|   +-- site/
+|   +-- README.md
+|   `-- ...
++-- configs/
++-- scripts/
++-- src/
++-- tests/
+`-- reports/
 ```
 
-## Working Principles
+## Design Principles
 
-- correctness over speed,
-- reproducibility over convenience,
-- explicit artifacts and manifests for runnable workflows,
-- thin CLIs and modular `src/` code,
-- docs updated with behavior changes.
-
-## External Interfaces
-
-- `.oh5` files are the source-of-truth EBSD container.
-- TSL indexing and external simulation stay outside this repository.
-- ML labels come from config-defined CSV labels or single-phase scan mapping.
+- correctness over speed
+- reproducibility over convenience
+- explicit manifests and reports for runnable workflows
+- thin CLIs and modular `src/` code
+- documentation treated as a first-class interface

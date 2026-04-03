@@ -18,6 +18,7 @@ Operational guide for preparing ML datasets from `.oh5` scans and launching the 
 8. `run_ml_benchmark_suite.py` runs repeated model experiments.
 9. Dataset summaries include per-phase split composition, CI/Fit/IQ mean-median-std, and modal intensity statistics.
 10. Suite summaries include best-model selection, confusion matrices, per-class metrics, and links to per-run configs and reports.
+11. After training, the inference GUI can render full-scan `.oh5` predicted phase maps using the trained model classes and optional confidence shading.
 
 ## 2. Input Modes
 
