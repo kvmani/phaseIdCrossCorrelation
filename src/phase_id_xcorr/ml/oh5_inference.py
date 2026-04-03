@@ -5,11 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import logging
+import os
 from pathlib import Path
 import time
 from typing import Any, Callable
 
 import numpy as np
+from PIL import Image, ImageDraw
 
 from phase_id_xcorr.reporting import build_run_manifest
 
@@ -70,6 +72,209 @@ class FullScanInferenceResult:
     euler_source_unit: str | None
     euler_convention: str | None
     rows: list[dict[str, Any]]
+
+
+def _save_rgb_png(path: Path, array: np.ndarray) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    arr = np.clip(np.asarray(array, dtype=np.float32), 0.0, 1.0)
+    arr8 = (arr * 255.0).round().astype(np.uint8)
+    Image.fromarray(arr8, mode="RGB").save(path)
+
+
+def _save_phase_legend_png(path: Path, class_names: list[str]) -> None:
+    palette = {
+        "Al": (235, 76, 64),
+        "Ni": (41, 163, 87),
+        "Cu": (51, 112, 224),
+    }
+    fallback = (
+        (220, 68, 55),
+        (55, 126, 34),
+        (56, 99, 214),
+        (213, 160, 33),
+        (118, 84, 172),
+        (33, 163, 163),
+    )
+    row_h = 28
+    width = 340
+    height = max(48, 16 + row_h * max(1, len(class_names)))
+    image = Image.new("RGB", (width, height), (255, 255, 255))
+    draw = ImageDraw.Draw(image)
+    draw.text((12, 8), "Predicted phase legend", fill=(25, 25, 25))
+    for idx, phase_name in enumerate(class_names):
+        rgb = palette.get(phase_name, fallback[idx % len(fallback)])
+        y = 16 + idx * row_h
+        draw.rounded_rectangle((14, y + 6, 58, y + 22), radius=3, fill=rgb, outline=(80, 80, 80))
+        draw.text((70, y + 5), str(phase_name), fill=(25, 25, 25))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    image.save(path)
+
+
+def _html_rel(target: Path, html_path: Path) -> str:
+    return Path(os.path.relpath(target.resolve(), html_path.parent.resolve())).as_posix()
+
+
+def _bundle_rel(path: Path, bundle_root: Path) -> str:
+    return Path(os.path.relpath(path.resolve(), bundle_root.resolve())).as_posix()
+
+
+def export_full_scan_artifacts(
+    *,
+    repo_root: Path,
+    loaded: LoadedModel,
+    result: FullScanInferenceResult,
+    output_dir: Path,
+    predicted_map_image: np.ndarray,
+    ipf_reference_image: np.ndarray | None,
+    ipf_colored_map_image: np.ndarray | None,
+    use_confidence_shading: bool,
+) -> Path:
+    """Export GUI full-scan artifacts with machine-readable provenance."""
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    artifacts_dir = output_dir / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    predicted_map_png = artifacts_dir / "predicted_phase_map.png"
+    phase_legend_png = artifacts_dir / "predicted_phase_legend.png"
+    ipf_reference_png = artifacts_dir / "ipf_reference.png"
+    ipf_colored_map_png = artifacts_dir / "ipf_colored_ebsd_map.png"
+    rows_csv = output_dir / "pixel_predictions.csv"
+    summary_json = output_dir / "summary.json"
+    summary_html = output_dir / "summary.html"
+    manifest_json = output_dir / "manifest.json"
+
+    _save_rgb_png(predicted_map_png, predicted_map_image)
+    _save_phase_legend_png(phase_legend_png, result.class_names)
+    if ipf_reference_image is not None:
+        _save_rgb_png(ipf_reference_png, ipf_reference_image)
+    if ipf_colored_map_image is not None:
+        _save_rgb_png(ipf_colored_map_png, ipf_colored_map_image)
+
+    write_records_csv(rows_csv, result.rows)
+
+    dominant_phase = max(result.phase_counts.items(), key=lambda kv: (kv[1], kv[0]))[0] if result.phase_counts else ""
+    summary_payload = {
+        "schema_version": "phase_id_xcorr.ml_full_scan_gui_export.v1",
+        "created_utc": _now_iso_utc(),
+        "workflow": "ml_inference_gui_full_scan_export",
+        "model": {
+            "run_dir": rel_path(loaded.run_dir, repo_root),
+            "report_path": rel_path(loaded.report_path, repo_root),
+            "checkpoint_path": rel_path(loaded.checkpoint_path, repo_root),
+            "dataset_manifest_path": rel_path(loaded.dataset_manifest_path, repo_root),
+            "model_family": loaded.model_family,
+            "model_name": loaded.model_name,
+            "class_names": loaded.class_names,
+            "preprocessing_policy": loaded.preprocessing_policy.to_dict(),
+            "input_mean": loaded.input_mean,
+            "input_std": loaded.input_std,
+        },
+        "scan": {
+            "oh5_path": rel_path(result.oh5_path, repo_root),
+            "scan_name": result.scan_name,
+            "grid": {"nx": result.nx, "ny": result.ny},
+            "total_pixels": result.total_pixels,
+            "header_total_pixels": result.header_total_pixels,
+            "mean_confidence": result.mean_confidence,
+            "dominant_phase": dominant_phase,
+            "phase_counts": result.phase_counts,
+            "phase_fractions": result.phase_fractions,
+            "confidence_shading": bool(use_confidence_shading),
+            "euler_convention": result.euler_convention,
+            "euler_source_unit": result.euler_source_unit,
+        },
+        "artifacts": {
+            "predicted_phase_map_png": _bundle_rel(predicted_map_png, output_dir),
+            "predicted_phase_legend_png": _bundle_rel(phase_legend_png, output_dir),
+            "ipf_reference_png": None if ipf_reference_image is None else _bundle_rel(ipf_reference_png, output_dir),
+            "ipf_colored_ebsd_map_png": None if ipf_colored_map_image is None else _bundle_rel(ipf_colored_map_png, output_dir),
+            "pixel_predictions_csv": _bundle_rel(rows_csv, output_dir),
+            "summary_json": _bundle_rel(summary_json, output_dir),
+            "summary_html": _bundle_rel(summary_html, output_dir),
+            "manifest_json": _bundle_rel(manifest_json, output_dir),
+        },
+        "provenance": {
+            "repo_root": rel_path(repo_root, repo_root),
+            "run_dir": rel_path(loaded.run_dir, repo_root),
+            "report_path": rel_path(loaded.report_path, repo_root),
+            "checkpoint_path": rel_path(loaded.checkpoint_path, repo_root),
+            "dataset_manifest_path": rel_path(loaded.dataset_manifest_path, repo_root),
+            "oh5_path": rel_path(result.oh5_path, repo_root),
+        },
+        "legend": [
+            {"phase": phase_name, "count": int(result.phase_counts.get(phase_name, 0)), "fraction": float(result.phase_fractions.get(phase_name, 0.0))}
+            for phase_name in result.class_names
+        ],
+    }
+    write_json(summary_json, summary_payload)
+
+    manifest_payload = build_run_manifest(
+        repo_root=repo_root,
+        packet_dir=loaded.run_dir,
+        out_dir=output_dir,
+        debug=False,
+        extra={
+            "workflow": "ml_inference_gui_full_scan_export",
+            "run_dir": rel_path(loaded.run_dir, repo_root),
+            "checkpoint_path": rel_path(loaded.checkpoint_path, repo_root),
+            "oh5_path": rel_path(result.oh5_path, repo_root),
+            "summary_json": _bundle_rel(summary_json, output_dir),
+            "summary_html": _bundle_rel(summary_html, output_dir),
+            "pixel_predictions_csv": _bundle_rel(rows_csv, output_dir),
+            "predicted_phase_map_png": _bundle_rel(predicted_map_png, output_dir),
+            "predicted_phase_legend_png": _bundle_rel(phase_legend_png, output_dir),
+        },
+    )
+    write_json(manifest_json, manifest_payload)
+
+    ipf_reference_block = (
+        f'<figure><img src="{_html_rel(ipf_reference_png, summary_html)}" alt="IPF reference"><figcaption>IPF reference grouped by predicted phase.</figcaption></figure>'
+        if ipf_reference_image is not None
+        else "<p>IPF reference unavailable for this scan.</p>"
+    )
+    ipf_colored_block = (
+        f'<figure><img src="{_html_rel(ipf_colored_map_png, summary_html)}" alt="IPF-colored EBSD map"><figcaption>IPF-colored EBSD map derived from scan Euler angles.</figcaption></figure>'
+        if ipf_colored_map_image is not None
+        else "<p>IPF-colored EBSD map unavailable for this scan.</p>"
+    )
+    rows_html = "\n".join(
+        f"<tr><td>{phase}</td><td>{int(result.phase_counts.get(phase, 0))}</td><td>{float(result.phase_fractions.get(phase, 0.0)):.4f}</td></tr>"
+        for phase in result.class_names
+    )
+    summary_html.write_text(
+        "\n".join(
+            [
+                "<!DOCTYPE html>",
+                "<html><head><meta charset='utf-8'><title>Full-Scan GUI Export</title>",
+                "<style>body{font-family:Arial,sans-serif;margin:20px;} img{max-width:100%;border:1px solid #bbb;} figure{margin:0 0 20px 0;} table{border-collapse:collapse;margin-top:12px;} th,td{border:1px solid #999;padding:6px 10px;text-align:left;} .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px;}</style>",
+                "</head><body>",
+                f"<h1>Full-scan GUI export: {result.scan_name}</h1>",
+                f"<p><strong>.oh5:</strong> {rel_path(result.oh5_path, repo_root)}<br>",
+                f"<strong>Run:</strong> {rel_path(loaded.run_dir, repo_root)}<br>",
+                f"<strong>Checkpoint:</strong> {rel_path(loaded.checkpoint_path, repo_root)}<br>",
+                f"<strong>Preprocessing:</strong> {loaded.preprocessing_policy.to_dict()}<br>",
+                f"<strong>Mean confidence:</strong> {result.mean_confidence:.4f}<br>",
+                f"<strong>Confidence shading:</strong> {'on' if use_confidence_shading else 'off'}</p>",
+                "<div class='grid'>",
+                f"<figure><img src='{_html_rel(predicted_map_png, summary_html)}' alt='Predicted phase map'><figcaption>Predicted phase map.</figcaption></figure>",
+                f"<figure><img src='{_html_rel(phase_legend_png, summary_html)}' alt='Predicted phase legend'><figcaption>Phase legend.</figcaption></figure>",
+                ipf_reference_block,
+                ipf_colored_block,
+                "</div>",
+                "<h2>Per-phase summary</h2>",
+                "<table><thead><tr><th>Phase</th><th>Pixels</th><th>Fraction</th></tr></thead><tbody>",
+                rows_html,
+                "</tbody></table>",
+                f"<p>Machine-readable summary: <code>{_html_rel(summary_json, summary_html)}</code><br>",
+                f"Per-pixel predictions: <code>{_html_rel(rows_csv, summary_html)}</code><br>",
+                f"Manifest: <code>{_html_rel(manifest_json, summary_html)}</code></p>",
+                "</body></html>",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return manifest_json
 
 
 def _as_int(value: Any, *, field_name: str) -> int:

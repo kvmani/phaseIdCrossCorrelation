@@ -23,14 +23,15 @@ The `.oh5` workflow now shows two scan-level diagnostics side by side through ta
 - an **IPF orientation reference** rendered from the scan Euler angles
 - an **IPF-colored EBSD map** rendered per pixel from the scan Euler angles
 
-The clicked-pixel inspector loads the experimental pattern for any map pixel into two linked panes:
+The clicked-pixel inspector loads the experimental pattern for any map pixel into two linked panes arranged in one row, and also shows the per-pixel EBSD metadata when available.
 
 - **Original pattern**: the raw experimental Kikuchi pattern read from the `.oh5`
-- **Processed pattern**: the same pattern after optional display-only histogram normalization and contrast stretch
+- **Processed pattern**: the actual model-input pattern after stored inference preprocessing, followed by optional display-only histogram normalization and contrast stretch
 
-The two panes stay synchronized for **fit**, **zoom**, and **pan**, so the user can compare the same spatial region in raw and processed views without manually re-aligning them.
+The two panes stay synchronized for **fit**, **zoom**, and **pan**, so the user can compare the same spatial region in raw and processed views without manually re-aligning them. Each pane also shows a live hover readout of pixel coordinate and grayscale intensity.
 
 The window also includes a live **log panel** and progress/ETA display so large scans remain inspectable while inference is running.
+An `Export Results` action writes the current full-scan interpretation to PNG, CSV, JSON, `manifest.json`, and HTML artifacts for downstream analysis, using bundle-local relative references so the exported HTML works directly from the export folder.
 
 ## Launch command
 
@@ -88,16 +89,19 @@ This mode is deliberately analogous to EBSD-style interpretive maps where catego
 10. inspect the predicted phase map, IPF reference, and IPF-colored EBSD map tabs
 11. inspect the dominant phase, per-phase counts, fractions, and mean scores
 12. use the `Fit`, `Zoom +`, `Zoom -`, and `Reset` controls to inspect raw and processed patterns in lockstep
+13. use `Export Results` to write a provenance-rich artifact bundle for the current scan
 
 ## What the panels mean
 
 - **top controls**: model selection and inference mode
 - **left input area**: image browser in image mode, or `.oh5` browser plus a dual-pane clicked-pixel Kikuchi inspector in full-scan mode
+- **clicked-pixel metadata block**: pixel coordinate, predicted phase, confidence, Euler angles (`phi1`, `Phi`, `phi2`), `CI`, `IQ`, `Fit`, and `Valid` when present in the `.oh5`
 - **right preview tabs**: preprocessed image preview, predicted scan map, IPF reference, and IPF-colored EBSD map
 - **table**: probabilities for image mode, or per-phase pixel counts/fractions/mean scores for full-scan mode
 - **notes**: run metadata, grid size, Euler metadata, confidence state, phase-color legend, and currently selected pixel details
 - **log panel**: backend progress, scan-opening messages, Euler/IPF status, and errors
 - **progress row**: processed pixels plus ETA/elapsed time
+- **export bundle**: predicted map PNG, legend PNG, IPF PNGs when available, per-pixel CSV, machine-readable JSON summary, HTML summary, and `manifest.json`
 
 ## Why the GUI works this way
 

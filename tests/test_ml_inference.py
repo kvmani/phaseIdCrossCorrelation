@@ -5,11 +5,15 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 from PySide6 import QtWidgets
+import torch
 import yaml
 
 from phase_id_xcorr.ml.dataset_io import save_split_npz, write_json
-from phase_id_xcorr.ml.inference import list_model_runs, load_trained_model, predict_image
+from phase_id_xcorr.ml.dataset_io import read_json
+from phase_id_xcorr.ml.inference import LoadedModel, list_model_runs, load_trained_model, predict_image, predict_pattern_array
 from phase_id_xcorr.ml.inference_gui import _PatternCompareWidget, _contrast_stretch_gray, _prepare_display_gray
+from phase_id_xcorr.ml.oh5_inference import FullScanInferenceResult, export_full_scan_artifacts
+from phase_id_xcorr.ml.preprocessing_policy import PreprocessingPolicy
 from phase_id_xcorr.ml.training import train_classifier
 
 
@@ -159,3 +163,94 @@ def test_pattern_compare_widget_keeps_zoom_synchronized() -> None:
     assert widget.processed_pane.view.horizontalScrollBar().value() == widget.raw_pane.view.horizontalScrollBar().value()
     assert widget.processed_pane.view.verticalScrollBar().value() == widget.raw_pane.view.verticalScrollBar().value()
     widget.close()
+
+
+def test_predict_pattern_array_applies_circular_mask_for_inference() -> None:
+    class DummyModel(torch.nn.Module):
+        def forward(self, tensor: torch.Tensor) -> torch.Tensor:
+            return torch.zeros((tensor.shape[0], 2), dtype=torch.float32, device=tensor.device)
+
+    loaded = LoadedModel(
+        run_dir=Path("."),
+        report_path=Path("report.json"),
+        checkpoint_path=Path("best_checkpoint.pt"),
+        dataset_manifest_path=Path("dataset_manifest.json"),
+        class_names=["A", "B"],
+        preprocessing_policy=PreprocessingPolicy(resize_hw=(32, 32), apply_circular_mask=True, normalize_mode="none"),
+        input_mean=0.0,
+        input_std=1.0,
+        device=torch.device("cpu"),
+        model=DummyModel(),
+        model_family="dummy",
+        model_name="dummy",
+    )
+    pattern = np.ones((32, 32), dtype=np.float32)
+    result = predict_pattern_array(loaded=loaded, pattern=pattern)
+    assert np.isclose(float(result.preprocessed_image[0, 0]), 0.0)
+    assert np.isclose(float(result.preprocessed_image[-1, -1]), 0.0)
+    assert float(result.preprocessed_image[16, 16]) > 0.0
+
+
+def test_export_full_scan_artifacts_writes_manifest_bundle(tmp_path: Path) -> None:
+    class DummyModel(torch.nn.Module):
+        def forward(self, tensor: torch.Tensor) -> torch.Tensor:
+            return torch.zeros((tensor.shape[0], 2), dtype=torch.float32, device=tensor.device)
+
+    loaded = LoadedModel(
+        run_dir=tmp_path / "run",
+        report_path=tmp_path / "run" / "report.json",
+        checkpoint_path=tmp_path / "run" / "best_checkpoint.pt",
+        dataset_manifest_path=tmp_path / "dataset_manifest.json",
+        class_names=["Ni", "Cu"],
+        preprocessing_policy=PreprocessingPolicy(resize_hw=(32, 32), apply_circular_mask=True, normalize_mode="none"),
+        input_mean=0.0,
+        input_std=1.0,
+        device=torch.device("cpu"),
+        model=DummyModel(),
+        model_family="dummy",
+        model_name="dummy",
+    )
+    result = FullScanInferenceResult(
+        oh5_path=tmp_path / "scan.oh5",
+        scan_name="scan",
+        nx=2,
+        ny=2,
+        total_pixels=4,
+        header_total_pixels=4,
+        class_names=["Ni", "Cu"],
+        predicted_indices=np.asarray([0, 1, 0, 1], dtype=np.int32),
+        confidences=np.asarray([0.9, 0.8, 0.7, 0.6], dtype=np.float32),
+        phase_counts={"Ni": 2, "Cu": 2},
+        phase_fractions={"Ni": 0.5, "Cu": 0.5},
+        mean_confidence=0.75,
+        euler_rows_deg=None,
+        euler_source_unit=None,
+        euler_convention=None,
+        rows=[
+            {"pattern_index": 0, "x": 0, "y": 0, "predicted_phase": "Ni", "predicted_index": 0, "confidence": 0.9},
+            {"pattern_index": 1, "x": 1, "y": 0, "predicted_phase": "Cu", "predicted_index": 1, "confidence": 0.8},
+        ],
+    )
+    map_image = np.zeros((2, 2, 3), dtype=np.float32)
+    output_dir = tmp_path / "export"
+    manifest_path = export_full_scan_artifacts(
+        repo_root=tmp_path,
+        loaded=loaded,
+        result=result,
+        output_dir=output_dir,
+        predicted_map_image=map_image,
+        ipf_reference_image=None,
+        ipf_colored_map_image=None,
+        use_confidence_shading=True,
+    )
+    assert manifest_path.exists()
+    assert (output_dir / "summary.json").exists()
+    assert (output_dir / "summary.html").exists()
+    assert (output_dir / "pixel_predictions.csv").exists()
+    assert (output_dir / "artifacts" / "predicted_phase_map.png").exists()
+    assert (output_dir / "artifacts" / "predicted_phase_legend.png").exists()
+    summary = read_json(output_dir / "summary.json")
+    assert summary["artifacts"]["predicted_phase_map_png"] == "artifacts/predicted_phase_map.png"
+    assert summary["artifacts"]["predicted_phase_legend_png"] == "artifacts/predicted_phase_legend.png"
+    assert summary["artifacts"]["summary_html"] == "summary.html"
+    assert summary["artifacts"]["manifest_json"] == "manifest.json"

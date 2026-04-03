@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 import logging
 from pathlib import Path
 import sys
@@ -12,8 +13,8 @@ from typing import Any
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from .inference import LoadedModel, list_model_runs, load_trained_model, predict_image
-from .oh5_inference import FullScanInferenceResult, run_oh5_full_scan_inference
+from .inference import LoadedModel, list_model_runs, load_trained_model, predict_image, predict_pattern_array
+from .oh5_inference import FullScanInferenceResult, export_full_scan_artifacts, run_oh5_full_scan_inference
 from .orientation_diagnostics import render_ipf_colored_scan_map, render_ipf_reference_panel
 
 
@@ -214,6 +215,8 @@ class ClickableImageLabel(QtWidgets.QLabel):
 
 
 class _SyncedImageView(QtWidgets.QGraphicsView):
+    hoverInfoChanged = QtCore.Signal(object)
+
     def __init__(self) -> None:
         super().__init__()
         self._scene = QtWidgets.QGraphicsScene(self)
@@ -229,8 +232,10 @@ class _SyncedImageView(QtWidgets.QGraphicsView):
         self._linked_views: list[_SyncedImageView] = []
         self._fit_mode = True
         self._sync_guard = False
+        self._array_shape: tuple[int, int] | None = None
         self.horizontalScrollBar().valueChanged.connect(self._notify_linked_views)
         self.verticalScrollBar().valueChanged.connect(self._notify_linked_views)
+        self.setMouseTracking(True)
 
     def link_views(self, peers: list["_SyncedImageView"]) -> None:
         self._linked_views = [peer for peer in peers if peer is not self]
@@ -256,6 +261,11 @@ class _SyncedImageView(QtWidgets.QGraphicsView):
         self.horizontalScrollBar().setValue(0)
         self.verticalScrollBar().setValue(0)
         self._fit_mode = True
+        self._array_shape = None
+        self.hoverInfoChanged.emit(None)
+
+    def set_array_shape(self, shape_hw: tuple[int, int] | None) -> None:
+        self._array_shape = shape_hw
 
     def fit_to_scene(self, *, notify: bool = True) -> None:
         if not self.has_image():
@@ -298,6 +308,14 @@ class _SyncedImageView(QtWidgets.QGraphicsView):
         super().mouseReleaseEvent(event)
         self._notify_linked_views()
 
+    def mouseMoveEvent(self, event: QtGui.QMouseEvent) -> None:  # noqa: N802
+        super().mouseMoveEvent(event)
+        self._emit_hover_info(event.position())
+
+    def leaveEvent(self, event: QtCore.QEvent) -> None:  # noqa: N802
+        super().leaveEvent(event)
+        self.hoverInfoChanged.emit(None)
+
     def _notify_linked_views(self, *_args: object) -> None:
         if self._sync_guard or not self._linked_views or not self.has_image():
             return
@@ -311,6 +329,21 @@ class _SyncedImageView(QtWidgets.QGraphicsView):
                 peer._apply_view_state(transform, h_value, v_value, fit_mode)
         finally:
             self._sync_guard = False
+
+    def _emit_hover_info(self, pos: QtCore.QPointF) -> None:
+        mapped = self._map_viewport_to_source(pos)
+        self.hoverInfoChanged.emit(mapped)
+
+    def _map_viewport_to_source(self, pos: QtCore.QPointF) -> tuple[int, int] | None:
+        if not self.has_image() or self._array_shape is None:
+            return None
+        scene_pos = self.mapToScene(QtCore.QPoint(int(round(pos.x())), int(round(pos.y()))))
+        x = int(np.floor(scene_pos.x()))
+        y = int(np.floor(scene_pos.y()))
+        h, w = self._array_shape
+        if x < 0 or y < 0 or x >= w or y >= h:
+            return None
+        return x, y
 
     def _apply_view_state(
         self,
@@ -347,6 +380,7 @@ class _PatternPane(QtWidgets.QWidget):
 
         self.group = QtWidgets.QGroupBox(title)
         group_layout = QtWidgets.QVBoxLayout(self.group)
+        self._array: np.ndarray | None = None
 
         self.stack = QtWidgets.QStackedWidget()
         self.placeholder = QtWidgets.QLabel(placeholder)
@@ -354,22 +388,39 @@ class _PatternPane(QtWidgets.QWidget):
         self.placeholder.setWordWrap(True)
         self.placeholder.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.view = _SyncedImageView()
+        self.hover_label = QtWidgets.QLabel("Hover: -")
+        self.hover_label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        self.view.hoverInfoChanged.connect(self._update_hover_label)
         self.stack.addWidget(self.placeholder)
         self.stack.addWidget(self.view)
 
         group_layout.addWidget(self.stack)
+        group_layout.addWidget(self.hover_label)
         layout.addWidget(self.group)
 
     def set_array(self, array: np.ndarray) -> None:
+        self._array = np.asarray(array, dtype=np.float32)
         pixmap = _gray_array_to_native_pixmap(array)
+        self.view.set_array_shape(tuple(self._array.shape))
         self.view.set_pixmap(pixmap)
         self.stack.setCurrentWidget(self.view)
+        self.hover_label.setText("Hover: move cursor over image")
 
     def clear(self, message: str | None = None) -> None:
+        self._array = None
         self.view.clear_pixmap()
         if message:
             self.placeholder.setText(message)
         self.stack.setCurrentWidget(self.placeholder)
+        self.hover_label.setText("Hover: -")
+
+    def _update_hover_label(self, mapped: object) -> None:
+        if mapped is None or self._array is None:
+            self.hover_label.setText("Hover: -")
+            return
+        x, y = mapped
+        value = float(self._array[int(y), int(x)])
+        self.hover_label.setText(f"Hover: x={int(x)} y={int(y)} value={value:.4f}")
 
 
 class _PatternCompareWidget(QtWidgets.QWidget):
@@ -393,12 +444,16 @@ class _PatternCompareWidget(QtWidgets.QWidget):
         controls_layout.addStretch(1)
         layout.addLayout(controls_layout)
 
+        panes_layout = QtWidgets.QHBoxLayout()
+        panes_layout.setContentsMargins(0, 0, 0, 0)
+        panes_layout.setSpacing(8)
         self.raw_pane = _PatternPane("Original pattern", "No pixel selected")
         self.processed_pane = _PatternPane("Processed pattern", "No pixel selected")
         self.raw_pane.view.link_views([self.processed_pane.view])
         self.processed_pane.view.link_views([self.raw_pane.view])
-        layout.addWidget(self.raw_pane, stretch=1)
-        layout.addWidget(self.processed_pane, stretch=1)
+        panes_layout.addWidget(self.raw_pane, stretch=1)
+        panes_layout.addWidget(self.processed_pane, stretch=1)
+        layout.addLayout(panes_layout, stretch=1)
 
         self.fit_button.clicked.connect(self.fit_views)
         self.zoom_in_button.clicked.connect(lambda: self._zoom_views(1.15))
@@ -467,6 +522,7 @@ class GuiState:
     selected_pixel_x: int | None = None
     selected_pixel_y: int | None = None
     selected_pattern: np.ndarray | None = None
+    selected_processed_pattern: np.ndarray | None = None
     selected_pixel_details: dict[str, Any] | None = None
 
 
@@ -643,11 +699,16 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         btn_full_scan = QtWidgets.QPushButton("Run Full-Scan Inference")
         btn_full_scan.clicked.connect(self._run_inference)
         self.btn_full_scan = btn_full_scan
+        btn_export = QtWidgets.QPushButton("Export Results")
+        btn_export.clicked.connect(self._export_full_scan_results)
+        btn_export.setEnabled(False)
+        self.btn_export = btn_export
         oh5_controls.addWidget(QtWidgets.QLabel(".oh5 file"), 0, 0)
         oh5_controls.addWidget(self.oh5_edit, 0, 1)
         oh5_controls.addWidget(btn_oh5, 0, 2)
         oh5_controls.addWidget(self.confidence_shading_checkbox, 1, 0, 1, 2)
         oh5_controls.addWidget(btn_full_scan, 1, 2)
+        oh5_controls.addWidget(btn_export, 2, 2)
 
         inspector_group = QtWidgets.QGroupBox("Clicked Pixel Inspector")
         inspector_layout = QtWidgets.QVBoxLayout(inspector_group)
@@ -662,12 +723,20 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.selected_pixel_value = QtWidgets.QLabel("-")
         self.selected_phase_value = QtWidgets.QLabel("-")
         self.selected_confidence_value = QtWidgets.QLabel("-")
-        self.selected_quality_value = QtWidgets.QLabel("-")
-        self.selected_quality_value.setWordWrap(True)
+        self.selected_euler_value = QtWidgets.QLabel("-")
+        self.selected_euler_value.setWordWrap(True)
+        self.selected_ci_value = QtWidgets.QLabel("-")
+        self.selected_iq_value = QtWidgets.QLabel("-")
+        self.selected_fit_value = QtWidgets.QLabel("-")
+        self.selected_valid_value = QtWidgets.QLabel("-")
         selected_info.addRow("Pixel", self.selected_pixel_value)
         selected_info.addRow("Phase", self.selected_phase_value)
         selected_info.addRow("Confidence", self.selected_confidence_value)
-        selected_info.addRow("Quality", self.selected_quality_value)
+        selected_info.addRow("Euler (deg)", self.selected_euler_value)
+        selected_info.addRow("CI", self.selected_ci_value)
+        selected_info.addRow("IQ", self.selected_iq_value)
+        selected_info.addRow("Fit", self.selected_fit_value)
+        selected_info.addRow("Valid", self.selected_valid_value)
         inspector_layout.addLayout(selected_info)
 
         display_controls_group = QtWidgets.QGroupBox("Pattern Display")
@@ -1028,6 +1097,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
 
     def _set_full_scan_busy(self, busy: bool) -> None:
         self.btn_full_scan.setEnabled(not busy)
+        self.btn_export.setEnabled((not busy) and self.state.full_scan_result is not None)
         self.btn_oh5.setEnabled(not busy)
         self.model_combo.setEnabled(not busy)
         self.mode_combo.setEnabled(not busy)
@@ -1068,10 +1138,10 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
     ) -> None:
         self._full_scan_thread = None
         self._full_scan_worker = None
-        self._set_full_scan_busy(False)
         self.state.full_scan_result = result
         self.state.full_scan_ipf_image = ipf_image
         self.state.full_scan_ipf_map_image = ipf_map_image
+        self._set_full_scan_busy(False)
         self._clear_selected_pixel()
         dominant_phase = max(result.phase_counts.items(), key=lambda kv: (kv[1], kv[0]))[0] if result.phase_counts else "-"
         self.prediction_label.setText(
@@ -1124,6 +1194,43 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
 
         palette = _phase_color_map(class_names)
         self.map_legend_layout.addStretch(1)
+
+    def _export_full_scan_results(self) -> None:
+        result = self.state.full_scan_result
+        loaded = self.state.loaded_model
+        if self.state.inference_mode != INFERENCE_MODE_FULL_SCAN or result is None or loaded is None:
+            self.status_label.setText("Run full-scan inference before exporting results.")
+            return
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_dir = loaded.run_dir / "gui_full_scan_exports" / f"{result.oh5_path.stem}_{timestamp}"
+        selected = QtWidgets.QFileDialog.getExistingDirectory(
+            self,
+            "Select export directory",
+            str(default_dir.parent),
+        )
+        export_dir = default_dir if not selected else Path(selected).expanduser().resolve() / default_dir.name
+        try:
+            manifest_path = export_full_scan_artifacts(
+                repo_root=self.repo_root,
+                loaded=loaded,
+                result=result,
+                output_dir=export_dir,
+                predicted_map_image=_render_full_scan_phase_map(
+                    result,
+                    use_confidence_shading=bool(self.confidence_shading_checkbox.isChecked()),
+                ),
+                ipf_reference_image=self.state.full_scan_ipf_image,
+                ipf_colored_map_image=self.state.full_scan_ipf_map_image,
+                use_confidence_shading=bool(self.confidence_shading_checkbox.isChecked()),
+            )
+        except Exception as exc:
+            self._append_log("error", f"Full-scan export failed: {exc}")
+            self.status_label.setText(f"Export failed: {exc}")
+            return
+
+        self._append_log("info", f"Exported full-scan artifacts to {manifest_path.parent}")
+        self.status_label.setText(f"Exported full-scan artifacts to {manifest_path.parent}")
         for phase_name in class_names:
             entry = QtWidgets.QWidget()
             entry_layout = QtWidgets.QVBoxLayout(entry)
@@ -1161,12 +1268,17 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.state.selected_pixel_x = None
         self.state.selected_pixel_y = None
         self.state.selected_pattern = None
+        self.state.selected_processed_pattern = None
         self.state.selected_pixel_details = None
         self.selected_pixel_status.setText("Click a pixel in the predicted phase map to inspect its Kikuchi pattern.")
         self.selected_pixel_value.setText("-")
         self.selected_phase_value.setText("-")
         self.selected_confidence_value.setText("-")
-        self.selected_quality_value.setText("-")
+        self.selected_euler_value.setText("-")
+        self.selected_ci_value.setText("-")
+        self.selected_iq_value.setText("-")
+        self.selected_fit_value.setText("-")
+        self.selected_valid_value.setText("-")
         self.pattern_compare.clear("No pixel selected")
         self._refresh_full_scan_notes()
 
@@ -1181,18 +1293,27 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
             self.state.selected_pixel_x = x
             self.state.selected_pixel_y = y
             self.state.selected_pattern = None
+            self.state.selected_processed_pattern = None
             self.state.selected_pixel_details = {
                 "x": int(x),
                 "y": int(y),
                 "phase": "unavailable",
                 "confidence": None,
-                "quality": "No pattern available for this grid cell.",
+                "euler": None,
+                "ci": None,
+                "iq": None,
+                "fit": None,
+                "valid": None,
             }
             self.selected_pixel_status.setText("Selected grid cell has no pattern payload in the .oh5 file.")
             self.selected_pixel_value.setText(f"({x}, {y})")
             self.selected_phase_value.setText("unavailable")
             self.selected_confidence_value.setText("-")
-            self.selected_quality_value.setText("No pattern available")
+            self.selected_euler_value.setText("-")
+            self.selected_ci_value.setText("-")
+            self.selected_iq_value.setText("-")
+            self.selected_fit_value.setText("-")
+            self.selected_valid_value.setText("-")
             self.pattern_compare.clear("No pattern available")
             self._refresh_full_scan_preview()
             self._refresh_full_scan_notes()
@@ -1204,6 +1325,8 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
             with Oh5ScanReader(result.oh5_path) as reader:
                 pattern = reader.read_pattern(flat_index=flat_index)
                 quality_row = reader.read_quality_row(flat_index=flat_index)
+                euler_row = reader.read_euler_row(flat_index=flat_index, degrees=True) if reader.euler_present else None
+            prediction = predict_pattern_array(loaded=self.state.loaded_model, pattern=pattern)
         except Exception as exc:
             self._append_log("error", f"Failed to load Kikuchi pattern for pixel ({x}, {y}): {exc}")
             self.selected_pixel_status.setText(f"Failed to load clicked pixel pattern: {exc}")
@@ -1212,35 +1335,42 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         class_idx = int(result.predicted_indices[flat_index])
         phase = result.class_names[class_idx]
         confidence = float(result.confidences[flat_index])
-        quality_bits = []
         ci = quality_row.get("confidence_index")
         iq = quality_row.get("image_quality")
         fit = quality_row.get("fit")
-        if ci is not None:
-            quality_bits.append(f"CI={float(ci):.4f}")
-        if iq is not None:
-            quality_bits.append(f"IQ={float(iq):.4f}")
-        if fit is not None:
-            quality_bits.append(f"Fit={float(fit):.4f}")
-        quality_text = ", ".join(quality_bits) if quality_bits else "No quality fields available"
+        valid = quality_row.get("valid")
+        euler_text = (
+            f"({float(euler_row['phi1']):.3f}, {float(euler_row['Phi']):.3f}, {float(euler_row['phi2']):.3f})"
+            if euler_row is not None
+            else "unavailable"
+        )
 
         self.state.selected_pixel_x = int(x)
         self.state.selected_pixel_y = int(y)
         self.state.selected_pattern = np.asarray(pattern, dtype=np.float32)
+        self.state.selected_processed_pattern = np.asarray(prediction.preprocessed_image, dtype=np.float32)
         self.state.selected_pixel_details = {
             "x": int(x),
             "y": int(y),
             "phase": phase,
             "confidence": confidence,
-            "quality": quality_text,
+            "euler": None if euler_row is None else {k: float(v) for k, v in euler_row.items()},
+            "ci": None if ci is None else float(ci),
+            "iq": None if iq is None else float(iq),
+            "fit": None if fit is None else float(fit),
+            "valid": None if valid is None else bool(valid),
         }
         self.selected_pixel_status.setText("Showing experimental Kikuchi pattern for the selected map pixel.")
         self.selected_pixel_value.setText(f"({x}, {y})")
         self.selected_phase_value.setText(phase)
         self.selected_confidence_value.setText(f"{confidence:.4f}")
-        self.selected_quality_value.setText(quality_text)
+        self.selected_euler_value.setText(euler_text)
+        self.selected_ci_value.setText("-" if ci is None else f"{float(ci):.4f}")
+        self.selected_iq_value.setText("-" if iq is None else f"{float(iq):.4f}")
+        self.selected_fit_value.setText("-" if fit is None else f"{float(fit):.4f}")
+        self.selected_valid_value.setText("-" if valid is None else ("True" if bool(valid) else "False"))
         display = _prepare_display_gray(
-            self.state.selected_pattern,
+            self.state.selected_processed_pattern,
             histogram_normalization=bool(self.histogram_normalization_checkbox.isChecked()),
             contrast_stretch=bool(self.contrast_stretch_checkbox.isChecked()),
         )
@@ -1250,16 +1380,17 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self._refresh_full_scan_notes()
 
     def _refresh_selected_pattern_preview(self) -> None:
-        pattern = self.state.selected_pattern
-        if pattern is None:
+        raw_pattern = self.state.selected_pattern
+        processed_pattern = self.state.selected_processed_pattern
+        if raw_pattern is None or processed_pattern is None:
             return
         display = _prepare_display_gray(
-            pattern,
+            processed_pattern,
             histogram_normalization=bool(self.histogram_normalization_checkbox.isChecked()),
             contrast_stretch=bool(self.contrast_stretch_checkbox.isChecked()),
         )
         if not self.pattern_compare.raw_pane.view.has_image():
-            self.pattern_compare.set_patterns(pattern, display)
+            self.pattern_compare.set_patterns(raw_pattern, display)
             return
         self.pattern_compare.set_processed_pattern(display)
 
@@ -1292,6 +1423,13 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         ]
         details = self.state.selected_pixel_details
         if details is not None:
+            euler_details = details.get("euler")
+            euler_line = (
+                "Euler (deg): "
+                f"({float(euler_details['phi1']):.3f}, {float(euler_details['Phi']):.3f}, {float(euler_details['phi2']):.3f})"
+                if isinstance(euler_details, dict)
+                else "Euler (deg): unavailable"
+            )
             lines.extend(
                 [
                     "",
@@ -1303,7 +1441,27 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
                         if details.get('confidence') is not None
                         else "Confidence: unavailable"
                     ),
-                    f"Quality: {details['quality']}",
+                    euler_line,
+                    (
+                        f"CI: {float(details['ci']):.4f}"
+                        if details.get("ci") is not None
+                        else "CI: unavailable"
+                    ),
+                    (
+                        f"IQ: {float(details['iq']):.4f}"
+                        if details.get("iq") is not None
+                        else "IQ: unavailable"
+                    ),
+                    (
+                        f"Fit: {float(details['fit']):.4f}"
+                        if details.get("fit") is not None
+                        else "Fit: unavailable"
+                    ),
+                    (
+                        f"Valid: {bool(details['valid'])}"
+                        if details.get("valid") is not None
+                        else "Valid: unavailable"
+                    ),
                     (
                         "Pattern display: histogram normalization="
                         f"{'on' if self.histogram_normalization_checkbox.isChecked() else 'off'}, "

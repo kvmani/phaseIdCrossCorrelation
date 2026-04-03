@@ -70,6 +70,7 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [x] M22: Extend the inference GUI full-scan `.oh5` mode with orientation-reference IPF rendering plus live progress/log visibility for large scans.
 - [x] M23: Extend the inference GUI full-scan mode with clicked-pixel Kikuchi pattern inspection and grayscale contrast-enhancement controls.
 - [x] M23a: Upgrade the full-scan clicked-pixel inspector to keep original and processed Kikuchi views visible with synchronized fit/zoom/pan controls.
+- [x] M24: Add full-scan GUI export artifacts with map PNGs, per-pixel CSV/JSON summaries, HTML, and provenance manifest output.
 - [x] M18: Add diagnostic pattern gallery GUI with cross-condition source grouping, manual index lookup, and manifest/contact-sheet export.
 - [x] M19: Add graphics-first lab-meeting PPT generation for balanced benchmark plus diagnostic-gallery assessment artifacts.
 

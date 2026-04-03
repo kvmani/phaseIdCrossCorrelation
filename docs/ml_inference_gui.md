@@ -72,11 +72,14 @@ GUI features:
 - render a predicted phase map on the scan grid using class colors
 - click any full-scan map pixel to inspect the corresponding experimental Kikuchi pattern
 - keep raw and processed clicked-pixel Kikuchi views visible side by side with synchronized fit, zoom, and pan
-- display the processed clicked-pixel view in grayscale with optional histogram normalization and contrast stretch
+- report live hovered pixel coordinate and grayscale value in each Kikuchi pane
+- show per-pixel scan metadata in the inspector, including `phi1`, `Phi`, `phi2`, `CI`, `IQ`, `Fit`, and `Valid` when available
+- display the processed clicked-pixel view from the actual model-input preprocessing path, with optional display-only histogram normalization and contrast stretch
 - render an IPF orientation-reference panel from the scan Euler angles when present
 - render a per-pixel IPF-colored EBSD map from the scan Euler angles when present
 - optionally dull low-confidence pixels using `Use confidence shading`
 - stream backend progress, ETA, and errors in a live log panel during large-scan processing
+- export full-scan PNG, CSV, JSON, HTML, and `manifest.json` artifacts for downstream analysis with bundle-relative links that work out of the box
 - view per-phase probabilities for single-image mode
 - view per-phase pixel counts, fractions, and mean scores for full-scan mode
 - optionally set the known phase and compare prediction vs truth or dominant predicted phase
@@ -96,12 +99,14 @@ Behavior:
 - reads Euler angles from the `.oh5` when available and renders an IPF reference grouped by predicted phase
 - reads Euler angles from the `.oh5` when available and renders a conventional-style IPF-colored orientation map per pixel
 - lets the user click a predicted-map pixel and load the matching experimental Kikuchi pattern from the `.oh5`
-- shows clicked-pattern metadata including pixel coordinate, predicted phase, confidence, and discovered quality fields when available
+- shows clicked-pattern metadata including pixel coordinate, predicted phase, confidence, Euler angles, and discovered quality fields when available
 - keeps the raw pattern visible as-read from the `.oh5`
-- renders a second processed view with optional histogram normalization and percentile-based contrast stretch for visibility tuning
+- renders a second processed view from the same stored preprocessing policy used for inference, including circular masking when configured
+- applies histogram normalization and percentile-based contrast stretch only as display enhancements on top of that processed view
 - synchronizes fit, zoom, and pan between the raw and processed pattern views
 - leaves missing/unavailable pixels dark
 - emits progress, ETA, and backend status messages in a GUI log window
+- can export the current full-scan state as machine-readable summaries plus human-readable HTML and map PNGs
 
 This makes it easy to spot:
 
