@@ -10,7 +10,7 @@ import yaml
 from phase_id_xcorr.ml.dataset_io import read_json, save_split_npz, write_json
 from phase_id_xcorr.ml.inference import load_trained_model
 from phase_id_xcorr.ml.oh5_inference import run_oh5_full_scan_inference, run_oh5_sample_inference
-from phase_id_xcorr.ml.orientation_diagnostics import render_ipf_reference_panel
+from phase_id_xcorr.ml.orientation_diagnostics import render_ipf_colored_scan_map, render_ipf_reference_panel
 from phase_id_xcorr.ml.training import train_classifier
 
 
@@ -308,6 +308,30 @@ def test_render_ipf_reference_panel_returns_rgb_image() -> None:
     assert image.shape[2] == 3
     assert image.shape[0] > 0
     assert image.shape[1] > 0
+
+
+def test_render_ipf_colored_scan_map_returns_grid_rgb_image() -> None:
+    eulers_deg = np.asarray(
+        [
+            [0.0, 10.0, 20.0],
+            [25.0, 35.0, 45.0],
+            [5.0, 15.0, 30.0],
+            [10.0, 20.0, 40.0],
+        ],
+        dtype=np.float64,
+    )
+    image = render_ipf_colored_scan_map(
+        eulers_deg=eulers_deg,
+        predicted_indices=np.asarray([0, 1, 2, 1], dtype=np.int32),
+        class_names=["Al", "Ni", "Cu"],
+        nx=2,
+        ny=2,
+    )
+
+    assert image.shape == (2, 2, 3)
+    assert np.all(np.isfinite(image))
+    assert float(np.max(image)) <= 1.0
+    assert float(np.min(image)) >= 0.0
 
 
 def test_prediction_table_formats_requested_columns() -> None:

@@ -71,6 +71,7 @@ GUI features:
 - browse a `.oh5` scan and run inference on every available pattern in full-scan mode
 - render a predicted phase map on the scan grid using class colors
 - render an IPF orientation-reference panel from the scan Euler angles when present
+- render a per-pixel IPF-colored EBSD map from the scan Euler angles when present
 - optionally dull low-confidence pixels using `Use confidence shading`
 - stream backend progress, ETA, and errors in a live log panel during large-scan processing
 - view per-phase probabilities for single-image mode
@@ -90,6 +91,7 @@ Behavior:
 - assigns each pixel the predicted phase color
 - optionally scales color vividness by the model confidence for that pixel
 - reads Euler angles from the `.oh5` when available and renders an IPF reference grouped by predicted phase
+- reads Euler angles from the `.oh5` when available and renders a conventional-style IPF-colored orientation map per pixel
 - leaves missing/unavailable pixels dark
 - emits progress, ETA, and backend status messages in a GUI log window
 
@@ -100,6 +102,7 @@ This makes it easy to spot:
 - low-confidence transition regions
 - scan-wide phase dominance or unexpected fragmentation
 - orientation clustering or coverage differences across predicted phases
+- orientation-domain structure in a familiar EBSD IPF-map view
 
 ## 4. Recommended Production Use
 

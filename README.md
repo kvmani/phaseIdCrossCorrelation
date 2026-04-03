@@ -76,6 +76,7 @@ The inference GUI supports both single-image prediction and full-scan `.oh5` map
 
 - the predicted phase map
 - an IPF orientation reference from scan Euler angles when available
+- an IPF-colored EBSD map from scan Euler angles when available
 - live progress, ETA, and backend log messages for long-running scans
 
 ## Repository Layout

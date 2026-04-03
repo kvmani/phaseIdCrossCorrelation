@@ -14,7 +14,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from .inference import LoadedModel, list_model_runs, load_trained_model, predict_image
 from .oh5_inference import FullScanInferenceResult, run_oh5_full_scan_inference
-from .orientation_diagnostics import render_ipf_reference_panel
+from .orientation_diagnostics import render_ipf_colored_scan_map, render_ipf_reference_panel
 
 
 INFERENCE_MODE_IMAGE = "image"
@@ -89,6 +89,110 @@ def _render_full_scan_phase_map(
     return image
 
 
+def _draw_phase_legend(image: np.ndarray, *, class_names: list[str]) -> np.ndarray:
+    out = np.asarray(image, dtype=np.float32).copy()
+    if out.ndim != 3 or out.shape[2] != 3:
+        raise ValueError("Legend renderer expects an RGB image")
+    if not class_names:
+        return out
+
+    height, width, _ = out.shape
+    palette = _phase_color_map(class_names)
+
+    panel_margin = max(8, min(height, width) // 40)
+    row_height = max(18, min(26, height // max(8, len(class_names) + 2)))
+    swatch_size = max(12, row_height - 8)
+    text_char_w = 7
+    label_width = max(len(name) for name in class_names) * text_char_w + 10
+    panel_width = min(width - 2 * panel_margin, swatch_size + label_width + 30)
+    panel_height = min(height - 2 * panel_margin, 14 + len(class_names) * row_height + 10)
+    if panel_width <= 20 or panel_height <= 20:
+        return out
+
+    x0 = panel_margin
+    y0 = panel_margin
+    x1 = min(width, x0 + panel_width)
+    y1 = min(height, y0 + panel_height)
+
+    panel_color = np.asarray([0.08, 0.08, 0.08], dtype=np.float32)
+    border_color = np.asarray([0.95, 0.95, 0.95], dtype=np.float32)
+    alpha = 0.82
+    out[y0:y1, x0:x1] = out[y0:y1, x0:x1] * (1.0 - alpha) + panel_color * alpha
+    out[y0:y0 + 2, x0:x1] = border_color
+    out[y1 - 2:y1, x0:x1] = border_color
+    out[y0:y1, x0:x0 + 2] = border_color
+    out[y0:y1, x1 - 2:x1] = border_color
+
+    title_y = y0 + 6
+    out = _draw_text_block(out, x=x0 + 8, y=title_y, text="Legend", color=(1.0, 1.0, 1.0), scale=1)
+
+    for idx, phase_name in enumerate(class_names):
+        row_y = y0 + 22 + idx * row_height
+        swatch_y0 = row_y
+        swatch_y1 = min(y1 - 6, swatch_y0 + swatch_size)
+        swatch_x0 = x0 + 8
+        swatch_x1 = min(x1 - 6, swatch_x0 + swatch_size)
+        out[swatch_y0:swatch_y1, swatch_x0:swatch_x1] = palette[phase_name]
+        out[max(y0, swatch_y0 - 1):min(y1, swatch_y1 + 1), max(x0, swatch_x0 - 1):swatch_x0] = border_color
+        out[max(y0, swatch_y0 - 1):min(y1, swatch_y1 + 1), swatch_x1:min(x1, swatch_x1 + 1)] = border_color
+        out[max(y0, swatch_y0 - 1):swatch_y0, max(x0, swatch_x0 - 1):min(x1, swatch_x1 + 1)] = border_color
+        out[swatch_y1:min(y1, swatch_y1 + 1), max(x0, swatch_x0 - 1):min(x1, swatch_x1 + 1)] = border_color
+        out = _draw_text_block(
+            out,
+            x=swatch_x1 + 8,
+            y=row_y + 2,
+            text=phase_name,
+            color=(1.0, 1.0, 1.0),
+            scale=1,
+        )
+    return np.clip(out, 0.0, 1.0)
+
+
+_GLYPH_3X5: dict[str, tuple[str, ...]] = {
+    "A": ("010", "101", "111", "101", "101"),
+    "B": ("110", "101", "110", "101", "110"),
+    "C": ("011", "100", "100", "100", "011"),
+    "D": ("110", "101", "101", "101", "110"),
+    "E": ("111", "100", "110", "100", "111"),
+    "G": ("011", "100", "101", "101", "011"),
+    "I": ("111", "010", "010", "010", "111"),
+    "L": ("100", "100", "100", "100", "111"),
+    "N": ("101", "111", "111", "111", "101"),
+    "P": ("110", "101", "110", "100", "100"),
+    "R": ("110", "101", "110", "101", "101"),
+    "U": ("101", "101", "101", "101", "111"),
+    " ": ("000", "000", "000", "000", "000"),
+}
+
+
+def _draw_text_block(
+    image: np.ndarray,
+    *,
+    x: int,
+    y: int,
+    text: str,
+    color: tuple[float, float, float],
+    scale: int = 1,
+) -> np.ndarray:
+    out = image
+    cursor_x = int(x)
+    for char in str(text).upper():
+        glyph = _GLYPH_3X5.get(char, _GLYPH_3X5[" "])
+        for gy, row in enumerate(glyph):
+            for gx, token in enumerate(row):
+                if token != "1":
+                    continue
+                yy0 = y + gy * scale
+                yy1 = yy0 + scale
+                xx0 = cursor_x + gx * scale
+                xx1 = xx0 + scale
+                if yy0 < 0 or xx0 < 0 or yy1 > out.shape[0] or xx1 > out.shape[1]:
+                    continue
+                out[yy0:yy1, xx0:xx1] = np.asarray(color, dtype=np.float32)
+        cursor_x += 4 * scale
+    return out
+
+
 class DropImageLabel(QtWidgets.QLabel):
     imageDropped = QtCore.Signal(str)
 
@@ -125,6 +229,7 @@ class GuiState:
     inference_mode: str = INFERENCE_MODE_IMAGE
     full_scan_result: FullScanInferenceResult | None = None
     full_scan_ipf_image: np.ndarray | None = None
+    full_scan_ipf_map_image: np.ndarray | None = None
 
 
 def _format_duration(seconds: float | None) -> str:
@@ -141,7 +246,7 @@ def _format_duration(seconds: float | None) -> str:
 class FullScanWorker(QtCore.QObject):
     progress = QtCore.Signal(object)
     log_message = QtCore.Signal(str, str)
-    finished = QtCore.Signal(object, object)
+    finished = QtCore.Signal(object, object, object)
     failed = QtCore.Signal(str)
 
     def __init__(self, *, loaded: LoadedModel, oh5_path: Path):
@@ -181,7 +286,21 @@ class FullScanWorker(QtCore.QObject):
                     self._emit_log("info", "IPF reference rendering complete.")
                 except Exception as exc:
                     self._emit_log("warning", f"IPF reference rendering skipped: {exc}")
-            self.finished.emit(result, ipf_image)
+            ipf_map_image: np.ndarray | None = None
+            if result.euler_rows_deg is not None:
+                self._emit_log("info", "Rendering IPF-colored EBSD map from scan Euler angles.")
+                try:
+                    ipf_map_image = render_ipf_colored_scan_map(
+                        eulers_deg=result.euler_rows_deg,
+                        predicted_indices=result.predicted_indices,
+                        class_names=result.class_names,
+                        nx=result.nx,
+                        ny=result.ny,
+                    )
+                    self._emit_log("info", "IPF-colored EBSD map rendering complete.")
+                except Exception as exc:
+                    self._emit_log("warning", f"IPF-colored EBSD map rendering skipped: {exc}")
+            self.finished.emit(result, ipf_image, ipf_map_image)
         except Exception as exc:  # pragma: no cover - Qt worker delivery
             self.failed.emit(str(exc))
 
@@ -319,8 +438,13 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.ipf_preview.setAlignment(QtCore.Qt.AlignCenter)
         self.ipf_preview.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.ipf_preview.setMinimumSize(540, 420)
+        self.ipf_map_preview = QtWidgets.QLabel("Load a scan to render the IPF-colored EBSD map.")
+        self.ipf_map_preview.setAlignment(QtCore.Qt.AlignCenter)
+        self.ipf_map_preview.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        self.ipf_map_preview.setMinimumSize(540, 420)
         self.preview_tabs.addTab(self.result_preview, "Predicted phase map")
         self.preview_tabs.addTab(self.ipf_preview, "IPF reference")
+        self.preview_tabs.addTab(self.ipf_map_preview, "IPF-colored EBSD map")
         right.addWidget(self.preview_tabs, stretch=2)
 
         self.prob_table = QtWidgets.QTableWidget(0, 2)
@@ -420,10 +544,13 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
                 self.result_preview.setText("Load an image to predict.")
             self.preview_tabs.setTabText(0, "Image preview")
             self.preview_tabs.setTabText(1, "IPF reference")
+            self.preview_tabs.setTabText(2, "IPF-colored EBSD map")
             self.ipf_preview.setText("IPF reference is only available in full .oh5 scan mode.")
+            self.ipf_map_preview.setText("IPF-colored EBSD map is only available in full .oh5 scan mode.")
         else:
             self.preview_tabs.setTabText(0, "Predicted phase map")
             self.preview_tabs.setTabText(1, "IPF reference")
+            self.preview_tabs.setTabText(2, "IPF-colored EBSD map")
             if self.state.full_scan_result is not None:
                 self._refresh_full_scan_preview()
             elif self.state.oh5_path is not None:
@@ -431,6 +558,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
             else:
                 self.result_preview.setText("Select a .oh5 file to run full-scan inference.")
                 self.ipf_preview.setText("Select a .oh5 file to render the IPF orientation reference.")
+                self.ipf_map_preview.setText("Select a .oh5 file to render the IPF-colored EBSD map.")
 
     def _set_image_path(self, image_path: str) -> None:
         self.state.image_path = Path(image_path).expanduser().resolve()
@@ -443,7 +571,9 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.oh5_edit.setText(str(self.state.oh5_path))
         self.state.full_scan_result = None
         self.state.full_scan_ipf_image = None
+        self.state.full_scan_ipf_map_image = None
         self.ipf_preview.setText("Scan selected. Run full-scan inference to populate the IPF reference.")
+        self.ipf_map_preview.setText("Scan selected. Run full-scan inference to populate the IPF-colored EBSD map.")
         self._append_log("info", f"Selected .oh5 scan: {self.state.oh5_path}")
         if self.state.inference_mode == INFERENCE_MODE_FULL_SCAN:
             self._run_inference()
@@ -513,8 +643,10 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.state.oh5_path = resolved
         self.state.full_scan_result = None
         self.state.full_scan_ipf_image = None
+        self.state.full_scan_ipf_map_image = None
         self.result_preview.setText("Running full-scan inference...")
         self.ipf_preview.setText("Waiting for Euler/IPF reference...")
+        self.ipf_map_preview.setText("Waiting for Euler/IPF-colored EBSD map...")
         self.status_label.setText(f"Running full-scan inference for {resolved.name}...")
         self.scan_progress.setValue(0)
         self.scan_eta_label.setText("ETA: estimating...")
@@ -548,10 +680,15 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
             result,
             use_confidence_shading=bool(self.confidence_shading_checkbox.isChecked()),
         )
+        rendered = _draw_phase_legend(rendered, class_names=result.class_names)
         self.result_preview.setPixmap(_rgb_array_to_pixmap(rendered, target_size=self.result_preview.size()))
         if self.state.full_scan_ipf_image is not None:
             self.ipf_preview.setPixmap(
                 _rgb_array_to_pixmap(self.state.full_scan_ipf_image, target_size=self.ipf_preview.size())
+            )
+        if self.state.full_scan_ipf_map_image is not None:
+            self.ipf_map_preview.setPixmap(
+                _rgb_array_to_pixmap(self.state.full_scan_ipf_map_image, target_size=self.ipf_map_preview.size())
             )
 
     def _update_known_phase_status(self) -> None:
@@ -616,12 +753,18 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         )
         self.status_label.setText(f"{stage}: {processed}/{total} pixels processed")
 
-    def _on_full_scan_finished(self, result: FullScanInferenceResult, ipf_image: np.ndarray | None) -> None:
+    def _on_full_scan_finished(
+        self,
+        result: FullScanInferenceResult,
+        ipf_image: np.ndarray | None,
+        ipf_map_image: np.ndarray | None,
+    ) -> None:
         self._full_scan_thread = None
         self._full_scan_worker = None
         self._set_full_scan_busy(False)
         self.state.full_scan_result = result
         self.state.full_scan_ipf_image = ipf_image
+        self.state.full_scan_ipf_map_image = ipf_map_image
         dominant_phase = max(result.phase_counts.items(), key=lambda kv: (kv[1], kv[0]))[0] if result.phase_counts else "-"
         self.prediction_label.setText(
             f"Full scan: {dominant_phase} dominant | mean confidence {result.mean_confidence:.4f}"
@@ -660,6 +803,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
                     f"Euler convention: {result.euler_convention or 'unavailable'}",
                     f"Euler source unit: {result.euler_source_unit or 'unavailable'}",
                     f"IPF reference: {'available' if ipf_image is not None else 'unavailable'}",
+                    f"IPF-colored EBSD map: {'available' if ipf_map_image is not None else 'unavailable'}",
                     f"Confidence shading: {'on' if self.confidence_shading_checkbox.isChecked() else 'off'}",
                     "",
                     "Legend:",
@@ -667,6 +811,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
                     "",
                     "IPF note:",
                     "Reference IPF panels are built from scan Euler angles grouped by predicted phase.",
+                    "IPF-colored EBSD map is generated per pixel from Euler angles using IPF color keys.",
                 ]
             )
         )
@@ -675,6 +820,11 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.scan_eta_label.setText("ETA: 00:00 | elapsed: complete")
         if ipf_image is None:
             self.ipf_preview.setText("No Euler angle fields were available in the scan, so no IPF reference could be rendered.")
+        if ipf_map_image is None:
+            self.ipf_map_preview.setText(
+                "No Euler angle fields or no compatible phase symmetry mapping were available, "
+                "so no IPF-colored EBSD map could be rendered."
+            )
         self._refresh_full_scan_preview()
         self._update_known_phase_status()
 

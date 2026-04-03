@@ -11,7 +11,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from orix.crystal_map import Phase
+from orix.plot import IPFColorKeyTSL
 from orix.quaternion import Orientation
+from orix.vector import Vector3d
 import numpy as np
 
 from .dataset_io import rel_path, write_json, write_records_csv
@@ -228,3 +230,52 @@ def render_ipf_reference_panel(
     image = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8).reshape(height, width, 4)[..., :3].copy()
     plt.close(fig)
     return image.astype(np.float32) / 255.0
+
+
+def render_ipf_colored_scan_map(
+    *,
+    eulers_deg: np.ndarray,
+    predicted_indices: np.ndarray,
+    class_names: list[str],
+    nx: int,
+    ny: int,
+    missing_color: tuple[float, float, float] = (0.1, 0.1, 0.1),
+) -> np.ndarray:
+    """Render a per-pixel IPF-colored EBSD map from scan Euler angles."""
+
+    if nx <= 0 or ny <= 0:
+        raise ValueError("nx and ny must be positive")
+    expected_pixels = int(nx * ny)
+    if eulers_deg.shape[0] < expected_pixels:
+        raise ValueError(
+            f"Euler row count {eulers_deg.shape[0]} is smaller than expected grid cells {expected_pixels}."
+        )
+    if predicted_indices.shape[0] < expected_pixels:
+        raise ValueError(
+            f"Predicted row count {predicted_indices.shape[0]} is smaller than expected grid cells {expected_pixels}."
+        )
+
+    image = np.zeros((ny, nx, 3), dtype=np.float32)
+    image[...] = np.asarray(missing_color, dtype=np.float32)
+
+    for class_idx, phase_name in enumerate(class_names):
+        pixel_mask = predicted_indices[:expected_pixels] == class_idx
+        if not np.any(pixel_mask):
+            continue
+        phase = _phase_for_name(phase_name)
+        phase_eulers = np.asarray(eulers_deg[:expected_pixels][pixel_mask], dtype=np.float64)
+        finite_mask = np.all(np.isfinite(phase_eulers), axis=1)
+        if not np.any(finite_mask):
+            continue
+        finite_indices = np.flatnonzero(pixel_mask)[finite_mask]
+        orientations = Orientation.from_euler(
+            phase_eulers[finite_mask],
+            symmetry=phase.point_group,
+            degrees=True,
+        )
+        key = IPFColorKeyTSL(phase.point_group, direction=Vector3d.zvector())
+        colors = np.asarray(key.orientation2color(orientations), dtype=np.float32)
+        ys = finite_indices // nx
+        xs = finite_indices % nx
+        image[ys, xs] = colors
+    return np.clip(image, 0.0, 1.0)
