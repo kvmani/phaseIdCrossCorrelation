@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 from pathlib import Path
+import sys
+import traceback
 from typing import Any
 
 import numpy as np
@@ -591,8 +593,11 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.confidence_shading_checkbox.setEnabled(not busy)
 
     def _append_log(self, level: str, message: str) -> None:
+        level_name = str(level).upper()
+        level_value = getattr(logging, level_name, logging.INFO)
+        self.log.log(level_value, message)
         timestamp = QtCore.QDateTime.currentDateTime().toString("HH:mm:ss")
-        line = f"[{timestamp}] {level.upper()}: {message}"
+        line = f"[{timestamp}] {level_name}: {message}"
         self.log_output.appendPlainText(line)
         self.log_output.verticalScrollBar().setValue(self.log_output.verticalScrollBar().maximum())
 
@@ -684,6 +689,26 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
 
 def run_inference_gui(*, repo_root: Path, suite_root: Path | None, debug: bool = False) -> int:
     log = logging.getLogger("ml_inference_gui")
+
+    def _handle_unhandled_exception(exc_type: type[BaseException], exc_value: BaseException, exc_tb: Any) -> None:
+        log.critical("Unhandled exception in GUI", exc_info=(exc_type, exc_value, exc_tb))
+        traceback.print_exception(exc_type, exc_value, exc_tb)
+
+    def _qt_message_handler(mode: QtCore.QtMsgType, context: QtCore.QMessageLogContext, message: str) -> None:
+        level_map = {
+            QtCore.QtDebugMsg: logging.DEBUG,
+            QtCore.QtInfoMsg: logging.INFO,
+            QtCore.QtWarningMsg: logging.WARNING,
+            QtCore.QtCriticalMsg: logging.ERROR,
+            QtCore.QtFatalMsg: logging.CRITICAL,
+        }
+        level_value = level_map.get(mode, logging.INFO)
+        source = context.category if context.category else "qt"
+        log.log(level_value, "Qt message [%s]: %s", source, message)
+
+    sys.excepthook = _handle_unhandled_exception
+    QtCore.qInstallMessageHandler(_qt_message_handler)
+
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     window = InferenceMainWindow(repo_root=repo_root, initial_root=suite_root, logger=log)
     window.show()

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import faulthandler
 import logging
 from pathlib import Path
 import sys
@@ -29,6 +30,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
+    faulthandler.enable(all_threads=True)
+    logging.getLogger("ml_inference_gui").info("Starting inference GUI. suite_root=%s debug=%s", args.suite_root, bool(args.debug))
     try:
         from phase_id_xcorr.ml.inference_gui import run_inference_gui
     except Exception as exc:

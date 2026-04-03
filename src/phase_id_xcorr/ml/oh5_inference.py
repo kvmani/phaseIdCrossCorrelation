@@ -254,7 +254,11 @@ def run_oh5_full_scan_inference(
 ) -> FullScanInferenceResult:
     """Run prediction on every available pattern in one `.oh5` scan."""
 
+    backend_log = logging.getLogger("ml_inference_gui.backend")
+
     def _emit_log(level: str, message: str) -> None:
+        level_value = getattr(logging, str(level).upper(), logging.INFO)
+        backend_log.log(level_value, message)
         if log_callback is not None:
             log_callback(level, message)
 
