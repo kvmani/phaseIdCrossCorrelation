@@ -5,24 +5,28 @@
 - `configs/ml/dataset_prepare.single_phase_scan_map.debug.yml`
 - `configs/ml/dataset_prepare.data_march2026.balanced.debug.yml`
 - `configs/ml/dataset_prepare.data_march2026.balanced.yml`
+- `configs/ml/dataset_prepare.april2026_cu_ni_balanced.yml`
 
 ## Train configs
 
 - `configs/ml/train.simple_cnn.debug.yml`
 - `configs/ml/train.data_march2026.balanced.debug.base.yml`
 - `configs/ml/train.data_march2026.balanced.base.yml`
+- `configs/ml/train.april2026_cu_ni_balanced.base.yml`
 
 ## Suite configs
 
 - `configs/ml/benchmark_suite.debug.yml`
 - `configs/ml/benchmark_suite.data_march2026.balanced.debug.yml`
 - `configs/ml/benchmark_suite.data_march2026.balanced.yml`
+- `configs/ml/benchmark_suite.april2026_cu_ni_balanced.yml`
 
 ## Full-cycle configs
 
 - `configs/ml/full_cycle.debug.yml`
 - `configs/ml/full_cycle.data_march2026.balanced.debug.yml`
 - `configs/ml/full_cycle.data_march2026.balanced.yml`
+- `configs/ml/full_cycle.april2026_cu_ni_balanced.yml`
 
 ## Inference configs
 

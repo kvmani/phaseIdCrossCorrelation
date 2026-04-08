@@ -50,6 +50,12 @@ Use this when you want:
 python .\scripts\run_ml_benchmark_suite.py --config .\configs\ml\benchmark_suite.data_march2026.balanced.yml --debug
 ```
 
+April 2026 Cu/Ni-only balanced production suite:
+
+```powershell
+python .\scripts\run_ml_benchmark_suite.py --config .\configs\ml\benchmark_suite.april2026_cu_ni_balanced.yml --debug
+```
+
 ## Run the debug full cycle
 
 ```powershell
@@ -60,6 +66,12 @@ python .\scripts\run_ml_full_cycle.py --config .\configs\ml\full_cycle.data_marc
 
 ```powershell
 python .\scripts\run_ml_full_cycle.py --config .\configs\ml\full_cycle.data_march2026.balanced.yml --debug
+```
+
+April 2026 Cu/Ni-only balanced production full cycle:
+
+```powershell
+python .\scripts\run_ml_full_cycle.py --config .\configs\ml\full_cycle.april2026_cu_ni_balanced.yml --debug
 ```
 
 ## Outputs to read

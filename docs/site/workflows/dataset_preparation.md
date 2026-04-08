@@ -35,6 +35,7 @@ The most relevant production templates currently are:
 
 - `configs/ml/dataset_prepare.data_march2026.balanced.debug.yml`
 - `configs/ml/dataset_prepare.data_march2026.balanced.yml`
+- `configs/ml/dataset_prepare.april2026_cu_ni_balanced.yml`
 
 ## Main commands
 

@@ -1,0 +1,85 @@
+schema_version: phase_id_xcorr.ml_dataset_prep.v3
+input_mode: single_phase_scan_map
+output_dir: reports/ml/datasets/april2026_cu_ni_balanced
+strict_pattern_presence: true
+
+data_source_folder: 'C:/Users/kvman/Documents/nomachine_trasfers/Data_April2026(1)/Data_April2026'
+allow_filename_phase_fallback: false
+
+phase_to_label:
+  Cu: 0
+  Ni: 1
+
+listOfFiles:
+  - file: Cu-1.oh5
+    scan_id: cu_1
+    phase_name: Cu
+  - file: Cu-2.oh5
+    scan_id: cu_2
+    phase_name: Cu
+  - file: Cu-3.oh5
+    scan_id: cu_3
+    phase_name: Cu
+  - file: Cu-4.oh5
+    scan_id: cu_4
+    phase_name: Cu
+  - file: Cu-5.oh5
+    scan_id: cu_5
+    phase_name: Cu
+  - file: Cu-7.oh5
+    scan_id: cu_7
+    phase_name: Cu
+  - file: Cu-8.oh5
+    scan_id: cu_8
+    phase_name: Cu
+  - file: Cu-9.oh5
+    scan_id: cu_9
+    phase_name: Cu
+  - file: Cu-10.oh5
+    scan_id: cu_10
+    phase_name: Cu
+  - file: Ni-1.oh5
+    scan_id: ni_1
+    phase_name: Ni
+  - file: Ni-2.oh5
+    scan_id: ni_2
+    phase_name: Ni
+  - file: Ni-3.oh5
+    scan_id: ni_3
+    phase_name: Ni
+  - file: Ni-4.oh5
+    scan_id: ni_4
+    phase_name: Ni
+  - file: Ni-5.oh5
+    scan_id: ni_5
+    phase_name: Ni
+  - file: Ni-7.oh5
+    scan_id: ni_7
+    phase_name: Ni
+  - file: Ni-8.oh5
+    scan_id: ni_8
+    phase_name: Ni
+  - file: Ni-9.oh5
+    scan_id: ni_9
+    phase_name: Ni
+  - file: Ni-10.oh5
+    scan_id: ni_10
+    phase_name: Ni
+
+quality_filters:
+  expression: "CI > 0.2 && Fit < 1.5"
+
+preprocessing:
+  resize_hw: [128, 128]
+  apply_circular_mask: true
+  normalize_mode: none
+
+phase_balancing:
+  equalize_to_min_count: true
+
+split:
+  train: 0.8
+  val: 0.1
+  test: 0.1
+  seed: 42
+  stratified: true

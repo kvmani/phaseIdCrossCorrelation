@@ -73,6 +73,7 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [x] M24: Add full-scan GUI export artifacts with map PNGs, per-pixel CSV/JSON summaries, HTML, and provenance manifest output.
 - [x] M18: Add diagnostic pattern gallery GUI with cross-condition source grouping, manual index lookup, and manifest/contact-sheet export.
 - [x] M19: Add graphics-first lab-meeting PPT generation for balanced benchmark plus diagnostic-gallery assessment artifacts.
+- [x] M25: Add April 2026 Cu/Ni-only balanced production config bundle with explicit scan exclusions and full-cycle reporting entrypoints.
 
 ## Testing and Validation
 

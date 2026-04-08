@@ -175,6 +175,12 @@ The gallery GUI is optimized for diagnosis rather than training. It supports:
 python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.debug.yml --debug
 ```
 
+April 2026 Cu/Ni-only balanced production run:
+
+```bash
+python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.april2026_cu_ni_balanced.yml --debug
+```
+
 This one-go workflow performs:
 
 1. dataset prep from raw `.oh5` config,
