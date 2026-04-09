@@ -151,6 +151,67 @@ Key config behavior:
   - `manifest.json`
 - prints a compact terminal table with `oh5_file`, `x`, `y`, `index`, `predicted_phase`, and `score`
 
+### 3.7b Full-Scan Inference Across All Models In A Suite
+
+Use this when you want to run one full `.oh5` scan through every trained model under a benchmark suite and export the map/report bundle for each model into one target folder:
+
+```bash
+python scripts/run_ml_inference_full_scan_suite.py \
+  --suite-root reports/ml/benchmarks/april2026_cu_ni_balanced \
+  --oh5 /absolute/path/to/scan.oh5 \
+  --output-dir reports/ml/full_scan_suite_exports/scan_name \
+  --device auto
+```
+
+Top-level output contract:
+
+- `suite_full_scan_summary.json`
+- `suite_full_scan_summary.md`
+- `manifest.json`
+- `events.jsonl`
+- `runs/<run_name>/...`
+
+Per-run export contract:
+
+- `summary.json`
+- `summary.html`
+- `manifest.json`
+- `pixel_predictions.csv`
+- `artifacts/predicted_phase_map.png`
+- `artifacts/predicted_phase_legend.png`
+- optional IPF PNGs when Euler angles and phase symmetry mapping are available
+
+Generate one comparative HTML after the suite-level full-scan export finishes:
+
+```bash
+python scripts/run_ml_inference_full_scan_suite_report.py \
+  --summary-json reports/ml/full_scan_suite_exports/scan_name/suite_full_scan_summary.json \
+  --output-html reports/ml/full_scan_suite_exports/scan_name/comparison_report.html
+```
+
+This HTML is designed for visual comparison across models rather than archival only. It keeps:
+
+- one shared IPF-colored EBSD map,
+- one shared phase legend,
+- one metric table comparing model training and full-scan inference behavior,
+- one predicted phase-map card per model with direct links to JSON/CSV/manifest drill-down artifacts.
+
+One-command wrapper for the full cycle:
+
+```bash
+python scripts/run_ml_inference_full_scan_suite_cycle.py \
+  --suite-root reports/ml/benchmarks/april2026_cu_ni_balanced \
+  --oh5 /absolute/path/to/scan.oh5 \
+  --output-dir reports/ml/full_scan_suite_exports/scan_name \
+  --device auto
+```
+
+When to use which command:
+
+- `run_ml_inference_full_scan_suite.py`: create or refresh the per-model export bundles.
+- `run_ml_inference_full_scan_suite_report.py`: rebuild HTML from an existing suite export folder without rerunning inference.
+- `run_ml_inference_full_scan_suite_cycle.py`: do both in one terminal command and leave a complete comparison folder ready for review or later automation.
+
 ### 3.8 Diagnostic Pattern Gallery
 
 Use this when you want side-by-side inspection of reference phase scans and anonymous unseen scans, with direct access to the exact pattern indices that were displayed:

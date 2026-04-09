@@ -37,6 +37,15 @@ The full-cycle `full_cycle_summary.html` is the orchestration-level landing page
 - suite summary JSON and suite HTML
 - optional presentation output
 
+## Presentation authoring guidance
+
+When building new repository presentations, use:
+
+- `ppt_template.pptx`
+- [Presentation Authoring](presentation_authoring.md)
+
+This guidance defines the standing slide doctrine for future `.pptx` work in this repository.
+
 ## Inference outputs
 
 ### Single-image inference

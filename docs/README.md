@@ -46,9 +46,11 @@ python .\scripts\build_docs.py --clean
 - `docs/site/workflows/dataset_preparation.md`
 - `docs/site/workflows/benchmark_and_full_cycle.md`
 - `docs/site/workflows/inference_workflows.md`
+- `docs/site/reports/presentation_authoring.md`
 - `docs/site/guis/inference_gui.md`
 - `docs/site/guis/phase_explorer_gui.md`
 - `docs/site/guis/diagnostic_gallery_gui.md`
+- `docs/ml_inference_gui.md`: legacy-source bridge including GUI, sampled `.oh5`, and full-scan suite CLI inference surfaces
 
 ### Understand data contracts
 

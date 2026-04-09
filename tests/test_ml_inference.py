@@ -12,8 +12,9 @@ import yaml
 from phase_id_xcorr.ml.dataset_io import save_split_npz, write_json
 from phase_id_xcorr.ml.dataset_io import read_json
 from phase_id_xcorr.ml.inference import LoadedModel, list_model_runs, load_trained_model, predict_image, predict_pattern_array
+from phase_id_xcorr.ml.html_report import generate_full_scan_suite_html_report
 from phase_id_xcorr.ml.inference_gui import InferenceMainWindow, _PatternCompareWidget, _contrast_stretch_gray, _prepare_display_gray
-from phase_id_xcorr.ml.oh5_inference import FullScanInferenceResult, export_full_scan_artifacts
+from phase_id_xcorr.ml.oh5_inference import FullScanInferenceResult, export_full_scan_artifacts, run_suite_full_scan_inference
 from phase_id_xcorr.ml.preprocessing_policy import PreprocessingPolicy
 from phase_id_xcorr.ml.training import train_classifier
 
@@ -340,3 +341,220 @@ def test_inference_gui_phase_map_legend_shows_phase_entries(tmp_path: Path) -> N
     assert "Cu" in legend_texts
     assert "Ni" in legend_texts
     window.close()
+
+
+def test_run_suite_full_scan_inference_writes_aggregate_and_per_run_outputs(tmp_path: Path, monkeypatch) -> None:
+    suite_root = tmp_path / "suite"
+    run_a = suite_root / "run_a"
+    run_b = suite_root / "run_b"
+    run_a.mkdir(parents=True, exist_ok=True)
+    run_b.mkdir(parents=True, exist_ok=True)
+    oh5_path = tmp_path / "scan.oh5"
+    oh5_path.write_text("placeholder", encoding="utf-8")
+
+    class DummyModel(torch.nn.Module):
+        def forward(self, tensor: torch.Tensor) -> torch.Tensor:
+            return torch.zeros((tensor.shape[0], 2), dtype=torch.float32, device=tensor.device)
+
+    def _loaded(run_dir: Path) -> LoadedModel:
+        return LoadedModel(
+            run_dir=run_dir,
+            report_path=run_dir / "report.json",
+            checkpoint_path=run_dir / "best_checkpoint.pt",
+            dataset_manifest_path=tmp_path / "dataset_manifest.json",
+            class_names=["Cu", "Ni"],
+            preprocessing_policy=PreprocessingPolicy(resize_hw=(32, 32), apply_circular_mask=True, normalize_mode="none"),
+            input_mean=0.0,
+            input_std=1.0,
+            device=torch.device("cpu"),
+            model=DummyModel(),
+            model_family="simple_cnn",
+            model_name=f"{run_dir.name}_model",
+        )
+
+    monkeypatch.setattr("phase_id_xcorr.ml.oh5_inference.list_model_runs", lambda root: [run_a, run_b])
+    monkeypatch.setattr(
+        "phase_id_xcorr.ml.oh5_inference.load_trained_model",
+        lambda run_dir, repo_root, checkpoint_name, device: _loaded(run_dir),
+    )
+
+    def _fake_full_scan(loaded, oh5_path, scan_name=None, progress_callback=None, log_callback=None):
+        return FullScanInferenceResult(
+            oh5_path=oh5_path,
+            scan_name=scan_name or oh5_path.stem,
+            nx=2,
+            ny=2,
+            total_pixels=4,
+            header_total_pixels=4,
+            class_names=["Cu", "Ni"],
+            predicted_indices=np.asarray([0, 1, 0, 1], dtype=np.int32),
+            confidences=np.asarray([0.9, 0.8, 0.7, 0.6], dtype=np.float32),
+            phase_counts={"Cu": 2, "Ni": 2},
+            phase_fractions={"Cu": 0.5, "Ni": 0.5},
+            mean_confidence=0.75,
+            euler_rows_deg=None,
+            euler_source_unit=None,
+            euler_convention=None,
+            rows=[],
+        )
+
+    monkeypatch.setattr("phase_id_xcorr.ml.oh5_inference.run_oh5_full_scan_inference", _fake_full_scan)
+    monkeypatch.setattr("phase_id_xcorr.ml.oh5_inference._render_ipf_artifacts", lambda result, logger=None: (None, None))
+
+    def _fake_export_full_scan_artifacts(**kwargs):
+        output_dir = kwargs["output_dir"]
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "summary.json").write_text("{}", encoding="utf-8")
+        (output_dir / "summary.html").write_text("<html></html>", encoding="utf-8")
+        (output_dir / "pixel_predictions.csv").write_text("", encoding="utf-8")
+        artifacts_dir = output_dir / "artifacts"
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        (artifacts_dir / "predicted_phase_map.png").write_text("png", encoding="utf-8")
+        (artifacts_dir / "predicted_phase_legend.png").write_text("png", encoding="utf-8")
+        manifest = output_dir / "manifest.json"
+        manifest.write_text("{}", encoding="utf-8")
+        return manifest
+
+    monkeypatch.setattr("phase_id_xcorr.ml.oh5_inference.export_full_scan_artifacts", _fake_export_full_scan_artifacts)
+
+    output_dir = tmp_path / "suite_exports"
+    result = run_suite_full_scan_inference(
+        suite_root=suite_root,
+        oh5_path=oh5_path,
+        output_dir=output_dir,
+        repo_root=tmp_path,
+        logger=logging.getLogger("test_full_scan_suite"),
+    )
+
+    assert result.processed_runs == 2
+    assert result.failed_runs == 0
+    assert result.summary_json.exists()
+    assert result.summary_md.exists()
+    assert result.manifest_json.exists()
+    assert (output_dir / "events.jsonl").exists()
+    assert (output_dir / "runs" / "run_a" / "manifest.json").exists()
+    assert (output_dir / "runs" / "run_b" / "manifest.json").exists()
+
+    summary = read_json(result.summary_json)
+    assert summary["runs_total"] == 2
+    assert summary["runs_completed"] == 2
+    assert summary["runs_failed"] == 0
+    assert [row["run_name"] for row in summary["rows"]] == ["run_a", "run_b"]
+
+
+def test_generate_full_scan_suite_html_report_writes_comparative_page(tmp_path: Path) -> None:
+    report_dir = tmp_path / "reports" / "ml" / "full_scan_suite_exports" / "scan_1"
+    run_a = report_dir / "runs" / "run_a"
+    run_b = report_dir / "runs" / "run_b"
+    (run_a / "artifacts").mkdir(parents=True, exist_ok=True)
+    (run_b / "artifacts").mkdir(parents=True, exist_ok=True)
+    (run_a / "artifacts" / "predicted_phase_map.png").write_text("png", encoding="utf-8")
+    (run_a / "artifacts" / "predicted_phase_legend.png").write_text("png", encoding="utf-8")
+    (run_a / "artifacts" / "ipf_colored_ebsd_map.png").write_text("png", encoding="utf-8")
+    (run_a / "artifacts" / "ipf_reference.png").write_text("png", encoding="utf-8")
+    (run_b / "artifacts" / "predicted_phase_map.png").write_text("png", encoding="utf-8")
+    (run_b / "artifacts" / "predicted_phase_legend.png").write_text("png", encoding="utf-8")
+    (run_a / "summary.html").write_text("<html></html>", encoding="utf-8")
+    (run_b / "summary.html").write_text("<html></html>", encoding="utf-8")
+    (run_a / "summary.json").write_text("{}", encoding="utf-8")
+    (run_b / "summary.json").write_text("{}", encoding="utf-8")
+    (run_a / "pixel_predictions.csv").write_text("", encoding="utf-8")
+    (run_b / "pixel_predictions.csv").write_text("", encoding="utf-8")
+    (run_a / "manifest.json").write_text("{}", encoding="utf-8")
+    (run_b / "manifest.json").write_text("{}", encoding="utf-8")
+
+    bench_root = tmp_path / "reports" / "ml" / "benchmarks" / "suite_x"
+    bench_run_a = bench_root / "run_a"
+    bench_run_b = bench_root / "run_b"
+    bench_run_a.mkdir(parents=True, exist_ok=True)
+    bench_run_b.mkdir(parents=True, exist_ok=True)
+    dataset_manifest = tmp_path / "reports" / "ml" / "datasets" / "ds" / "manifest.json"
+    dataset_manifest.parent.mkdir(parents=True, exist_ok=True)
+    write_json(
+        dataset_manifest,
+        {
+            "num_samples_total": 100,
+            "raw_input_rows_total": 120,
+            "split_counts": {"train": 80, "val": 10, "test": 10},
+            "phase_statistics": {
+                "Cu": {"accepted_count": 50, "accepted_fraction_of_dataset": 0.5, "train_count": 40, "val_count": 5, "test_count": 5, "confidence_index": {"mean": 0.8}, "fit": {"mean": 0.7}, "image_quality": {"mean": 100.0}, "intensity_distribution": {"mode_intensity_value": 10}},
+                "Ni": {"accepted_count": 50, "accepted_fraction_of_dataset": 0.5, "train_count": 40, "val_count": 5, "test_count": 5, "confidence_index": {"mean": 0.7}, "fit": {"mean": 0.8}, "image_quality": {"mean": 110.0}, "intensity_distribution": {"mode_intensity_value": 20}},
+            },
+        },
+    )
+    report_payload_a = {
+        "best_val_macro_f1": 0.91,
+        "test_metrics": {"accuracy": 0.90, "macro_f1": 0.89},
+        "dataset_manifest_path": "reports/ml/datasets/ds/manifest.json",
+    }
+    report_payload_b = {
+        "best_val_macro_f1": 0.93,
+        "test_metrics": {"accuracy": 0.92, "macro_f1": 0.91},
+        "dataset_manifest_path": "reports/ml/datasets/ds/manifest.json",
+    }
+    write_json(bench_run_a / "report.json", report_payload_a)
+    write_json(bench_run_b / "report.json", report_payload_b)
+
+    summary_json = report_dir / "suite_full_scan_summary.json"
+    write_json(
+        summary_json,
+        {
+            "suite_root": "reports/ml/benchmarks/suite_x",
+            "oh5_path": "C:/scan.oh5",
+            "runs_total": 2,
+            "runs_completed": 2,
+            "runs_failed": 0,
+            "rows": [
+                {
+                    "run_name": "run_a",
+                    "status": "completed",
+                    "run_dir": "reports/ml/benchmarks/suite_x/run_a",
+                    "model_name": "model_a",
+                    "mean_confidence": 0.88,
+                    "dominant_phase": "Cu",
+                    "phase_fractions": {"Cu": 0.6, "Ni": 0.4},
+                    "artifacts": {
+                        "summary_json": "reports/ml/full_scan_suite_exports/scan_1/runs/run_a/summary.json",
+                        "summary_html": "reports/ml/full_scan_suite_exports/scan_1/runs/run_a/summary.html",
+                        "manifest_json": "reports/ml/full_scan_suite_exports/scan_1/runs/run_a/manifest.json",
+                        "pixel_predictions_csv": "reports/ml/full_scan_suite_exports/scan_1/runs/run_a/pixel_predictions.csv",
+                        "predicted_phase_map_png": "reports/ml/full_scan_suite_exports/scan_1/runs/run_a/artifacts/predicted_phase_map.png",
+                        "predicted_phase_legend_png": "reports/ml/full_scan_suite_exports/scan_1/runs/run_a/artifacts/predicted_phase_legend.png",
+                        "ipf_colored_ebsd_map_png": "reports/ml/full_scan_suite_exports/scan_1/runs/run_a/artifacts/ipf_colored_ebsd_map.png",
+                        "ipf_reference_png": "reports/ml/full_scan_suite_exports/scan_1/runs/run_a/artifacts/ipf_reference.png",
+                    },
+                },
+                {
+                    "run_name": "run_b",
+                    "status": "completed",
+                    "run_dir": "reports/ml/benchmarks/suite_x/run_b",
+                    "model_name": "model_b",
+                    "mean_confidence": 0.83,
+                    "dominant_phase": "Ni",
+                    "phase_fractions": {"Cu": 0.45, "Ni": 0.55},
+                    "artifacts": {
+                        "summary_json": "reports/ml/full_scan_suite_exports/scan_1/runs/run_b/summary.json",
+                        "summary_html": "reports/ml/full_scan_suite_exports/scan_1/runs/run_b/summary.html",
+                        "manifest_json": "reports/ml/full_scan_suite_exports/scan_1/runs/run_b/manifest.json",
+                        "pixel_predictions_csv": "reports/ml/full_scan_suite_exports/scan_1/runs/run_b/pixel_predictions.csv",
+                        "predicted_phase_map_png": "reports/ml/full_scan_suite_exports/scan_1/runs/run_b/artifacts/predicted_phase_map.png",
+                        "predicted_phase_legend_png": "reports/ml/full_scan_suite_exports/scan_1/runs/run_b/artifacts/predicted_phase_legend.png",
+                    },
+                },
+            ],
+        },
+    )
+
+    output_html = report_dir / "comparison_report.html"
+    result = generate_full_scan_suite_html_report(
+        summary_json_path=summary_json,
+        output_html=output_html,
+        repo_root=tmp_path,
+    )
+    text = result.read_text(encoding="utf-8")
+    assert result.exists()
+    assert "Full-Scan Model Comparison" in text
+    assert "run_a" in text
+    assert "run_b" in text
+    assert "Shared Scan Visuals" in text
+    assert "Predicted Phase Maps" in text

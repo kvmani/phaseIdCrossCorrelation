@@ -74,6 +74,9 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [x] M18: Add diagnostic pattern gallery GUI with cross-condition source grouping, manual index lookup, and manifest/contact-sheet export.
 - [x] M19: Add graphics-first lab-meeting PPT generation for balanced benchmark plus diagnostic-gallery assessment artifacts.
 - [x] M25: Add April 2026 Cu/Ni-only balanced production config bundle with explicit scan exclusions and full-cycle reporting entrypoints.
+- [x] M26: Add suite-level full-scan `.oh5` inference CLI that exports one artifact bundle per benchmarked model plus aggregate manifests for downstream automated reporting.
+- [x] M27: Add comparative HTML generation for suite-level full-scan exports with shared scan visuals and side-by-side predicted phase maps across models.
+- [x] M28: Add a one-command full-scan suite cycle wrapper and document when to use inference-only, report-only, and full-cycle full-scan workflows across legacy and Sphinx docs.
 
 ## Testing and Validation
 

@@ -53,6 +53,22 @@ python scripts/run_ml_oh5_sample_inference.py \
   --debug
 ```
 
+For full-scan `.oh5` CLI inference across every trained model in a benchmark suite, use:
+
+```bash
+python scripts/run_ml_inference_full_scan_suite_cycle.py \
+  --suite-root reports/ml/benchmarks/april2026_cu_ni_balanced \
+  --oh5 /absolute/path/to/scan.oh5 \
+  --output-dir reports/ml/full_scan_suite_exports/scan_name \
+  --device auto
+```
+
+This leaves:
+
+- one aggregate suite summary,
+- one comparative HTML report,
+- one exported artifact bundle per model run.
+
 ## 3. GUI
 
 Launch the desktop GUI on a benchmark suite root:
@@ -125,4 +141,5 @@ This makes it easy to spot:
    - rapid qualitative inspection of unknown single patterns,
    - full-scan `.oh5` predicted phase-map review.
 4. Use the sampled `.oh5` CLI when you want tabular outputs and deterministic random spot-checking across many scans.
-5. Use the single-image CLI for scripted checks or integration with other tooling.
+5. Use the full-scan suite CLI when you want full predicted maps from every benchmarked model and an immediately reviewable comparative HTML.
+6. Use the single-image CLI for scripted checks or integration with other tooling.

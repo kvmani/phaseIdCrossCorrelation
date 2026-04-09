@@ -35,3 +35,22 @@
 - sampled `.oh5` prediction CSV/JSON
 - per-scan summary CSV/JSON/Markdown
 - GUI map and probability/table panels for interactive interpretation
+- suite-level full-scan export folder:
+  - `suite_full_scan_summary.json`
+  - `suite_full_scan_summary.md`
+  - `manifest.json`
+  - `events.jsonl`
+  - `runs/<run_name>/...`
+- per-run full-scan export bundle:
+  - `summary.json`
+  - `summary.html`
+  - `manifest.json`
+  - `pixel_predictions.csv`
+  - `artifacts/predicted_phase_map.png`
+  - `artifacts/predicted_phase_legend.png`
+  - optional IPF PNGs
+- comparative full-scan HTML:
+  - `comparison_report.html`
+  - side-by-side predicted phase maps across models
+  - shared IPF-colored map and shared legend when available
+  - training-plus-inference comparison table linked to per-run artifacts

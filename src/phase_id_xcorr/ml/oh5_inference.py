@@ -1,10 +1,11 @@
-"""Sampled `.oh5` inference workflow for trained CNN phase classifiers."""
+"""Sampled and full-scan `.oh5` inference workflows for trained CNN phase classifiers."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import logging
+import json
 import os
 from pathlib import Path
 import time
@@ -17,13 +18,24 @@ from phase_id_xcorr.reporting import build_run_manifest
 
 from .config import get_required, load_yaml, resolve_path
 from .dataset_io import rel_path, write_json, write_records_csv
-from .inference import LoadedModel, load_trained_model, predict_pattern_array
+from .inference import LoadedModel, list_model_runs, load_trained_model, predict_pattern_array
 from .oh5_reader import Oh5ScanReader
+from .orientation_diagnostics import render_ipf_colored_scan_map, render_ipf_reference_panel
 from .quality import QualityPolicy, evaluate_quality, quality_policy_from_config
 
 
 def _now_iso_utc() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+_DEFAULT_PHASE_COLORS: tuple[tuple[int, int, int], ...] = (
+    (220, 68, 55),
+    (55, 126, 34),
+    (56, 99, 214),
+    (213, 160, 33),
+    (118, 84, 172),
+    (33, 163, 163),
+)
 
 
 @dataclass(slots=True)
@@ -74,11 +86,117 @@ class FullScanInferenceResult:
     rows: list[dict[str, Any]]
 
 
+@dataclass(slots=True)
+class FullScanSuiteInferenceResult:
+    """Aggregate artifact locations for suite-wide full-scan `.oh5` inference."""
+
+    output_dir: Path
+    summary_json: Path
+    summary_md: Path
+    manifest_json: Path
+    processed_runs: int
+    failed_runs: int
+
+
 def _save_rgb_png(path: Path, array: np.ndarray) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     arr = np.clip(np.asarray(array, dtype=np.float32), 0.0, 1.0)
     arr8 = (arr * 255.0).round().astype(np.uint8)
     Image.fromarray(arr8, mode="RGB").save(path)
+
+
+def _append_event(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, sort_keys=False) + "\n")
+
+
+def _phase_color_map(class_names: list[str]) -> dict[str, np.ndarray]:
+    out: dict[str, np.ndarray] = {}
+    explicit = {
+        "Al": np.asarray([0.92, 0.30, 0.25], dtype=np.float32),
+        "Ni": np.asarray([0.16, 0.64, 0.34], dtype=np.float32),
+        "Cu": np.asarray([0.20, 0.44, 0.88], dtype=np.float32),
+    }
+    for idx, phase in enumerate(class_names):
+        if phase in explicit:
+            out[phase] = explicit[phase]
+            continue
+        rgb = _DEFAULT_PHASE_COLORS[idx % len(_DEFAULT_PHASE_COLORS)]
+        out[phase] = np.asarray(rgb, dtype=np.float32) / 255.0
+    return out
+
+
+def _render_full_scan_phase_map(
+    result: FullScanInferenceResult,
+    *,
+    use_confidence_shading: bool,
+) -> np.ndarray:
+    image = np.full((result.ny, result.nx, 3), 0.12, dtype=np.float32)
+    palette = _phase_color_map(result.class_names)
+    neutral = np.asarray([0.55, 0.55, 0.55], dtype=np.float32)
+
+    for flat_index in range(result.header_total_pixels):
+        y = flat_index // result.nx
+        x = flat_index % result.nx
+        class_idx = int(result.predicted_indices[flat_index])
+        if class_idx < 0:
+            continue
+        phase_name = result.class_names[class_idx]
+        base = palette[phase_name]
+        if use_confidence_shading:
+            confidence = float(result.confidences[flat_index])
+            strength = float(np.clip(confidence, 0.0, 1.0))
+            image[y, x] = neutral * (1.0 - strength) + base * strength
+        else:
+            image[y, x] = base
+    return image
+
+
+def _render_ipf_artifacts(
+    *,
+    result: FullScanInferenceResult,
+    logger: logging.Logger | None = None,
+) -> tuple[np.ndarray | None, np.ndarray | None]:
+    log = logger or logging.getLogger(__name__)
+    ipf_image: np.ndarray | None = None
+    ipf_map_image: np.ndarray | None = None
+    if result.euler_rows_deg is None:
+        return None, None
+
+    palette = _phase_color_map(result.class_names)
+    eulers_by_phase: dict[str, np.ndarray] = {}
+    for class_idx, phase_name in enumerate(result.class_names):
+        class_mask = result.predicted_indices == class_idx
+        if not np.any(class_mask):
+            continue
+        phase_eulers = np.asarray(result.euler_rows_deg[class_mask], dtype=np.float64)
+        finite_mask = np.all(np.isfinite(phase_eulers), axis=1)
+        if np.any(finite_mask):
+            eulers_by_phase[phase_name] = phase_eulers[finite_mask]
+
+    if eulers_by_phase:
+        try:
+            ipf_image = render_ipf_reference_panel(
+                eulers_deg_by_phase=eulers_by_phase,
+                phase_names=list(result.class_names),
+                phase_colors={k: tuple(float(v) for v in rgb) for k, rgb in palette.items()},
+                title=f"{result.scan_name} orientation reference",
+            )
+        except Exception as exc:
+            log.warning("IPF reference rendering skipped: %s", exc)
+
+    try:
+        ipf_map_image = render_ipf_colored_scan_map(
+            eulers_deg=result.euler_rows_deg,
+            predicted_indices=result.predicted_indices,
+            class_names=result.class_names,
+            nx=result.nx,
+            ny=result.ny,
+        )
+    except Exception as exc:
+        log.warning("IPF-colored EBSD map rendering skipped: %s", exc)
+    return ipf_image, ipf_map_image
 
 
 def _save_phase_legend_png(path: Path, class_names: list[str]) -> None:
@@ -275,6 +393,268 @@ def export_full_scan_artifacts(
         encoding="utf-8",
     )
     return manifest_json
+
+
+def run_suite_full_scan_inference(
+    *,
+    suite_root: Path,
+    oh5_path: Path,
+    output_dir: Path,
+    repo_root: Path,
+    checkpoint_name: str = "best_checkpoint.pt",
+    device: str = "auto",
+    scan_name: str | None = None,
+    use_confidence_shading: bool = True,
+    logger: logging.Logger | None = None,
+) -> FullScanSuiteInferenceResult:
+    """Run full-scan `.oh5` inference for every trained model under a suite root."""
+
+    log = logger or logging.getLogger("ml_full_scan_suite_inference")
+    resolved_suite_root = suite_root.expanduser().resolve()
+    resolved_oh5_path = oh5_path.expanduser().resolve()
+    resolved_output_dir = output_dir.expanduser().resolve()
+    resolved_output_dir.mkdir(parents=True, exist_ok=True)
+    event_log = resolved_output_dir / "events.jsonl"
+    event_log.write_text("", encoding="utf-8")
+    t0 = time.monotonic()
+
+    def emit(event: str, **fields: Any) -> None:
+        payload = {
+            "timestamp_utc": _now_iso_utc(),
+            "elapsed_seconds": float(time.monotonic() - t0),
+            "event": event,
+        }
+        payload.update(fields)
+        _append_event(event_log, payload)
+
+    run_dirs = list_model_runs(resolved_suite_root)
+    if not run_dirs:
+        raise FileNotFoundError(f"No benchmark run directories with report.json found under {resolved_suite_root}")
+
+    emit(
+        "RUN_START",
+        suite_root=rel_path(resolved_suite_root, repo_root),
+        oh5_path=rel_path(resolved_oh5_path, repo_root),
+        output_dir=rel_path(resolved_output_dir, repo_root),
+        run_count=len(run_dirs),
+    )
+
+    rows: list[dict[str, Any]] = []
+    scan_name_resolved = scan_name or resolved_oh5_path.stem
+    runs_root = resolved_output_dir / "runs"
+    runs_root.mkdir(parents=True, exist_ok=True)
+
+    for index, run_dir in enumerate(run_dirs, start=1):
+        run_name = run_dir.name
+        export_run_dir = runs_root / run_name
+        emit(
+            "RUN_MODEL_START",
+            run_name=run_name,
+            index=index,
+            total=len(run_dirs),
+            run_dir=rel_path(run_dir, repo_root),
+            export_dir=rel_path(export_run_dir, repo_root),
+        )
+        try:
+            loaded = load_trained_model(
+                run_dir=run_dir,
+                repo_root=repo_root,
+                checkpoint_name=checkpoint_name,
+                device=device,
+            )
+            full_scan_result = run_oh5_full_scan_inference(
+                loaded=loaded,
+                oh5_path=resolved_oh5_path,
+                scan_name=scan_name_resolved,
+            )
+            ipf_reference_image, ipf_colored_map_image = _render_ipf_artifacts(
+                result=full_scan_result,
+                logger=log,
+            )
+            manifest_path = export_full_scan_artifacts(
+                repo_root=repo_root,
+                loaded=loaded,
+                result=full_scan_result,
+                output_dir=export_run_dir,
+                predicted_map_image=_render_full_scan_phase_map(
+                    full_scan_result,
+                    use_confidence_shading=bool(use_confidence_shading),
+                ),
+                ipf_reference_image=ipf_reference_image,
+                ipf_colored_map_image=ipf_colored_map_image,
+                use_confidence_shading=bool(use_confidence_shading),
+            )
+            row = {
+                "run_name": run_name,
+                "status": "completed",
+                "run_dir": rel_path(run_dir, repo_root),
+                "export_dir": rel_path(export_run_dir, repo_root),
+                "checkpoint_path": rel_path(loaded.checkpoint_path, repo_root),
+                "model_family": loaded.model_family,
+                "model_name": loaded.model_name,
+                "class_names": list(loaded.class_names),
+                "scan_name": full_scan_result.scan_name,
+                "oh5_path": rel_path(full_scan_result.oh5_path, repo_root),
+                "total_pixels": int(full_scan_result.total_pixels),
+                "header_total_pixels": int(full_scan_result.header_total_pixels),
+                "mean_confidence": float(full_scan_result.mean_confidence),
+                "dominant_phase": (
+                    max(full_scan_result.phase_counts.items(), key=lambda kv: (kv[1], kv[0]))[0]
+                    if full_scan_result.phase_counts
+                    else ""
+                ),
+                "phase_counts": {phase: int(count) for phase, count in full_scan_result.phase_counts.items()},
+                "phase_fractions": {phase: float(frac) for phase, frac in full_scan_result.phase_fractions.items()},
+                "artifacts": {
+                    "manifest_json": rel_path(manifest_path, repo_root),
+                    "summary_json": rel_path(export_run_dir / "summary.json", repo_root),
+                    "summary_html": rel_path(export_run_dir / "summary.html", repo_root),
+                    "pixel_predictions_csv": rel_path(export_run_dir / "pixel_predictions.csv", repo_root),
+                    "predicted_phase_map_png": rel_path(export_run_dir / "artifacts" / "predicted_phase_map.png", repo_root),
+                    "predicted_phase_legend_png": rel_path(export_run_dir / "artifacts" / "predicted_phase_legend.png", repo_root),
+                    "ipf_reference_png": rel_path(export_run_dir / "artifacts" / "ipf_reference.png", repo_root),
+                    "ipf_colored_ebsd_map_png": rel_path(export_run_dir / "artifacts" / "ipf_colored_ebsd_map.png", repo_root),
+                },
+                "error": None,
+            }
+            rows.append(row)
+            emit(
+                "RUN_MODEL_END",
+                run_name=run_name,
+                index=index,
+                total=len(run_dirs),
+                status="completed",
+                manifest_json=row["artifacts"]["manifest_json"],
+            )
+        except Exception as exc:
+            message = str(exc)
+            rows.append(
+                {
+                    "run_name": run_name,
+                    "status": "failed",
+                    "run_dir": rel_path(run_dir, repo_root),
+                    "export_dir": rel_path(export_run_dir, repo_root),
+                    "checkpoint_path": None,
+                    "model_family": None,
+                    "model_name": None,
+                    "class_names": [],
+                    "scan_name": scan_name_resolved,
+                    "oh5_path": rel_path(resolved_oh5_path, repo_root),
+                    "total_pixels": None,
+                    "header_total_pixels": None,
+                    "mean_confidence": None,
+                    "dominant_phase": None,
+                    "phase_counts": {},
+                    "phase_fractions": {},
+                    "artifacts": {},
+                    "error": message,
+                }
+            )
+            emit(
+                "RUN_MODEL_END",
+                run_name=run_name,
+                index=index,
+                total=len(run_dirs),
+                status="failed",
+                error=message,
+            )
+            log.error("Full-scan suite inference failed for %s: %s", run_name, exc)
+
+    completed_rows = [row for row in rows if row["status"] == "completed"]
+    failed_rows = [row for row in rows if row["status"] != "completed"]
+    summary_json = resolved_output_dir / "suite_full_scan_summary.json"
+    summary_md = resolved_output_dir / "suite_full_scan_summary.md"
+    manifest_json = resolved_output_dir / "manifest.json"
+
+    summary_payload = {
+        "schema_version": "phase_id_xcorr.ml_full_scan_suite_inference.v1",
+        "created_utc": _now_iso_utc(),
+        "workflow": "ml_full_scan_suite_inference",
+        "suite_root": rel_path(resolved_suite_root, repo_root),
+        "oh5_path": rel_path(resolved_oh5_path, repo_root),
+        "scan_name": scan_name_resolved,
+        "output_dir": rel_path(resolved_output_dir, repo_root),
+        "checkpoint_name": checkpoint_name,
+        "device": device,
+        "use_confidence_shading": bool(use_confidence_shading),
+        "runs_total": len(rows),
+        "runs_completed": len(completed_rows),
+        "runs_failed": len(failed_rows),
+        "timing": {
+            "total_elapsed_seconds": float(time.monotonic() - t0),
+        },
+        "rows": rows,
+        "artifacts": {
+            "event_log_jsonl": rel_path(event_log, repo_root),
+            "summary_json": rel_path(summary_json, repo_root),
+            "summary_md": rel_path(summary_md, repo_root),
+            "manifest_json": rel_path(manifest_json, repo_root),
+        },
+    }
+    write_json(summary_json, summary_payload)
+
+    md_lines = [
+        "# Full-Scan Suite Inference Summary",
+        "",
+        f"- suite root: `{summary_payload['suite_root']}`",
+        f"- .oh5 path: `{summary_payload['oh5_path']}`",
+        f"- scan name: `{scan_name_resolved}`",
+        f"- runs total: {len(rows)}",
+        f"- runs completed: {len(completed_rows)}",
+        f"- runs failed: {len(failed_rows)}",
+        "",
+        "| run_name | status | model_name | dominant_phase | mean_confidence | export_dir |",
+        "|---|---|---|---|---:|---|",
+    ]
+    for row in rows:
+        md_lines.append(
+            "| {run_name} | {status} | {model_name} | {dominant_phase} | {mean_confidence} | {export_dir} |".format(
+                run_name=row.get("run_name", ""),
+                status=row.get("status", ""),
+                model_name=row.get("model_name", "") or "",
+                dominant_phase=row.get("dominant_phase", "") or "",
+                mean_confidence="" if row.get("mean_confidence") is None else f"{float(row['mean_confidence']):.6f}",
+                export_dir=row.get("export_dir", ""),
+            )
+        )
+    summary_md.write_text("\n".join(md_lines) + "\n", encoding="utf-8")
+
+    manifest_payload = build_run_manifest(
+        repo_root=repo_root,
+        packet_dir=resolved_suite_root,
+        out_dir=resolved_output_dir,
+        debug=False,
+        extra={
+            "workflow": "ml_full_scan_suite_inference",
+            "suite_root": rel_path(resolved_suite_root, repo_root),
+            "oh5_path": rel_path(resolved_oh5_path, repo_root),
+            "scan_name": scan_name_resolved,
+            "summary_json": rel_path(summary_json, repo_root),
+            "summary_md": rel_path(summary_md, repo_root),
+            "event_log_jsonl": rel_path(event_log, repo_root),
+            "runs_total": len(rows),
+            "runs_completed": len(completed_rows),
+            "runs_failed": len(failed_rows),
+        },
+    )
+    write_json(manifest_json, manifest_payload)
+    emit(
+        "RUN_END",
+        runs_total=len(rows),
+        runs_completed=len(completed_rows),
+        runs_failed=len(failed_rows),
+        summary_json=rel_path(summary_json, repo_root),
+        manifest_json=rel_path(manifest_json, repo_root),
+    )
+
+    return FullScanSuiteInferenceResult(
+        output_dir=resolved_output_dir,
+        summary_json=summary_json,
+        summary_md=summary_md,
+        manifest_json=manifest_json,
+        processed_runs=len(completed_rows),
+        failed_runs=len(failed_rows),
+    )
 
 
 def _as_int(value: Any, *, field_name: str) -> int:
