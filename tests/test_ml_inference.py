@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import logging
 
 import numpy as np
 from PIL import Image
@@ -11,7 +12,7 @@ import yaml
 from phase_id_xcorr.ml.dataset_io import save_split_npz, write_json
 from phase_id_xcorr.ml.dataset_io import read_json
 from phase_id_xcorr.ml.inference import LoadedModel, list_model_runs, load_trained_model, predict_image, predict_pattern_array
-from phase_id_xcorr.ml.inference_gui import _PatternCompareWidget, _contrast_stretch_gray, _prepare_display_gray
+from phase_id_xcorr.ml.inference_gui import InferenceMainWindow, _PatternCompareWidget, _contrast_stretch_gray, _prepare_display_gray
 from phase_id_xcorr.ml.oh5_inference import FullScanInferenceResult, export_full_scan_artifacts
 from phase_id_xcorr.ml.preprocessing_policy import PreprocessingPolicy
 from phase_id_xcorr.ml.training import train_classifier
@@ -254,3 +255,88 @@ def test_export_full_scan_artifacts_writes_manifest_bundle(tmp_path: Path) -> No
     assert summary["artifacts"]["predicted_phase_legend_png"] == "artifacts/predicted_phase_legend.png"
     assert summary["artifacts"]["summary_html"] == "summary.html"
     assert summary["artifacts"]["manifest_json"] == "manifest.json"
+
+
+def test_inference_gui_export_uses_selected_directory_without_appending_suffix(tmp_path: Path, monkeypatch) -> None:
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+
+    class DummyModel(torch.nn.Module):
+        def forward(self, tensor: torch.Tensor) -> torch.Tensor:
+            return torch.zeros((tensor.shape[0], 2), dtype=torch.float32, device=tensor.device)
+
+    loaded = LoadedModel(
+        run_dir=tmp_path / "run",
+        report_path=tmp_path / "run" / "report.json",
+        checkpoint_path=tmp_path / "run" / "best_checkpoint.pt",
+        dataset_manifest_path=tmp_path / "dataset_manifest.json",
+        class_names=["Ni", "Cu"],
+        preprocessing_policy=PreprocessingPolicy(resize_hw=(32, 32), apply_circular_mask=True, normalize_mode="none"),
+        input_mean=0.0,
+        input_std=1.0,
+        device=torch.device("cpu"),
+        model=DummyModel(),
+        model_family="dummy",
+        model_name="dummy",
+    )
+    result = FullScanInferenceResult(
+        oh5_path=tmp_path / "scan.oh5",
+        scan_name="scan",
+        nx=2,
+        ny=2,
+        total_pixels=4,
+        header_total_pixels=4,
+        class_names=["Ni", "Cu"],
+        predicted_indices=np.asarray([0, 1, 0, 1], dtype=np.int32),
+        confidences=np.asarray([0.9, 0.8, 0.7, 0.6], dtype=np.float32),
+        phase_counts={"Ni": 2, "Cu": 2},
+        phase_fractions={"Ni": 0.5, "Cu": 0.5},
+        mean_confidence=0.75,
+        euler_rows_deg=None,
+        euler_source_unit=None,
+        euler_convention=None,
+        rows=[],
+    )
+
+    window = InferenceMainWindow(repo_root=tmp_path, initial_root=None, logger=logging.getLogger("test_inference_gui"))
+    window.state.inference_mode = "full_scan"
+    window.state.loaded_model = loaded
+    window.state.full_scan_result = result
+
+    selected_dir = tmp_path / "chosen_export_dir"
+    selected_dir.mkdir(parents=True, exist_ok=True)
+    captured: dict[str, Path] = {}
+
+    monkeypatch.setattr(
+        QtWidgets.QFileDialog,
+        "getExistingDirectory",
+        staticmethod(lambda *args, **kwargs: str(selected_dir)),
+    )
+
+    def _fake_export_full_scan_artifacts(**kwargs):
+        output_dir = kwargs["output_dir"]
+        captured["output_dir"] = output_dir
+        output_dir.mkdir(parents=True, exist_ok=True)
+        manifest_path = output_dir / "manifest.json"
+        manifest_path.write_text("{}", encoding="utf-8")
+        return manifest_path
+
+    monkeypatch.setattr("phase_id_xcorr.ml.inference_gui.export_full_scan_artifacts", _fake_export_full_scan_artifacts)
+
+    window._export_full_scan_results()
+
+    assert captured["output_dir"] == selected_dir.resolve()
+    assert window.status_label.text() == f"Exported full-scan artifacts to {selected_dir.resolve()}"
+    window.close()
+
+
+def test_inference_gui_phase_map_legend_shows_phase_entries(tmp_path: Path) -> None:
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    window = InferenceMainWindow(repo_root=tmp_path, initial_root=None, logger=logging.getLogger("test_inference_gui_legend"))
+    window._refresh_phase_map_legend(["Cu", "Ni"])
+    app.processEvents()
+
+    legend_labels = window.map_legend_widget.findChildren(QtWidgets.QLabel)
+    legend_texts = {label.text() for label in legend_labels}
+    assert "Cu" in legend_texts
+    assert "Ni" in legend_texts
+    window.close()

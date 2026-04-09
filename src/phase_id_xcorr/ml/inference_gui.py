@@ -1194,43 +1194,6 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
 
         palette = _phase_color_map(class_names)
         self.map_legend_layout.addStretch(1)
-
-    def _export_full_scan_results(self) -> None:
-        result = self.state.full_scan_result
-        loaded = self.state.loaded_model
-        if self.state.inference_mode != INFERENCE_MODE_FULL_SCAN or result is None or loaded is None:
-            self.status_label.setText("Run full-scan inference before exporting results.")
-            return
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        default_dir = loaded.run_dir / "gui_full_scan_exports" / f"{result.oh5_path.stem}_{timestamp}"
-        selected = QtWidgets.QFileDialog.getExistingDirectory(
-            self,
-            "Select export directory",
-            str(default_dir.parent),
-        )
-        export_dir = default_dir if not selected else Path(selected).expanduser().resolve() / default_dir.name
-        try:
-            manifest_path = export_full_scan_artifacts(
-                repo_root=self.repo_root,
-                loaded=loaded,
-                result=result,
-                output_dir=export_dir,
-                predicted_map_image=_render_full_scan_phase_map(
-                    result,
-                    use_confidence_shading=bool(self.confidence_shading_checkbox.isChecked()),
-                ),
-                ipf_reference_image=self.state.full_scan_ipf_image,
-                ipf_colored_map_image=self.state.full_scan_ipf_map_image,
-                use_confidence_shading=bool(self.confidence_shading_checkbox.isChecked()),
-            )
-        except Exception as exc:
-            self._append_log("error", f"Full-scan export failed: {exc}")
-            self.status_label.setText(f"Export failed: {exc}")
-            return
-
-        self._append_log("info", f"Exported full-scan artifacts to {manifest_path.parent}")
-        self.status_label.setText(f"Exported full-scan artifacts to {manifest_path.parent}")
         for phase_name in class_names:
             entry = QtWidgets.QWidget()
             entry_layout = QtWidgets.QVBoxLayout(entry)
@@ -1254,6 +1217,44 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
             entry_layout.addWidget(label, alignment=QtCore.Qt.AlignHCenter)
             self.map_legend_layout.addWidget(entry, stretch=0)
         self.map_legend_layout.addStretch(1)
+
+    def _export_full_scan_results(self) -> None:
+        result = self.state.full_scan_result
+        loaded = self.state.loaded_model
+        if self.state.inference_mode != INFERENCE_MODE_FULL_SCAN or result is None or loaded is None:
+            self.status_label.setText("Run full-scan inference before exporting results.")
+            return
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_dir = loaded.run_dir / "gui_full_scan_exports" / f"{result.oh5_path.stem}_{timestamp}"
+        selected = QtWidgets.QFileDialog.getExistingDirectory(
+            self,
+            "Select export directory",
+            str(default_dir.parent),
+        )
+        export_dir = default_dir if not selected else Path(selected).expanduser().resolve()
+        try:
+            export_dir.mkdir(parents=True, exist_ok=True)
+            manifest_path = export_full_scan_artifacts(
+                repo_root=self.repo_root,
+                loaded=loaded,
+                result=result,
+                output_dir=export_dir,
+                predicted_map_image=_render_full_scan_phase_map(
+                    result,
+                    use_confidence_shading=bool(self.confidence_shading_checkbox.isChecked()),
+                ),
+                ipf_reference_image=self.state.full_scan_ipf_image,
+                ipf_colored_map_image=self.state.full_scan_ipf_map_image,
+                use_confidence_shading=bool(self.confidence_shading_checkbox.isChecked()),
+            )
+        except Exception as exc:
+            self._append_log("error", f"Full-scan export failed: {exc}")
+            self.status_label.setText(f"Export failed: {exc}")
+            return
+
+        self._append_log("info", f"Exported full-scan artifacts to {manifest_path.parent}")
+        self.status_label.setText(f"Exported full-scan artifacts to {manifest_path.parent}")
 
     def _reset_pattern_display_controls(self) -> None:
         self.histogram_normalization_checkbox.blockSignals(True)
