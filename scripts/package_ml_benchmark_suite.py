@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Package lightweight ML benchmark-suite artifacts into a transfer zip."""
+"""Package lightweight ML benchmark-suite and inference-export artifacts into a transfer zip."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from phase_id_xcorr.ml.suite_packaging import package_benchmark_suite_artifacts
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Package mail-friendly ML benchmark artifacts into a zip."
+        description="Package transfer-friendly ML benchmark and inference artifacts into a zip."
     )
     parser.add_argument(
         "--suite-root",
@@ -33,6 +33,13 @@ def parse_args() -> argparse.Namespace:
         help="Output zip path. Defaults to <suite-root>/<suite-name>_lightweight_bundle.zip",
     )
     parser.add_argument(
+        "--inference-root",
+        type=Path,
+        action="append",
+        default=[],
+        help="Optional suite-level full-scan inference export root(s) to include.",
+    )
+    parser.add_argument(
         "--extra-path",
         type=Path,
         action="append",
@@ -42,7 +49,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--max-file-size-mb",
         type=float,
-        default=5.0,
+        default=25.0,
         help="Maximum file size allowed into the archive.",
     )
     return parser.parse_args()
@@ -62,11 +69,13 @@ def main() -> int:
         output_zip = (ROOT / output_zip).resolve()
 
     extra_paths = [p if p.is_absolute() else (ROOT / p) for p in args.extra_path]
+    inference_roots = [p if p.is_absolute() else (ROOT / p) for p in args.inference_root]
 
     result = package_benchmark_suite_artifacts(
         suite_root=suite_root,
         repo_root=ROOT,
         output_zip=output_zip,
+        inference_roots=inference_roots,
         extra_paths=extra_paths,
         max_file_size_mb=float(args.max_file_size_mb),
     )

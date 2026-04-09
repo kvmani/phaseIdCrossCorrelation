@@ -35,6 +35,7 @@ python .\scripts\run_ml_oh5_sample_inference.py --config .\configs\ml\oh5_sample
 python .\scripts\run_ml_inference_full_scan_suite.py --suite-root .\reports\ml\benchmarks\april2026_cu_ni_balanced --oh5 C:\path\to\scan.oh5 --output-dir .\reports\ml\full_scan_suite_exports\scan_name --device auto
 python .\scripts\run_ml_inference_full_scan_suite_report.py --summary-json .\reports\ml\full_scan_suite_exports\scan_name\suite_full_scan_summary.json --output-html .\reports\ml\full_scan_suite_exports\scan_name\comparison_report.html
 python .\scripts\run_ml_inference_full_scan_suite_cycle.py --suite-root .\reports\ml\benchmarks\april2026_cu_ni_balanced --oh5 C:\path\to\scan.oh5 --output-dir .\reports\ml\full_scan_suite_exports\scan_name --device auto
+python .\scripts\package_ml_benchmark_suite.py --suite-root .\reports\ml\benchmarks\april2026_cu_ni_balanced --inference-root .\reports\ml\full_scan_suite_exports\scan_name --output-zip .\reports\ml\transfer\april2026_cu_ni_balanced_scan_name_transfer_bundle.zip
 python .\scripts\run_ml_phase_explorer.py --config .\configs\ml\phase_explorer.ni_cu_al.production.yml --debug
 python .\scripts\run_ml_diagnostic_gallery.py --config .\configs\ml\diagnostic_gallery.example.yml --debug
 ```

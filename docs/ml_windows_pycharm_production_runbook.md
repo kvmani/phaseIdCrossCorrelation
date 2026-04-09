@@ -239,6 +239,33 @@ This runs:
 3. full-cycle JSON + HTML summary
 4. final PPTX generation
 
+### 4.7 Build one transfer archive for benchmark plus inference exports
+
+Use this after:
+
+- the benchmark suite has finished
+- optional full-scan suite inference export has finished
+
+Example:
+
+```powershell
+python scripts\package_ml_benchmark_suite.py --suite-root reports\ml\benchmarks\april2026_cu_ni_balanced --inference-root reports\ml\full_scan_suite_exports\Diffusioncouple_Cu-Ni-1 --output-zip reports\ml\transfer\april2026_cu_ni_balanced_Diffusioncouple_Cu-Ni-1_transfer_bundle.zip
+```
+
+This archive is intended for machine transfer and later downstream use by Codex agents. It keeps:
+
+- benchmark JSON/HTML/YAML/CSV summaries
+- dataset manifests and dataset summaries referenced by the suite
+- full-scan inference summaries, manifests, CSV tables, and comparison HTML
+- exported PNG/SVG figures needed for automated report or PPT generation
+
+It excludes heavy files such as:
+
+- `.pt`
+- `.pth`
+- `.npy`
+- `.npz`
+
 ## 5. Minimum Check Before Starting The Real Run
 
 Confirm these are true:

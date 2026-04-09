@@ -54,3 +54,21 @@
   - side-by-side predicted phase maps across models
   - shared IPF-colored map and shared legend when available
   - training-plus-inference comparison table linked to per-run artifacts
+
+## Transfer bundle artifacts
+
+The transfer archive produced by `scripts/package_ml_benchmark_suite.py` is intended for cross-machine ingestion and later automated report generation.
+
+It can include:
+
+- benchmark suite artifacts
+- referenced dataset manifests and summaries
+- optional suite-level full-scan inference export folders
+- optional PPTX or additional summary files passed by `--extra-path`
+
+It intentionally excludes heavy tensor and checkpoint files such as:
+
+- `.pt`
+- `.pth`
+- `.npy`
+- `.npz`

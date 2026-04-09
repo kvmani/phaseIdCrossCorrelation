@@ -68,3 +68,74 @@ def test_package_benchmark_suite_artifacts_keeps_lightweight_outputs(tmp_path: P
     assert "reports/ml/benchmarks/suite_a/simple_cnn_w16/report.json" in names
     assert "reports/ml/presentations/suite_a.pptx" in names
     assert "archive_manifest.json" in names
+
+
+def test_package_benchmark_suite_artifacts_includes_full_scan_inference_exports(tmp_path: Path) -> None:
+    repo_root = tmp_path
+    suite_root = repo_root / "reports" / "ml" / "benchmarks" / "suite_b"
+    run_dir = suite_root / "simple_cnn_w32"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    write_json(
+        run_dir / "report.json",
+        {
+            "dataset_manifest_path": "reports/ml/datasets/dataset_b/manifest.json",
+            "test_metrics": {"accuracy": 0.95},
+        },
+    )
+
+    dataset_root = repo_root / "reports" / "ml" / "datasets" / "dataset_b"
+    dataset_root.mkdir(parents=True, exist_ok=True)
+    write_json(dataset_root / "manifest.json", {"artifacts": {}})
+
+    inference_root = repo_root / "reports" / "ml" / "full_scan_suite_exports" / "scan_b"
+    run_export = inference_root / "runs" / "simple_cnn_w32"
+    (run_export / "artifacts").mkdir(parents=True, exist_ok=True)
+    (run_export / "summary.json").write_text("{}", encoding="utf-8")
+    (run_export / "summary.html").write_text("<html></html>", encoding="utf-8")
+    (run_export / "manifest.json").write_text("{}", encoding="utf-8")
+    (run_export / "pixel_predictions.csv").write_text("", encoding="utf-8")
+    (run_export / "artifacts" / "predicted_phase_map.png").write_bytes(b"png")
+    (run_export / "artifacts" / "predicted_phase_legend.png").write_bytes(b"png")
+    (run_export / "artifacts" / "ipf_colored_ebsd_map.png").write_bytes(b"png")
+    (run_export / "weights.pt").write_bytes(b"x" * 32)
+    (run_export / "tensor.npy").write_bytes(b"x" * 32)
+    write_json(
+        inference_root / "suite_full_scan_summary.json",
+        {
+            "rows": [
+                {
+                    "artifacts": {
+                        "summary_json": "reports/ml/full_scan_suite_exports/scan_b/runs/simple_cnn_w32/summary.json",
+                        "summary_html": "reports/ml/full_scan_suite_exports/scan_b/runs/simple_cnn_w32/summary.html",
+                        "manifest_json": "reports/ml/full_scan_suite_exports/scan_b/runs/simple_cnn_w32/manifest.json",
+                        "pixel_predictions_csv": "reports/ml/full_scan_suite_exports/scan_b/runs/simple_cnn_w32/pixel_predictions.csv",
+                        "predicted_phase_map_png": "reports/ml/full_scan_suite_exports/scan_b/runs/simple_cnn_w32/artifacts/predicted_phase_map.png",
+                        "predicted_phase_legend_png": "reports/ml/full_scan_suite_exports/scan_b/runs/simple_cnn_w32/artifacts/predicted_phase_legend.png",
+                        "ipf_colored_ebsd_map_png": "reports/ml/full_scan_suite_exports/scan_b/runs/simple_cnn_w32/artifacts/ipf_colored_ebsd_map.png",
+                    }
+                }
+            ]
+        },
+    )
+    (inference_root / "suite_full_scan_summary.md").write_text("# summary\n", encoding="utf-8")
+    (inference_root / "comparison_report.html").write_text("<html>comparison</html>", encoding="utf-8")
+    (inference_root / "manifest.json").write_text("{}", encoding="utf-8")
+    (inference_root / "events.jsonl").write_text("{}\n", encoding="utf-8")
+
+    result = package_benchmark_suite_artifacts(
+        suite_root=suite_root,
+        repo_root=repo_root,
+        output_zip=suite_root / "suite_b_transfer_bundle.zip",
+        inference_roots=[inference_root],
+        max_file_size_mb=5.0,
+    )
+
+    assert "reports/ml/full_scan_suite_exports/scan_b/comparison_report.html" in result.included_files
+    assert "reports/ml/full_scan_suite_exports/scan_b/runs/simple_cnn_w32/artifacts/predicted_phase_map.png" in result.included_files
+    assert "reports/ml/full_scan_suite_exports/scan_b/runs/simple_cnn_w32/weights.pt" not in result.included_files
+    assert "reports/ml/full_scan_suite_exports/scan_b/runs/simple_cnn_w32/tensor.npy" not in result.included_files
+
+    with zipfile.ZipFile(result.zip_path) as zf:
+        names = set(zf.namelist())
+    assert "reports/ml/full_scan_suite_exports/scan_b/comparison_report.html" in names
+    assert "reports/ml/full_scan_suite_exports/scan_b/runs/simple_cnn_w32/artifacts/predicted_phase_legend.png" in names

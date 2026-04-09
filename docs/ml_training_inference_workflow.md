@@ -100,7 +100,16 @@ python scripts/package_ml_benchmark_suite.py \
   --extra-path reports/ml/presentations/classification-training-data-smoke-lab-meeting_manifest.json
 ```
 
-The bundle preserves the repo folder structure, keeps lightweight summaries such as `.json`, `.jsonl`, `.html`, `.md`, `.yml`, `.yaml`, `.csv`, and `.pptx`, excludes heavy checkpoints and tensor bundles, and auto-includes the referenced dataset manifest and dataset summary artifacts used by the suite.
+To package both the trained benchmark suite and a suite-level full-scan inference export folder in one transfer archive:
+
+```bash
+python scripts/package_ml_benchmark_suite.py \
+  --suite-root reports/ml/benchmarks/april2026_cu_ni_balanced \
+  --inference-root reports/ml/full_scan_suite_exports/scan_name \
+  --output-zip reports/ml/transfer/april2026_cu_ni_balanced_scan_name_transfer_bundle.zip
+```
+
+The bundle preserves the repo folder structure, keeps lightweight summaries and visuals such as `.json`, `.jsonl`, `.html`, `.md`, `.yml`, `.yaml`, `.csv`, `.pptx`, `.png`, `.svg`, `.jpg`, and `.pdf`, excludes heavy checkpoints and tensor bundles such as `.pt`, `.pth`, `.npy`, and `.npz`, and auto-includes the referenced dataset manifest and dataset summary artifacts used by the suite.
 
 ### 3.6 Inference From A Saved Model
 

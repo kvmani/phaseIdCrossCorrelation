@@ -15,7 +15,7 @@ Thin CLI entry points live here.
 - `scripts/run_ml_dataset_prepare.py`
 - `scripts/run_ml_train_classifier.py`
 - `scripts/run_ml_benchmark_suite.py`
-- `scripts/package_ml_benchmark_suite.py` (zip only lightweight suite artifacts such as JSON/HTML/YAML/CSV/PPTX for mail-friendly transfer)
+- `scripts/package_ml_benchmark_suite.py` (zip lightweight benchmark, dataset, and optional full-scan inference export artifacts into one transfer archive while excluding checkpoints and tensor bundles such as `.pt`, `.pth`, `.npy`, and `.npz`)
 - `scripts/run_ml_inference.py` (predict phase ID for one unknown image from a saved training run)
 - `scripts/run_ml_oh5_sample_inference.py` (sample filtered patterns from unseen `.oh5` scans, run saved CNN inference, write per-pattern JSON/CSV plus per-scan summaries, and print a compact prediction table)
 - `scripts/run_ml_inference_full_scan_suite.py` (run full-scan `.oh5` inference for every trained model under a benchmark suite and export one provenance-rich artifact bundle per run plus an aggregate suite summary)

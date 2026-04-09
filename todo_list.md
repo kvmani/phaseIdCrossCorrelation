@@ -77,6 +77,7 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [x] M26: Add suite-level full-scan `.oh5` inference CLI that exports one artifact bundle per benchmarked model plus aggregate manifests for downstream automated reporting.
 - [x] M27: Add comparative HTML generation for suite-level full-scan exports with shared scan visuals and side-by-side predicted phase maps across models.
 - [x] M28: Add a one-command full-scan suite cycle wrapper and document when to use inference-only, report-only, and full-cycle full-scan workflows across legacy and Sphinx docs.
+- [x] M29: Extend the transfer-bundle packager so one zip can carry benchmark and suite-level full-scan inference artifacts while excluding heavy checkpoint/tensor files.
 
 ## Testing and Validation
 
