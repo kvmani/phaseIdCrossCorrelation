@@ -22,6 +22,7 @@ Thin CLI entry points live here.
 - `scripts/run_ml_inference_full_scan_suite_report.py` (build one comparative HTML report from a suite-level full-scan export folder, with shared scan visuals, cross-model metric tables, and side-by-side predicted phase maps)
 - `scripts/run_ml_inference_full_scan_suite_cycle.py` (one-command wrapper that runs suite-level full-scan `.oh5` exports and immediately builds the comparative HTML report in the same output folder)
 - `scripts/run_ml_inference_gui.py` (desktop GUI to choose a trained model, drop an unknown image, and inspect prediction probabilities)
+- `scripts/run_oh5_crop_gui.py` (dedicated desktop GUI for rectangular `.oh5` crop export on the IQ map plus automatic original-vs-cropped visual review)
 - `scripts/run_ml_phase_explorer.py` (native desktop GUI for raw `.oh5` phase-wise histogram/CDF exploration, interactive intensity-band highlighting, and auto-exported publication PNG/JSON histogram artifacts)
 - `scripts/run_ml_diagnostic_gallery.py` (desktop GUI for cross-condition pattern diagnosis with source grouping, manual pattern lookup, and manifest/contact-sheet export)
 - `scripts/run_ml_suite_with_ppt.py` (run benchmark suite and auto-build lab-meeting PPTX summary)

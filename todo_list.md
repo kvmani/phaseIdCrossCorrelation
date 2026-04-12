@@ -59,6 +59,7 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [x] M10: Upgrade dataset-prep/training contract to v3 schema with expression quality filters, preprocessing fingerprints, leakage-safe capped splits, and HTML benchmark analytics.
 - [x] M11: Add native desktop raw `.oh5` exploratory GUI for phase-wise cumulative histograms/CDF, discovered field distributions, and interactive intensity-band pixel highlighting.
 - [x] M11b: Export publication-quality phase explorer histogram PNGs and a machine-readable JSON manifest with synchronized axes for intensity/IQ/Fit/CI comparisons.
+- [x] M11c: Add dedicated `.oh5` crop GUI with rectangular IQ-map selection, standalone cropped export, and automatic post-export original-vs-cropped review workspace.
 - [x] M12: Add one-go ML full-cycle workflow with robust error checking, extensive logs, machine-ingestible manifests, concise HTML summary, and optional PPTX generation.
 - [x] M13: Add production Ni-Cu-Al run scaffolding with richer dataset/suite analytics, Windows runbook, and lab-meeting-ready reporting.
 - [x] M14: Add lightweight benchmark-suite packaging for mail-friendly transfer of summaries and manifests without checkpoints.
@@ -98,6 +99,7 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 
 - [x] Add documentation hub and tighten top-level navigation for workflow discovery.
 - [x] Add Sphinx-first canonical scientific documentation site with cross-linked workflow help, SVG GUI schematics, Mermaid flow diagrams, and citation-bearing standards pages.
+- [x] Add usage docs for dedicated `.oh5` crop and review GUI.
 - [ ] Add methods doc for exact preprocessing + masked NCC formula used in code.
 - [x] Add usage doc for curated NCC CLI workflow (`docs/curated_ncc_workflow.md`).
 - [x] Add usage doc for curated image-vs-hough workflow (`docs/curated_hough_vs_ncc_workflow.md`).

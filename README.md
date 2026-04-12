@@ -67,6 +67,7 @@ python .\scripts\run_ml_full_cycle.py --config .\configs\ml\full_cycle.data_marc
 
 ```powershell
 python .\scripts\run_ml_inference_gui.py --suite-root .\reports\ml\benchmarks\data_march2026_balanced_3scansEach
+python .\scripts\run_oh5_crop_gui.py --input path\to\source_scan.oh5 --debug
 python .\scripts\run_ml_oh5_sample_inference.py --config .\configs\ml\oh5_sample_inference.data_march2026.example.yml --debug
 python .\scripts\run_ml_phase_explorer.py --config .\configs\ml\phase_explorer.ni_cu_al.production.yml --debug
 python .\scripts\run_ml_diagnostic_gallery.py --config .\configs\ml\diagnostic_gallery.example.yml --debug
@@ -78,6 +79,14 @@ The inference GUI supports both single-image prediction and full-scan `.oh5` map
 - an IPF orientation reference from scan Euler angles when available
 - an IPF-colored EBSD map from scan Euler angles when available
 - live progress, ETA, and backend log messages for long-running scans
+
+The dedicated `.oh5` crop GUI supports:
+
+- rectangular crop selection on the source IQ map
+- standalone cropped `.oh5` export
+- automatic original-vs-cropped review mode after export
+- visible GUI logs and progress/status bar during load/export/reload
+- side-by-side IQ/IPF/pattern validation with explicit original and cropped scan sizes shown above the panes
 
 ## Repository Layout
 

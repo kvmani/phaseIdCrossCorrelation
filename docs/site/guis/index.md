@@ -6,4 +6,5 @@
 inference_gui
 phase_explorer_gui
 diagnostic_gallery_gui
+oh5_crop_gui
 ```
