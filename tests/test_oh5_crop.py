@@ -176,8 +176,18 @@ def test_crop_gui_switches_to_review_and_maps_selection(tmp_path: Path) -> None:
     assert "Selected cropped pixel (1, 1)" in window.progress_label.text()
     assert "Loaded review session" in window.log_output.toPlainText()
     assert "Changed fields:" in window.audit_summary_label.text()
-    assert "scan/EBSD/Header/nColumns" in window.changed_fields_text.toPlainText()
-    assert "scan/EBSD/Header/Phase/0/MaterialName" in window.unchanged_fields_text.toPlainText()
+    changed_paths = {
+        window.changed_fields_table.item(row, 0).text()
+        for row in range(window.changed_fields_table.rowCount())
+        if window.changed_fields_table.item(row, 0) is not None
+    }
+    unchanged_paths = {
+        window.unchanged_fields_table.item(row, 0).text()
+        for row in range(window.unchanged_fields_table.rowCount())
+        if window.unchanged_fields_table.item(row, 0) is not None
+    }
+    assert "scan/EBSD/Header/nColumns" in changed_paths
+    assert "scan/EBSD/Header/Phase/0/MaterialName" in unchanged_paths
     window.close()
 
 
@@ -210,6 +220,7 @@ def test_crop_gui_open_source_populates_original_size_and_logs(tmp_path: Path) -
     app.processEvents()
 
     assert window.crop_source_size_label.text() == "Original scan size: 4 rows x 5 columns"
+    assert "Left-click and drag directly on the IQ map" in window.crop_instructions_label.text()
     assert window.progress_bar.value() == 100
     assert window.progress_label.text() == "Crop mode ready"
     assert "Loaded source scan" in window.log_output.toPlainText()

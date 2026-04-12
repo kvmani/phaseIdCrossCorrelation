@@ -40,6 +40,50 @@ def _rgb_array_to_pixmap(array: np.ndarray) -> QtGui.QPixmap:
     return QtGui.QPixmap.fromImage(qimg.copy())
 
 
+class CropSelectionViewBox(pg.ViewBox):
+    cropDragged = QtCore.Signal(object)
+
+    def __init__(self) -> None:
+        super().__init__(enableMenu=False)
+        self._drag_rect_item = QtWidgets.QGraphicsRectItem()
+        self._drag_rect_item.setPen(pg.mkPen((0, 180, 255), width=2, style=QtCore.Qt.DashLine))
+        self._drag_rect_item.setBrush(QtGui.QBrush(QtGui.QColor(0, 180, 255, 35)))
+        self._drag_rect_item.hide()
+        self.addItem(self._drag_rect_item)
+        self._drag_start_view: QtCore.QPointF | None = None
+        self._nx = 1
+        self._ny = 1
+
+    def set_grid_shape(self, *, nx: int, ny: int) -> None:
+        self._nx = max(1, int(nx))
+        self._ny = max(1, int(ny))
+
+    def mouseDragEvent(self, ev, axis=None) -> None:  # noqa: ANN001
+        if ev.button() != QtCore.Qt.LeftButton:
+            super().mouseDragEvent(ev, axis=axis)
+            return
+        ev.accept()
+        start = self.mapSceneToView(ev.buttonDownScenePos())
+        current = self.mapSceneToView(ev.scenePos())
+        x0 = float(np.clip(start.x(), 0.0, float(self._nx)))
+        y0 = float(np.clip(start.y(), 0.0, float(self._ny)))
+        x1 = float(np.clip(current.x(), 0.0, float(self._nx)))
+        y1 = float(np.clip(current.y(), 0.0, float(self._ny)))
+        rect = QtCore.QRectF(QtCore.QPointF(min(x0, x1), min(y0, y1)), QtCore.QPointF(max(x0, x1), max(y0, y1)))
+        self._drag_rect_item.setRect(rect)
+        self._drag_rect_item.show()
+        if ev.isFinish():
+            self._drag_rect_item.hide()
+            left = int(np.floor(rect.left()))
+            top = int(np.floor(rect.top()))
+            right = int(np.ceil(rect.right()))
+            bottom = int(np.ceil(rect.bottom()))
+            width = max(1, min(self._nx - left, right - left))
+            height = max(1, min(self._ny - top, bottom - top))
+            spec = CropSpec(row=top, column=left, width=width, height=height).validate_for(nx=self._nx, ny=self._ny)
+            self.cropDragged.emit(spec)
+
+
 class CropPlotWidget(QtWidgets.QWidget):
     cropChanged = QtCore.Signal(object)
 
@@ -48,7 +92,8 @@ class CropPlotWidget(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self.plot = pg.PlotWidget(background="w")
+        self.view_box = CropSelectionViewBox()
+        self.plot = pg.PlotWidget(background="w", viewBox=self.view_box)
         self.plot.setAspectLocked(lock=True, ratio=1.0)
         self.plot.hideAxis("left")
         self.plot.hideAxis("bottom")
@@ -77,6 +122,7 @@ class CropPlotWidget(QtWidgets.QWidget):
         self._roi.addScaleHandle([0, 0], [1, 1])
         self.plot.addItem(self._roi)
         self._roi.sigRegionChanged.connect(self._emit_crop_change)
+        self.view_box.cropDragged.connect(self.set_crop_spec)
 
         self._guard = False
         self._nx = 1
@@ -87,6 +133,7 @@ class CropPlotWidget(QtWidgets.QWidget):
         if image.ndim != 2:
             raise ValueError("Crop plot expects a 2D grayscale array")
         self._ny, self._nx = image.shape
+        self.view_box.set_grid_shape(nx=self._nx, ny=self._ny)
         self.image_item.setImage(image, autoLevels=True)
         self._roi.maxBounds = QtCore.QRectF(0, 0, float(self._nx), float(self._ny))
         self.plot.setLimits(xMin=0, xMax=self._nx, yMin=0, yMax=self._ny)
@@ -364,6 +411,15 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
         self.source_summary = QtWidgets.QLabel("Load one pattern-bearing .oh5 file with IQ and Pattern datasets.")
         self.source_summary.setWordWrap(True)
         controls_layout.addWidget(self.source_summary)
+        self.crop_instructions_label = QtWidgets.QLabel(
+            "Crop selection instructions:\n"
+            "1. Left-click and drag directly on the IQ map to draw a new crop rectangle.\n"
+            "2. Drag the green rectangle or its corner handles to refine it.\n"
+            "3. Or enter row, column, width, and height numerically below."
+        )
+        self.crop_instructions_label.setWordWrap(True)
+        self.crop_instructions_label.setStyleSheet("color: rgb(70, 70, 70);")
+        controls_layout.addWidget(self.crop_instructions_label)
 
         rect_group = QtWidgets.QGroupBox("Rectangle")
         rect_form = QtWidgets.QFormLayout(rect_group)
@@ -465,12 +521,10 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
         self.audit_summary_label.setWordWrap(True)
         audit_layout.addWidget(self.audit_summary_label)
         self.audit_tabs = QtWidgets.QTabWidget()
-        self.changed_fields_text = QtWidgets.QPlainTextEdit()
-        self.changed_fields_text.setReadOnly(True)
-        self.unchanged_fields_text = QtWidgets.QPlainTextEdit()
-        self.unchanged_fields_text.setReadOnly(True)
-        self.audit_tabs.addTab(self.changed_fields_text, "Changed Fields")
-        self.audit_tabs.addTab(self.unchanged_fields_text, "Unchanged Fields")
+        self.changed_fields_table = self._make_audit_table()
+        self.unchanged_fields_table = self._make_audit_table()
+        self.audit_tabs.addTab(self.changed_fields_table, "Changed Fields")
+        self.audit_tabs.addTab(self.unchanged_fields_table, "Unchanged Fields")
         audit_layout.addWidget(self.audit_tabs, stretch=1)
         self.review_tabs.addTab(audit_tab, "Metadata Audit")
 
@@ -488,6 +542,21 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
         self.log_output.appendPlainText(message)
         self.log_output.verticalScrollBar().setValue(self.log_output.verticalScrollBar().maximum())
         self.log.info(message)
+
+    def _make_audit_table(self) -> QtWidgets.QTableWidget:
+        table = QtWidgets.QTableWidget()
+        table.setColumnCount(4)
+        table.setHorizontalHeaderLabels(["Field", "Source", "Cropped", "Note"])
+        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        table.setSortingEnabled(True)
+        table.horizontalHeader().setStretchLastSection(True)
+        table.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
+        table.horizontalHeader().setSectionResizeMode(1, QtWidgets.QHeaderView.Stretch)
+        table.horizontalHeader().setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
+        table.horizontalHeader().setSectionResizeMode(3, QtWidgets.QHeaderView.Stretch)
+        return table
 
     def _set_progress(self, value: int, message: str) -> None:
         self.progress_bar.setValue(max(0, min(100, int(value))))
@@ -736,25 +805,21 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
             f"Changed fields: {len(report.changed_fields)}. "
             f"Unchanged fields: {len(report.unchanged_fields)}."
         )
-        self.changed_fields_text.setPlainText(self._format_comparison_items(report.changed_fields))
-        self.unchanged_fields_text.setPlainText(self._format_comparison_items(report.unchanged_fields))
+        self._populate_audit_table(self.changed_fields_table, report.changed_fields)
+        self._populate_audit_table(self.unchanged_fields_table, report.unchanged_fields)
 
-    def _format_comparison_items(self, items: list[CropFieldComparison]) -> str:
-        if not items:
-            return "None"
-        lines: list[str] = []
-        for item in items:
-            lines.extend(
-                [
-                    f"Path: {item.path}",
-                    f"Status: {item.status}",
-                    f"Source: {item.source_summary}",
-                    f"Cropped: {item.cropped_summary}",
-                    f"Note: {item.note}",
-                    "",
-                ]
-            )
-        return "\n".join(lines).rstrip()
+    def _populate_audit_table(self, table: QtWidgets.QTableWidget, items: list[CropFieldComparison]) -> None:
+        table.setSortingEnabled(False)
+        table.setRowCount(len(items))
+        for row_idx, item in enumerate(items):
+            for col_idx, value in enumerate([item.path, item.source_summary, item.cropped_summary, item.note]):
+                cell = QtWidgets.QTableWidgetItem(str(value))
+                if col_idx == 0:
+                    cell.setData(QtCore.Qt.UserRole, item.path)
+                table.setItem(row_idx, col_idx, cell)
+        table.setSortingEnabled(True)
+        if items:
+            table.sortItems(0, QtCore.Qt.AscendingOrder)
 
     def _record_to_display_values(self, record: object) -> dict[str, str]:
         from phase_id_xcorr.io.oh5_crop import PixelInspectionRecord
