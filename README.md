@@ -83,8 +83,9 @@ The inference GUI supports both single-image prediction and full-scan `.oh5` map
 The dedicated `.oh5` crop GUI supports:
 
 - rectangular crop selection on the source IQ map
-- standalone cropped `.oh5` export
-- automatic original-vs-cropped review mode after export
+- multiple crop rectangles from one source scan in a single export pass
+- standalone cropped `.oh5` export named `{base_name}_crop_{row}_{col}.oh5`
+- automatic original-vs-cropped review mode after export, with a selector for choosing which exported crop to inspect
 - visible GUI logs and progress/status bar during load/export/reload
 - side-by-side IQ/IPF/pattern validation with explicit original and cropped scan sizes shown above the panes
 

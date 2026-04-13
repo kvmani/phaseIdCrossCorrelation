@@ -40,6 +40,16 @@ def _rgb_array_to_pixmap(array: np.ndarray) -> QtGui.QPixmap:
     return QtGui.QPixmap.fromImage(qimg.copy())
 
 
+def _default_center_crop(*, nx: int, ny: int) -> CropSpec:
+    width = max(1, int(round(float(nx) * 0.5)))
+    height = max(1, int(round(float(ny) * 0.5)))
+    width = min(width, int(nx))
+    height = min(height, int(ny))
+    column = max(0, int((int(nx) - width) // 2))
+    row = max(0, int((int(ny) - height) // 2))
+    return CropSpec(row=row, column=column, width=width, height=height).validate_for(nx=nx, ny=ny)
+
+
 class CropSelectionViewBox(pg.ViewBox):
     cropDragged = QtCore.Signal(object)
 
@@ -138,7 +148,7 @@ class CropPlotWidget(QtWidgets.QWidget):
         self._roi.maxBounds = QtCore.QRectF(0, 0, float(self._nx), float(self._ny))
         self.plot.setLimits(xMin=0, xMax=self._nx, yMin=0, yMax=self._ny)
         self.plot.setRange(xRange=(0, self._nx), yRange=(0, self._ny), padding=0.0)
-        self.set_crop_spec(CropSpec(row=0, column=0, width=self._nx, height=self._ny))
+        self.set_crop_spec(_default_center_crop(nx=self._nx, ny=self._ny))
 
     def set_crop_spec(self, spec: CropSpec) -> None:
         spec = spec.validate_for(nx=self._nx, ny=self._ny)
@@ -298,6 +308,12 @@ class ReviewSelection:
     source_y: int
 
 
+@dataclass(slots=True)
+class CropRegionState:
+    name: str
+    spec: CropSpec
+
+
 class Oh5CropMainWindow(QtWidgets.QMainWindow):
     def __init__(
         self,
@@ -313,9 +329,14 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
         self.initial_output_dir = None if initial_output_dir is None else initial_output_dir.expanduser().resolve()
         self.source_visual = None
         self.review_session: CropReviewSession | None = None
+        self.review_exports: list[CropExportResult] = []
+        self.review_sessions: list[CropReviewSession] = []
         self.review_selection: ReviewSelection | None = None
+        self.crop_regions: list[CropRegionState] = []
+        self.current_region_index: int = -1
         self._output_path_user_edited = False
         self._spin_guard = False
+        self._region_guard = False
 
         self.setWindowTitle("OH5 Crop + Review")
         self.resize(1700, 1050)
@@ -413,13 +434,29 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
         controls_layout.addWidget(self.source_summary)
         self.crop_instructions_label = QtWidgets.QLabel(
             "Crop selection instructions:\n"
-            "1. Left-click and drag directly on the IQ map to draw a new crop rectangle.\n"
-            "2. Drag the green rectangle or its corner handles to refine it.\n"
-            "3. Or enter row, column, width, and height numerically below."
+            "1. A centered starting rectangle covering about 50% of the scan is created automatically.\n"
+            "2. You can adjust the rectangle by drawing a new one with left-click drag on the IQ map.\n"
+            "3. Add additional rectangles when you want several crops in one export pass.\n"
+            "4. The selected rectangle is the one updated when you drag, move, resize, or change the numeric fields below."
         )
         self.crop_instructions_label.setWordWrap(True)
         self.crop_instructions_label.setStyleSheet("color: rgb(70, 70, 70);")
         controls_layout.addWidget(self.crop_instructions_label)
+
+        region_group = QtWidgets.QGroupBox("Crop Regions")
+        region_layout = QtWidgets.QVBoxLayout(region_group)
+        self.region_list = QtWidgets.QListWidget()
+        self.region_list.currentRowChanged.connect(self._select_region)
+        region_layout.addWidget(self.region_list, stretch=1)
+        region_button_row = QtWidgets.QHBoxLayout()
+        self.add_region_button = QtWidgets.QPushButton("Add Rectangle")
+        self.add_region_button.clicked.connect(self._add_region)
+        self.remove_region_button = QtWidgets.QPushButton("Remove Rectangle")
+        self.remove_region_button.clicked.connect(self._remove_region)
+        region_button_row.addWidget(self.add_region_button)
+        region_button_row.addWidget(self.remove_region_button)
+        region_layout.addLayout(region_button_row)
+        controls_layout.addWidget(region_group)
 
         rect_group = QtWidgets.QGroupBox("Rectangle")
         rect_form = QtWidgets.QFormLayout(rect_group)
@@ -473,6 +510,14 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
         layout = QtWidgets.QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
+
+        selector_row = QtWidgets.QHBoxLayout()
+        selector_row.addWidget(QtWidgets.QLabel("Inspect crop"))
+        self.review_crop_selector = QtWidgets.QComboBox()
+        self.review_crop_selector.currentIndexChanged.connect(self._on_review_crop_selected)
+        selector_row.addWidget(self.review_crop_selector, stretch=0)
+        selector_row.addStretch(1)
+        layout.addLayout(selector_row)
 
         self.review_tabs = QtWidgets.QTabWidget()
         layout.addWidget(self.review_tabs, stretch=1)
@@ -589,17 +634,21 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
         self._set_progress(40, "Source scan loaded; preparing crop view ...")
         self.source_visual = visual
         self.crop_plot.set_image(visual.iq_map)
+        initial_spec = self.crop_plot.current_crop_spec()
         self.row_spin.setRange(0, max(0, visual.ny - 1))
         self.col_spin.setRange(0, max(0, visual.nx - 1))
         self.width_spin.setRange(1, visual.nx)
         self.height_spin.setRange(1, visual.ny)
-        self._sync_crop_spinboxes_from_roi(CropSpec(row=0, column=0, width=visual.nx, height=visual.ny))
+        self._reset_regions(initial_spec)
         self.crop_source_size_label.setText(f"Original scan size: {visual.ny} rows x {visual.nx} columns")
         self.source_summary.setText(
             f"Scan: {visual.scan_name}\nPath: {visual.path}\nGrid: {visual.ny} rows x {visual.nx} columns\n"
             f"IQ field: {visual.iq_field_name} | Euler: {'present' if visual.euler_present else 'missing'}"
         )
         self.review_session = None
+        self.review_exports = []
+        self.review_sessions = []
+        self.review_crop_selector.clear()
         self.review_mode_action.setEnabled(False)
         self._output_path_user_edited = False
         self._refresh_default_output_path()
@@ -609,10 +658,38 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
         self._set_progress(100, "Source scan ready for crop selection")
         self.show_crop_mode()
 
+    def open_review_from_exports(self, export_results: list[CropExportResult]) -> None:
+        if not export_results:
+            return
+        self._set_progress(70, f"Reloading source and cropped scans for review: {len(export_results)} crop(s)")
+        self.review_exports = list(export_results)
+        self.review_sessions = []
+        for index, export_result in enumerate(export_results):
+            self._append_log(f"Opening review session for exported crop: {export_result.output_path}")
+            self.review_sessions.append(load_review_session(export_result))
+            self._set_progress(
+                70 + int(15 * (index + 1) / len(export_results)),
+                f"Loaded review crop {index + 1}/{len(export_results)}",
+            )
+        self.review_crop_selector.blockSignals(True)
+        self.review_crop_selector.clear()
+        for idx, export_result in enumerate(export_results):
+            self.review_crop_selector.addItem(
+                f"Crop {idx + 1}: r{export_result.crop_spec.row} c{export_result.crop_spec.column}",
+                idx,
+            )
+        self.review_crop_selector.blockSignals(False)
+        self.review_crop_selector.setCurrentIndex(0)
+        self._apply_review_session(0)
+        self.show_review_mode()
+
     def open_review_from_export(self, export_result: CropExportResult) -> None:
-        self._set_progress(70, f"Reloading source and cropped scans for review: {export_result.output_path.name}")
-        self._append_log(f"Opening review session for exported crop: {export_result.output_path}")
-        session = load_review_session(export_result)
+        self.open_review_from_exports([export_result])
+
+    def _apply_review_session(self, index: int) -> None:
+        if index < 0 or index >= len(self.review_sessions):
+            return
+        session = self.review_sessions[index]
         self._set_progress(85, "Review data loaded; rendering comparison panes ...")
         self.review_session = session
         self.review_mode_action.setEnabled(True)
@@ -647,7 +724,11 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
         )
         self._set_progress(95, "Comparison panes ready; selecting first cropped pixel ...")
         self._handle_review_click(0, 0)
-        self.show_review_mode()
+
+    def _on_review_crop_selected(self, index: int) -> None:
+        if index < 0:
+            return
+        self._apply_review_session(index)
 
     def _mark_output_path_user_edited(self) -> None:
         self._output_path_user_edited = True
@@ -655,7 +736,9 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
     def _refresh_default_output_path(self) -> None:
         if self.source_visual is None or self._output_path_user_edited:
             return
-        spec = self.crop_plot.current_crop_spec()
+        spec = self._current_region_spec()
+        if spec is None:
+            return
         directory = self.initial_output_dir or self.source_visual.path.parent
         filename = (
             f"{self.source_visual.path.stem}_crop_r{spec.row}_c{spec.column}_h{spec.height}_w{spec.width}.oh5"
@@ -666,6 +749,9 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
         spec = spec_obj if isinstance(spec_obj, CropSpec) else self.crop_plot.current_crop_spec()
         if self.source_visual is None:
             return
+        if 0 <= self.current_region_index < len(self.crop_regions):
+            self.crop_regions[self.current_region_index].spec = spec
+            self._refresh_region_list_item(self.current_region_index)
         self._spin_guard = True
         try:
             self.row_spin.setValue(spec.row)
@@ -696,6 +782,88 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
         except Exception:
             return
         self.crop_plot.set_crop_spec(spec)
+
+    def _reset_regions(self, initial_spec: CropSpec) -> None:
+        self.crop_regions = [CropRegionState(name="Rectangle 1", spec=initial_spec)]
+        self.current_region_index = 0
+        self._region_guard = True
+        try:
+            self.region_list.clear()
+            self.region_list.addItem(self._region_label(self.crop_regions[0]))
+            self.region_list.setCurrentRow(0)
+        finally:
+            self._region_guard = False
+        self.crop_plot.set_crop_spec(initial_spec)
+        self._sync_crop_spinboxes_from_roi(initial_spec)
+        self._update_region_buttons()
+
+    def _region_label(self, region: CropRegionState) -> str:
+        spec = region.spec
+        return f"{region.name}: r{spec.row} c{spec.column} w{spec.width} h{spec.height}"
+
+    def _refresh_region_list_item(self, index: int) -> None:
+        item = self.region_list.item(index)
+        if item is not None and 0 <= index < len(self.crop_regions):
+            item.setText(self._region_label(self.crop_regions[index]))
+
+    def _current_region_spec(self) -> CropSpec | None:
+        if 0 <= self.current_region_index < len(self.crop_regions):
+            return self.crop_regions[self.current_region_index].spec
+        return None
+
+    def _select_region(self, index: int) -> None:
+        if self._region_guard:
+            return
+        if index < 0 or index >= len(self.crop_regions):
+            self.current_region_index = -1
+            self._update_region_buttons()
+            return
+        self.current_region_index = index
+        spec = self.crop_regions[index].spec
+        self.crop_plot.set_crop_spec(spec)
+        self._sync_crop_spinboxes_from_roi(spec)
+        self._update_region_buttons()
+
+    def _add_region(self) -> None:
+        if self.source_visual is None:
+            return
+        base_spec = self._current_region_spec() or self.crop_plot.current_crop_spec()
+        row = min(max(0, base_spec.row + 1), max(0, self.source_visual.ny - base_spec.height))
+        column = min(max(0, base_spec.column + 1), max(0, self.source_visual.nx - base_spec.width))
+        spec = CropSpec(row=row, column=column, width=base_spec.width, height=base_spec.height).validate_for(
+            nx=self.source_visual.nx,
+            ny=self.source_visual.ny,
+        )
+        region = CropRegionState(name=f"Rectangle {len(self.crop_regions) + 1}", spec=spec)
+        self.crop_regions.append(region)
+        self._region_guard = True
+        try:
+            self.region_list.addItem(self._region_label(region))
+            self.region_list.setCurrentRow(len(self.crop_regions) - 1)
+        finally:
+            self._region_guard = False
+        self._select_region(len(self.crop_regions) - 1)
+        self._append_log(
+            f"Added crop region {region.name}: row={spec.row} col={spec.column} width={spec.width} height={spec.height}"
+        )
+
+    def _remove_region(self) -> None:
+        if len(self.crop_regions) <= 1 or self.current_region_index < 0:
+            return
+        removed = self.crop_regions.pop(self.current_region_index)
+        self._region_guard = True
+        try:
+            self.region_list.takeItem(self.current_region_index)
+        finally:
+            self._region_guard = False
+        self._append_log(f"Removed crop region {removed.name}")
+        self.region_list.setCurrentRow(min(self.current_region_index, len(self.crop_regions) - 1))
+        self._update_region_buttons()
+
+    def _update_region_buttons(self) -> None:
+        has_source = self.source_visual is not None
+        self.add_region_button.setEnabled(has_source)
+        self.remove_region_button.setEnabled(has_source and len(self.crop_regions) > 1 and self.current_region_index >= 0)
 
     def _choose_source_file(self) -> None:
         start_dir = str(self.source_visual.path.parent if self.source_visual is not None else self.repo_root)
@@ -730,27 +898,44 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
         if not output_text:
             QtWidgets.QMessageBox.warning(self, "No output path", "Choose an output .oh5 path first.")
             return
-        spec = self.crop_plot.current_crop_spec()
-        self._append_log(
-            f"Writing cropped .oh5 to {Path(output_text).resolve()} from crop row={spec.row} col={spec.column} width={spec.width} height={spec.height}"
-        )
-        self._set_progress(45, "Writing cropped .oh5 to disk ...")
+        if not self.crop_regions:
+            QtWidgets.QMessageBox.warning(self, "No crop regions", "Define at least one crop rectangle before exporting.")
+            return
+        base_output = Path(output_text).expanduser().resolve()
+        output_dir = base_output.parent
+        base_name = base_output.stem
+        if "_crop_" in base_name:
+            base_name = base_name.split("_crop_", maxsplit=1)[0]
+        self._append_log(f"Writing {len(self.crop_regions)} cropped .oh5 file(s) to {output_dir}")
         try:
-            export_result = export_cropped_oh5(
-                source_path=self.source_visual.path,
-                crop_spec=spec,
-                output_path=Path(output_text),
-                repo_root=self.repo_root,
-                logger=self.log,
-            )
+            export_results: list[CropExportResult] = []
+            for idx, region in enumerate(self.crop_regions):
+                spec = region.spec
+                output_path = output_dir / f"{base_name}_crop_{spec.row}_{spec.column}.oh5"
+                self._append_log(
+                    f"Writing {output_path.resolve()} from {region.name}: row={spec.row} col={spec.column} width={spec.width} height={spec.height}"
+                )
+                self._set_progress(
+                    45 + int(15 * idx / max(1, len(self.crop_regions))),
+                    f"Writing crop {idx + 1}/{len(self.crop_regions)} to disk ...",
+                )
+                export_results.append(
+                    export_cropped_oh5(
+                        source_path=self.source_visual.path,
+                        crop_spec=spec,
+                        output_path=output_path,
+                        repo_root=self.repo_root,
+                        logger=self.log,
+                    )
+                )
         except Exception as exc:
             QtWidgets.QMessageBox.critical(self, "Crop Export Failed", str(exc))
             self._append_log(f"Crop export failed: {exc}")
             self._set_progress(0, f"Export failed: {exc}")
             return
-        self._append_log(f"Crop export complete: {export_result.output_path}")
-        self._set_progress(60, f"Cropped .oh5 written: {export_result.output_path.name}")
-        self.open_review_from_export(export_result)
+        self._append_log(f"Crop export complete: {len(export_results)} file(s) written")
+        self._set_progress(60, f"Cropped .oh5 files written: {len(export_results)}")
+        self.open_review_from_exports(export_results)
 
     def _handle_review_click(self, x: int, y: int) -> None:
         if self.review_session is None:

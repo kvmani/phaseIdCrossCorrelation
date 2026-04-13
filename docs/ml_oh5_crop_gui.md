@@ -1,6 +1,6 @@
 # OH5 Crop GUI
 
-This dedicated desktop GUI crops one pattern-bearing `.oh5` scan by rectangle on the `IQ` / `Image Quality` map and writes a new `.oh5` intended for standalone reopening.
+This dedicated desktop GUI crops one pattern-bearing `.oh5` scan by one or more rectangles on the `IQ` / `Image Quality` map and writes standalone cropped `.oh5` files intended for independent reopening.
 
 ## Main command
 
@@ -19,9 +19,10 @@ python scripts/run_oh5_crop_gui.py --input path/to/source_scan.oh5 --output-dir 
 1. Load one `.oh5` containing:
    - `Pattern` or `Patterns`
    - `IQ` or `Image Quality`
-2. Draw or numerically define one rectangular crop on the grayscale IQ map.
-3. Export a new `.oh5`.
-4. The GUI automatically switches into review mode and compares:
+2. Start from the centered default rectangle or add extra rectangles in the `Crop Regions` list.
+3. Select a rectangle, then draw or numerically define that rectangle on the grayscale IQ map.
+4. Export all defined rectangles in one pass as `{base_name}_crop_{row}_{col}.oh5`.
+5. The GUI automatically switches into review mode and compares:
    - original IQ vs cropped IQ
    - original IPF vs cropped IPF when Euler/phase metadata are available
    - original pixel metadata/pattern vs cropped pixel metadata/pattern
@@ -33,6 +34,7 @@ Visible operator feedback:
 - a progress/status bar reports source loading, crop writing, review reload, and pixel-selection state
 - explicit original and cropped scan sizes are shown above the relevant view panes
 - a dedicated metadata-audit tab lists field-by-field source and cropped summaries, including scalar values and dataset shapes
+- review mode includes a crop selector so any exported crop from the current batch can be inspected without reopening the tool
 
 ## Review behavior
 

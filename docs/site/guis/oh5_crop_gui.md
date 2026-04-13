@@ -1,6 +1,6 @@
 # OH5 Crop GUI
 
-The OH5 crop GUI is a dedicated desktop workflow for extracting a rectangular EBSD subscan from one pattern-bearing `.oh5` file and immediately validating the result visually.
+The OH5 crop GUI is a dedicated desktop workflow for extracting one or more rectangular EBSD subscans from one pattern-bearing `.oh5` file and immediately validating each result visually.
 
 ## Main command
 
@@ -11,20 +11,22 @@ python .\scripts\run_oh5_crop_gui.py --input path\to\source_scan.oh5 --debug
 ## Capabilities
 
 - display the source `IQ` / `Image Quality` map as a grayscale scan view
-- define one crop rectangle by draggable overlay or numeric row/column/width/height fields
-- export a cropped standalone `.oh5`
+- define one or more crop rectangles by draggable overlay or numeric row/column/width/height fields
+- keep a crop-region list where numeric inputs always edit the selected rectangle
+- export all defined crops in one pass as `{base_name}_crop_{row}_{col}.oh5`
 - automatically switch into review mode after export
 - keep a visible log console and progress/status bar during load, export, reload, and pixel review
 - show original and cropped scan sizes directly above the IQ and IPF comparison panes
 - compare original vs cropped scans in side-by-side `IQ Maps`, `IPF Maps`, and `Patterns + Pixel Data` tabs
+- choose which exported crop to inspect from a review-mode selector that defaults to the first crop
 - click the cropped scan to inspect mapped original and cropped pixel metadata plus both Kikuchi patterns
 - include a `Metadata Audit` tab listing fields that changed and fields that remained unaltered, with scalar values or dataset-shape summaries
 
 ```{mermaid}
 flowchart LR
-    A["Source .oh5"] --> B["Crop rectangle on IQ map"]
-    B --> C["Write cropped .oh5"]
-    C --> D["Auto-open review mode"]
+    A["Source .oh5"] --> B["One or more crop rectangles on IQ map"]
+    B --> C["Write cropped .oh5 files"]
+    C --> D["Auto-open review mode with crop selector"]
     D --> E["IQ and IPF side-by-side"]
     D --> F["Pixel metadata compare"]
     D --> G["Kikuchi pattern compare"]

@@ -220,8 +220,82 @@ def test_crop_gui_open_source_populates_original_size_and_logs(tmp_path: Path) -
     app.processEvents()
 
     assert window.crop_source_size_label.text() == "Original scan size: 4 rows x 5 columns"
-    assert "Left-click and drag directly on the IQ map" in window.crop_instructions_label.text()
+    assert "centered starting rectangle covering about 50% of the scan" in window.crop_instructions_label.text()
+    assert "Add additional rectangles" in window.crop_instructions_label.text()
+    assert window.row_spin.value() == 1
+    assert window.col_spin.value() == 1
+    assert window.width_spin.value() == 2
+    assert window.height_spin.value() == 2
+    assert window.region_list.count() == 1
+    assert "Rectangle 1" in window.region_list.item(0).text()
     assert window.progress_bar.value() == 100
     assert window.progress_label.text() == "Crop mode ready"
     assert "Loaded source scan" in window.log_output.toPlainText()
+    window.close()
+
+
+def test_crop_gui_multiple_regions_track_selected_rectangle(tmp_path: Path) -> None:
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    src = tmp_path / "source.oh5"
+    _write_crop_fixture(src, with_euler=True)
+
+    window = Oh5CropMainWindow(repo_root=tmp_path, logger=__import__("logging").getLogger("test_oh5_crop_gui_regions"))
+    window.open_source_oh5(src)
+    app.processEvents()
+
+    window._add_region()
+    app.processEvents()
+    assert window.region_list.count() == 2
+    assert window.region_list.currentRow() == 1
+
+    window.row_spin.setValue(0)
+    window.col_spin.setValue(2)
+    window.width_spin.setValue(2)
+    window.height_spin.setValue(2)
+    app.processEvents()
+
+    assert window.crop_regions[1].spec.row == 0
+    assert window.crop_regions[1].spec.column == 2
+    assert window.crop_regions[0].spec.row == 1
+    assert window.crop_regions[0].spec.column == 1
+
+    window.region_list.setCurrentRow(0)
+    app.processEvents()
+    assert window.row_spin.value() == 1
+    assert window.col_spin.value() == 1
+    window.close()
+
+
+def test_crop_gui_batch_export_opens_review_selector(tmp_path: Path) -> None:
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    src = tmp_path / "source.oh5"
+    _write_crop_fixture(src, with_euler=True)
+
+    window = Oh5CropMainWindow(repo_root=tmp_path, logger=__import__("logging").getLogger("test_oh5_crop_gui_batch"))
+    window.open_source_oh5(src)
+    app.processEvents()
+
+    window._add_region()
+    app.processEvents()
+    window.row_spin.setValue(0)
+    window.col_spin.setValue(2)
+    window.width_spin.setValue(2)
+    window.height_spin.setValue(2)
+    app.processEvents()
+
+    window.output_path_edit.setText(str(tmp_path / "batch_output.oh5"))
+    window._output_path_user_edited = True
+    window._export_crop()
+    app.processEvents()
+
+    assert window.mode_stack.currentWidget() == window.review_page
+    assert window.review_crop_selector.count() == 2
+    assert window.review_crop_selector.currentIndex() == 0
+    assert window.review_session is not None
+    assert window.review_session.export.output_path.name == "batch_output_crop_1_1.oh5"
+
+    window.review_crop_selector.setCurrentIndex(1)
+    app.processEvents()
+    assert window.review_session is not None
+    assert window.review_session.export.output_path.name == "batch_output_crop_0_2.oh5"
     window.close()
