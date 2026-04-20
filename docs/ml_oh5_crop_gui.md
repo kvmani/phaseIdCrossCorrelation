@@ -35,6 +35,8 @@ Visible operator feedback:
 - explicit original and cropped scan sizes are shown above the relevant view panes
 - a dedicated metadata-audit tab lists field-by-field source and cropped summaries, including scalar values and dataset shapes
 - review mode includes a crop selector so any exported crop from the current batch can be inspected without reopening the tool
+- all crop rectangles stay visible on the IQ map, the active one is highlighted in a different color, and each rectangle shows its numeric ID at the top-left corner
+- clicking any visible rectangle makes it the active rectangle and synchronizes the region list plus numeric input fields
 
 ## Review behavior
 

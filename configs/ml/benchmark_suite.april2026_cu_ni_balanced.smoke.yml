@@ -1,0 +1,48 @@
+schema_version: phase_id_xcorr.ml_benchmark_suite.v1
+
+output_root: reports/ml/benchmarks/april2026_cu_ni_balanced_smoke
+base_train_config: configs/ml/train.april2026_cu_ni_balanced.smoke.base.yml
+
+experiments:
+  - name: simple_cnn_w16
+    overrides:
+      - output_dir=reports/ml/benchmarks/april2026_cu_ni_balanced_smoke/simple_cnn_w16
+      - model.family=simple_cnn
+      - model.width=16
+      - epochs=1
+      - seed=41
+
+  - name: simple_cnn_w32
+    overrides:
+      - output_dir=reports/ml/benchmarks/april2026_cu_ni_balanced_smoke/simple_cnn_w32
+      - model.family=simple_cnn
+      - model.width=32
+      - epochs=1
+      - seed=43
+
+  - name: resnet18_scratch
+    overrides:
+      - output_dir=reports/ml/benchmarks/april2026_cu_ni_balanced_smoke/resnet18_scratch
+      - epochs=1
+      - model.family=timm
+      - model.model_name=resnet18
+      - model.pretrained=false
+      - seed=47
+
+  - name: mobilenetv3_small_scratch
+    overrides:
+      - output_dir=reports/ml/benchmarks/april2026_cu_ni_balanced_smoke/mobilenetv3_small_scratch
+      - epochs=1
+      - model.family=timm
+      - model.model_name=mobilenetv3_small_100
+      - model.pretrained=false
+      - seed=53
+
+  - name: efficientnet_b0_scratch
+    overrides:
+      - output_dir=reports/ml/benchmarks/april2026_cu_ni_balanced_smoke/efficientnet_b0_scratch
+      - epochs=1
+      - model.family=timm
+      - model.model_name=efficientnet_b0
+      - model.pretrained=false
+      - seed=59

@@ -251,6 +251,20 @@ April 2026 Cu/Ni-only balanced production run:
 python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.april2026_cu_ni_balanced.yml --debug
 ```
 
+This production bundle now:
+
+- includes `Cu-1..15` except held-out `Cu-6.oh5`
+- includes `Ni-1..10` except held-out `Ni-6.oh5`
+- balances phases by equalizing the final qualified pattern counts, not by equalizing scan counts
+- uses `benchmark_batch_size` in the full-cycle YAML as the single batch-size control for the whole benchmark suite
+
+April 2026 Cu/Ni smoke runs for batch-size validation:
+
+```bash
+python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.april2026_cu_ni_balanced.smoke.batch64.yml --debug
+python scripts/run_ml_full_cycle.py --config configs/ml/full_cycle.april2026_cu_ni_balanced.smoke.batch32.yml --debug
+```
+
 This one-go workflow performs:
 
 1. dataset prep from raw `.oh5` config,

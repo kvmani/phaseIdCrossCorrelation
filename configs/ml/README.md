@@ -32,16 +32,21 @@ Files:
 - `dataset_prepare.classiication_training_data.filtered.yml`: local `Al/Ni/Cu` cropped `.oh5` prep with `CI > 0.4 && Fit < 1.5`.
 - `dataset_prepare.ni_cu_al.production.yml`: production dataset-prep template pointing at `F:\PhaseID_Training_Data\Ni-Cu-Al_Scans`.
 - `dataset_prepare.data_march2026.balanced.yml`: March 2026 `Al/Cu/Ni-2_1.oh5` dataset prep with `CI > 0.5 && Fit < 1.0`, `0.8/0.1/0.1` split, and phase balancing down to the smallest accepted phase count.
-- `dataset_prepare.april2026_cu_ni_balanced.yml`: April 2026 Cu/Ni-only balanced dataset prep over 18 explicit `.oh5` scans, excluding `Diffusioncouple_*`, `Cu-6.oh5`, and `Ni-6.oh5`.
+- `dataset_prepare.april2026_cu_ni_balanced.yml`: April 2026 Cu/Ni-only balanced dataset prep over all configured Cu/Ni `.oh5` scans, excluding held-out `Cu-6.oh5` and `Ni-6.oh5`, then equalizing qualified pattern counts per phase.
+- `dataset_prepare.april2026_cu_ni_balanced.smoke.yml`: April 2026 Cu/Ni smoke dataset prep using the same held-out policy and pattern-level balancing, but with capped per-phase split counts for fast batch-size validation.
 - `phase_explorer.ni_cu_al.production.yml`: production explorer GUI config for `Al-1.oh5`, `Ni.oh`, and `Cu-1.oh5`.
 - `train.classiication_training_data.smoke.yml`: smoke single-run training config on the filtered local dataset.
 - `train.ni_cu_al.production.base.yml`: production baseline train config for the filtered Windows dataset.
 - `train.data_march2026.balanced.base.yml`: balanced March 2026 training base config using the balanced dataset manifest.
 - `train.april2026_cu_ni_balanced.base.yml`: April 2026 Cu/Ni-only balanced base training config.
+- `train.april2026_cu_ni_balanced.smoke.base.yml`: April 2026 Cu/Ni smoke base training config for one-epoch batch-size validation.
 - `benchmark_suite.data_march2026.balanced.yml`: benchmark suite config over the balanced March 2026 dataset.
 - `benchmark_suite.april2026_cu_ni_balanced.yml`: benchmark suite config over the April 2026 Cu/Ni-only balanced dataset.
+- `benchmark_suite.april2026_cu_ni_balanced.smoke.yml`: smoke benchmark suite over the April 2026 Cu/Ni dataset for testing benchmark-wide batch sizes.
 - `full_cycle.data_march2026.balanced.yml`: one-go full-cycle config for the balanced March 2026 dataset.
 - `full_cycle.april2026_cu_ni_balanced.yml`: one-go full-cycle config for the April 2026 Cu/Ni-only balanced production run.
+- `full_cycle.april2026_cu_ni_balanced.smoke.batch64.yml`: one-go smoke full-cycle config for April 2026 Cu/Ni with benchmark batch size `64`.
+- `full_cycle.april2026_cu_ni_balanced.smoke.batch32.yml`: one-go smoke full-cycle config for April 2026 Cu/Ni with benchmark batch size `32`.
 - `oh5_sample_inference.ni_different_condition.example.yml`: example unseen-scan CNN inference config for filtered random sampling from new `.oh5` files under a Windows folder.
 - `oh5_sample_inference.data_march2026.example.yml`: explicit three-scan inference config for `F:/PhaseID_Training_Data/Data_March2026/Data_1.oh5` to `Data_3.oh5`, sampling 5 filtered patterns per scan.
 - `diagnostic_gallery.example.yml`: cross-condition gallery template with reference/unknown source groups, quality gating, prediction filters, and contact-sheet export.

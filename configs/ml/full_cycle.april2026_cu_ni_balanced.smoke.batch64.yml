@@ -1,0 +1,10 @@
+schema_version: phase_id_xcorr.ml_full_cycle.v1
+output_root: reports/ml/full_cycle/april2026_cu_ni_balanced_smoke_batch64
+
+dataset_prepare_config: configs/ml/dataset_prepare.april2026_cu_ni_balanced.smoke.yml
+suite_config: configs/ml/benchmark_suite.april2026_cu_ni_balanced.smoke.yml
+benchmark_batch_size: 64
+
+strict: false
+
+generate_ppt: false

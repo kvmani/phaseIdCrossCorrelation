@@ -6,6 +6,7 @@
 - `configs/ml/dataset_prepare.data_march2026.balanced.debug.yml`
 - `configs/ml/dataset_prepare.data_march2026.balanced.yml`
 - `configs/ml/dataset_prepare.april2026_cu_ni_balanced.yml`
+- `configs/ml/dataset_prepare.april2026_cu_ni_balanced.smoke.yml`
 
 ## Train configs
 
@@ -13,6 +14,7 @@
 - `configs/ml/train.data_march2026.balanced.debug.base.yml`
 - `configs/ml/train.data_march2026.balanced.base.yml`
 - `configs/ml/train.april2026_cu_ni_balanced.base.yml`
+- `configs/ml/train.april2026_cu_ni_balanced.smoke.base.yml`
 
 ## Suite configs
 
@@ -20,6 +22,7 @@
 - `configs/ml/benchmark_suite.data_march2026.balanced.debug.yml`
 - `configs/ml/benchmark_suite.data_march2026.balanced.yml`
 - `configs/ml/benchmark_suite.april2026_cu_ni_balanced.yml`
+- `configs/ml/benchmark_suite.april2026_cu_ni_balanced.smoke.yml`
 
 ## Full-cycle configs
 
@@ -27,6 +30,8 @@
 - `configs/ml/full_cycle.data_march2026.balanced.debug.yml`
 - `configs/ml/full_cycle.data_march2026.balanced.yml`
 - `configs/ml/full_cycle.april2026_cu_ni_balanced.yml`
+- `configs/ml/full_cycle.april2026_cu_ni_balanced.smoke.batch64.yml`
+- `configs/ml/full_cycle.april2026_cu_ni_balanced.smoke.batch32.yml`
 
 ## Inference configs
 
@@ -36,3 +41,5 @@
 - `configs/ml/diagnostic_gallery.example.yml`
 
 For the maintained config inventory, also see the source file `configs/ml/README.md`.
+
+The April 2026 Cu/Ni production full-cycle config exposes `benchmark_batch_size` so one top-level value controls benchmark-wide training batch size for all configured experiments.

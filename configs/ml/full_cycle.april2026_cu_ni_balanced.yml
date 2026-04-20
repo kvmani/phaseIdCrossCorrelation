@@ -3,6 +3,7 @@ output_root: reports/ml/full_cycle/april2026_cu_ni_balanced
 
 dataset_prepare_config: configs/ml/dataset_prepare.april2026_cu_ni_balanced.yml
 suite_config: configs/ml/benchmark_suite.april2026_cu_ni_balanced.yml
+benchmark_batch_size: 32
 
 strict: false
 

@@ -94,8 +94,59 @@ class CropSelectionViewBox(pg.ViewBox):
             self.cropDragged.emit(spec)
 
 
+class RectangleOverlayItem(QtWidgets.QGraphicsObject):
+    activated = QtCore.Signal(int)
+
+    def __init__(self, *, index: int, spec: CropSpec, active: bool = False) -> None:
+        super().__init__()
+        self.index = int(index)
+        self.spec = spec
+        self.active = bool(active)
+        self.setAcceptedMouseButtons(QtCore.Qt.LeftButton)
+        self.setZValue(6)
+
+    def set_region(self, *, index: int, spec: CropSpec, active: bool) -> None:
+        self.prepareGeometryChange()
+        self.index = int(index)
+        self.spec = spec
+        self.active = bool(active)
+        self.update()
+
+    def boundingRect(self) -> QtCore.QRectF:  # noqa: N802
+        margin = 4.0
+        return QtCore.QRectF(
+            float(self.spec.column) - margin,
+            float(self.spec.row) - margin,
+            float(self.spec.width) + 2.0 * margin,
+            float(self.spec.height) + 2.0 * margin,
+        )
+
+    def paint(self, painter: QtGui.QPainter, option, widget=None) -> None:  # noqa: ANN001, ARG002
+        color = QtGui.QColor(255, 140, 0) if self.active else QtGui.QColor(0, 210, 90)
+        pen_width = 3 if self.active else 2
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+        painter.setPen(QtGui.QPen(color, pen_width))
+        painter.setBrush(QtCore.Qt.NoBrush)
+        rect = QtCore.QRectF(
+            float(self.spec.column),
+            float(self.spec.row),
+            float(self.spec.width),
+            float(self.spec.height),
+        )
+        painter.drawRect(rect)
+        label_rect = QtCore.QRectF(rect.left() + 1.0, rect.top() + 1.0, 18.0, 14.0)
+        painter.fillRect(label_rect, QtGui.QColor(color.red(), color.green(), color.blue(), 215))
+        painter.setPen(QtGui.QPen(QtCore.Qt.black, 1))
+        painter.drawText(label_rect, QtCore.Qt.AlignCenter, str(self.index + 1))
+
+    def mousePressEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent) -> None:  # noqa: N802
+        event.accept()
+        self.activated.emit(self.index)
+
+
 class CropPlotWidget(QtWidgets.QWidget):
     cropChanged = QtCore.Signal(object)
+    regionActivated = QtCore.Signal(int)
 
     def __init__(self) -> None:
         super().__init__()
@@ -130,13 +181,25 @@ class CropPlotWidget(QtWidgets.QWidget):
         self._roi.addScaleHandle([0, 1], [1, 0])
         self._roi.addScaleHandle([1, 0], [0, 1])
         self._roi.addScaleHandle([0, 0], [1, 1])
+        self._roi.setZValue(10)
         self.plot.addItem(self._roi)
         self._roi.sigRegionChanged.connect(self._emit_crop_change)
         self.view_box.cropDragged.connect(self.set_crop_spec)
+        self._active_label = QtWidgets.QGraphicsSimpleTextItem(self._roi)
+        self._active_label.setBrush(QtGui.QBrush(QtGui.QColor(25, 25, 25)))
+        self._active_label.setFlag(QtWidgets.QGraphicsItem.ItemIgnoresTransformations, False)
+        self._active_label_background = QtWidgets.QGraphicsRectItem(self._roi)
+        self._active_label_background.setPen(pg.mkPen((255, 140, 0), width=1))
+        self._active_label_background.setBrush(QtGui.QBrush(QtGui.QColor(255, 140, 0, 215)))
+        self._active_label_background.setZValue(11)
+        self._active_label.setZValue(12)
 
         self._guard = False
         self._nx = 1
         self._ny = 1
+        self._regions: list[CropRegionState] = []
+        self._active_index = 0
+        self._overlay_items: list[RectangleOverlayItem] = []
 
     def set_image(self, array: np.ndarray) -> None:
         image = np.asarray(array, dtype=np.float32)
@@ -150,14 +213,21 @@ class CropPlotWidget(QtWidgets.QWidget):
         self.plot.setRange(xRange=(0, self._nx), yRange=(0, self._ny), padding=0.0)
         self.set_crop_spec(_default_center_crop(nx=self._nx, ny=self._ny))
 
+    def set_regions(self, regions: list[CropRegionState], *, active_index: int) -> None:
+        self._regions = [CropRegionState(name=region.name, spec=region.spec) for region in regions]
+        self._active_index = max(0, min(int(active_index), max(0, len(self._regions) - 1)))
+        self._refresh_overlays()
+
     def set_crop_spec(self, spec: CropSpec) -> None:
         spec = spec.validate_for(nx=self._nx, ny=self._ny)
         self._guard = True
         try:
             self._roi.setPos((float(spec.column), float(spec.row)))
             self._roi.setSize((float(spec.width), float(spec.height)))
+            self._update_active_label()
         finally:
             self._guard = False
+        self._refresh_overlays()
         self.cropChanged.emit(spec)
 
     def current_crop_spec(self) -> CropSpec:
@@ -177,9 +247,37 @@ class CropPlotWidget(QtWidgets.QWidget):
         try:
             self._roi.setPos((float(spec.column), float(spec.row)))
             self._roi.setSize((float(spec.width), float(spec.height)))
+            self._update_active_label()
         finally:
             self._guard = False
+        self._refresh_overlays()
         self.cropChanged.emit(spec)
+
+    def _update_active_label(self) -> None:
+        label_text = str(self._active_index + 1)
+        self._active_label.setText(label_text)
+        metrics = QtGui.QFontMetricsF(self._active_label.font())
+        width = max(18.0, metrics.horizontalAdvance(label_text) + 8.0)
+        height = max(14.0, metrics.height() + 4.0)
+        self._active_label_background.setRect(1.0, 1.0, width, height)
+        self._active_label.setPos(4.0, 1.0)
+
+    def _refresh_overlays(self) -> None:
+        while self._overlay_items:
+            item = self._overlay_items.pop()
+            self.plot.removeItem(item)
+        for idx, region in enumerate(self._regions):
+            if idx == self._active_index:
+                continue
+            overlay = RectangleOverlayItem(index=idx, spec=region.spec, active=False)
+            overlay.activated.connect(self.regionActivated.emit)
+            self.plot.addItem(overlay)
+            self._overlay_items.append(overlay)
+        active_pen = pg.mkPen((255, 140, 0), width=3)
+        self._roi.setPen(active_pen)
+        self._active_label_background.setPen(active_pen)
+        self._active_label_background.setBrush(QtGui.QBrush(QtGui.QColor(255, 140, 0, 215)))
+        self._update_active_label()
 
 
 class OverlayMapLabel(ClickableImageLabel):
@@ -419,6 +517,7 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
         left_layout.addWidget(self.crop_source_size_label)
         self.crop_plot = CropPlotWidget()
         self.crop_plot.cropChanged.connect(self._sync_crop_spinboxes_from_roi)
+        self.crop_plot.regionActivated.connect(self._activate_region_from_plot)
         left_layout.addWidget(self.crop_plot, stretch=1)
         self.crop_footer = QtWidgets.QLabel("No scan loaded")
         left_layout.addWidget(self.crop_footer)
@@ -752,6 +851,7 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
         if 0 <= self.current_region_index < len(self.crop_regions):
             self.crop_regions[self.current_region_index].spec = spec
             self._refresh_region_list_item(self.current_region_index)
+            self.crop_plot.set_regions(self.crop_regions, active_index=self.current_region_index)
         self._spin_guard = True
         try:
             self.row_spin.setValue(spec.row)
@@ -793,6 +893,7 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
             self.region_list.setCurrentRow(0)
         finally:
             self._region_guard = False
+        self.crop_plot.set_regions(self.crop_regions, active_index=self.current_region_index)
         self.crop_plot.set_crop_spec(initial_spec)
         self._sync_crop_spinboxes_from_roi(initial_spec)
         self._update_region_buttons()
@@ -820,6 +921,7 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
             return
         self.current_region_index = index
         spec = self.crop_regions[index].spec
+        self.crop_plot.set_regions(self.crop_regions, active_index=index)
         self.crop_plot.set_crop_spec(spec)
         self._sync_crop_spinboxes_from_roi(spec)
         self._update_region_buttons()
@@ -859,6 +961,11 @@ class Oh5CropMainWindow(QtWidgets.QMainWindow):
         self._append_log(f"Removed crop region {removed.name}")
         self.region_list.setCurrentRow(min(self.current_region_index, len(self.crop_regions) - 1))
         self._update_region_buttons()
+
+    def _activate_region_from_plot(self, index: int) -> None:
+        if index < 0 or index >= len(self.crop_regions):
+            return
+        self.region_list.setCurrentRow(index)
 
     def _update_region_buttons(self) -> None:
         has_source = self.source_visual is not None

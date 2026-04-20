@@ -36,6 +36,7 @@ The most relevant production templates currently are:
 - `configs/ml/dataset_prepare.data_march2026.balanced.debug.yml`
 - `configs/ml/dataset_prepare.data_march2026.balanced.yml`
 - `configs/ml/dataset_prepare.april2026_cu_ni_balanced.yml`
+- `configs/ml/dataset_prepare.april2026_cu_ni_balanced.smoke.yml`
 
 ## Main commands
 
@@ -54,6 +55,27 @@ python .\scripts\run_ml_dataset_prepare.py --config .\configs\ml\dataset_prepare
 ```
 
 This uses the full qualified balanced pool with the configured `80/10/10` split policy.
+
+### April 2026 Cu/Ni balanced run
+
+```powershell
+python .\scripts\run_ml_dataset_prepare.py --config .\configs\ml\dataset_prepare.april2026_cu_ni_balanced.yml --debug
+```
+
+This configuration:
+
+- includes `Cu-1..15` except held-out `Cu-6.oh5`
+- includes `Ni-1..10` except held-out `Ni-6.oh5`
+- applies quality filtering first
+- then equalizes Cu and Ni by qualified pattern count before split assignment
+
+### April 2026 Cu/Ni smoke run
+
+```powershell
+python .\scripts\run_ml_dataset_prepare.py --config .\configs\ml\dataset_prepare.april2026_cu_ni_balanced.smoke.yml --debug
+```
+
+The smoke config uses the same source policy and balancing rule but caps the final split sizes per phase for fast benchmark validation.
 
 ## What the workflow writes
 

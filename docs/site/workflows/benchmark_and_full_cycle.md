@@ -74,6 +74,15 @@ April 2026 Cu/Ni-only balanced production full cycle:
 python .\scripts\run_ml_full_cycle.py --config .\configs\ml\full_cycle.april2026_cu_ni_balanced.yml --debug
 ```
 
+The April 2026 production full-cycle YAML exposes `benchmark_batch_size` as the single batch-size control for the entire benchmark suite.
+
+April 2026 Cu/Ni smoke full-cycle runs for batch-size validation:
+
+```powershell
+python .\scripts\run_ml_full_cycle.py --config .\configs\ml\full_cycle.april2026_cu_ni_balanced.smoke.batch64.yml --debug
+python .\scripts\run_ml_full_cycle.py --config .\configs\ml\full_cycle.april2026_cu_ni_balanced.smoke.batch32.yml --debug
+```
+
 ## Outputs to read
 
 ### Benchmark suite

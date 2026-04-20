@@ -1,0 +1,26 @@
+schema_version: phase_id_xcorr.ml_train.v1
+
+dataset_manifest_path: reports/ml/datasets/april2026_cu_ni_balanced_smoke/manifest.json
+output_dir: reports/ml/runs/april2026_cu_ni_balanced_smoke/base
+
+seed: 42
+device: auto
+amp: true
+
+batch_size: 32
+num_workers: 0
+epochs: 1
+learning_rate: 0.0005
+weight_decay: 0.0001
+
+input:
+  resize_hw: [128, 128]
+  apply_circular_mask: true
+  normalize:
+    mean: [0.0]
+    std: [1.0]
+
+model:
+  family: simple_cnn
+  width: 16
+  in_chans: 1

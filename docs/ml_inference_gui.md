@@ -84,7 +84,7 @@ GUI features:
 - switch between `Single image` and `Full .oh5 scan` inference modes
 - drag-and-drop or browse an unknown image
 - inspect original and preprocessed grayscale views in image mode
-- browse a `.oh5` scan and run inference on every available pattern in full-scan mode
+- browse a `.oh5` scan, preview its IPF-colored EBSD map, then explicitly click `Start inference`
 - render a predicted phase map on the scan grid using class colors
 - click any full-scan map pixel to inspect the corresponding experimental Kikuchi pattern
 - keep raw and processed clicked-pixel Kikuchi views visible side by side with synchronized fit, zoom, and pan
@@ -95,6 +95,7 @@ GUI features:
 - render a per-pixel IPF-colored EBSD map from the scan Euler angles when present
 - optionally dull low-confidence pixels using `Use confidence shading`
 - stream backend progress, ETA, and errors in a live log panel during large-scan processing
+- overlay a centered circular progress indicator on the main scan view during full-scan inference, with bold percentage text below the ring
 - export full-scan PNG, CSV, JSON, HTML, and `manifest.json` artifacts for downstream analysis with bundle-relative links that work out of the box
 - view per-phase probabilities for single-image mode
 - view per-phase pixel counts, fractions, and mean scores for full-scan mode
@@ -108,7 +109,8 @@ Full-scan mode is intended for qualitative review of a new EBSD scan against a t
 
 Behavior:
 
-- runs inference on all available patterns in the selected `.oh5`
+- loads the selected `.oh5`, renders an IPF-colored EBSD preview first, and waits for explicit confirmation through `Start inference`
+- then runs inference on all available patterns in the selected `.oh5`
 - reconstructs the `nRows x nColumns` scan grid
 - assigns each pixel the predicted phase color
 - optionally scales color vividness by the model confidence for that pixel
@@ -122,6 +124,7 @@ Behavior:
 - synchronizes fit, zoom, and pan between the raw and processed pattern views
 - leaves missing/unavailable pixels dark
 - emits progress, ETA, and backend status messages in a GUI log window
+- keeps the existing horizontal progress bar and also shows a centered circular completion overlay on top of the main scan view during inference
 - can export the current full-scan state as machine-readable summaries plus human-readable HTML and map PNGs
 
 This makes it easy to spot:

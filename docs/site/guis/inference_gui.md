@@ -30,7 +30,7 @@ The clicked-pixel inspector loads the experimental pattern for any map pixel int
 
 The two panes stay synchronized for **fit**, **zoom**, and **pan**, so the user can compare the same spatial region in raw and processed views without manually re-aligning them. Each pane also shows a live hover readout of pixel coordinate and grayscale intensity.
 
-The window also includes a live **log panel** and progress/ETA display so large scans remain inspectable while inference is running.
+The window also includes a live **log panel**, the existing progress/ETA row, and a centered circular progress overlay on the main scan view so large scans remain inspectable while inference is running.
 An `Export Results` action writes the current full-scan interpretation to PNG, CSV, JSON, `manifest.json`, and HTML artifacts for downstream analysis, using bundle-local relative references so the exported HTML works directly from the export folder.
 
 ## Launch command
@@ -81,15 +81,16 @@ This mode is deliberately analogous to EBSD-style interpretive maps where catego
 2. select the desired model
 3. switch to `Full .oh5 scan`
 4. browse the `.oh5` file
-5. enable or disable confidence shading
-6. run inference
-7. watch the live log and ETA while the scan is processed
-8. click any map pixel to load its experimental Kikuchi pattern
-9. optionally enable histogram normalization and/or contrast stretch for the processed clicked-pattern view
-10. inspect the predicted phase map, IPF reference, and IPF-colored EBSD map tabs
-11. inspect the dominant phase, per-phase counts, fractions, and mean scores
-12. use the `Fit`, `Zoom +`, `Zoom -`, and `Reset` controls to inspect raw and processed patterns in lockstep
-13. use `Export Results` to write a provenance-rich artifact bundle for the current scan
+5. review the IPF-colored EBSD preview to confirm you loaded the intended scan
+6. enable or disable confidence shading
+7. click `Start inference`
+8. watch the live log, ETA, and centered circular completion overlay while the scan is processed
+9. click any map pixel to load its experimental Kikuchi pattern
+10. optionally enable histogram normalization and/or contrast stretch for the processed clicked-pattern view
+11. inspect the predicted phase map, IPF reference, and IPF-colored EBSD map tabs
+12. inspect the dominant phase, per-phase counts, fractions, and mean scores
+13. use the `Fit`, `Zoom +`, `Zoom -`, and `Reset` controls to inspect raw and processed patterns in lockstep
+14. use `Export Results` to write a provenance-rich artifact bundle for the current scan
 
 ## What the panels mean
 
@@ -101,6 +102,7 @@ This mode is deliberately analogous to EBSD-style interpretive maps where catego
 - **notes**: run metadata, grid size, Euler metadata, confidence state, phase-color legend, and currently selected pixel details
 - **log panel**: backend progress, scan-opening messages, Euler/IPF status, and errors
 - **progress row**: processed pixels plus ETA/elapsed time
+- **center overlay**: circular inference completion indicator drawn over the scan preview with bold percentage text
 - **export bundle**: predicted map PNG, legend PNG, IPF PNGs when available, per-pixel CSV, machine-readable JSON summary, HTML summary, and `manifest.json`
 
 ## Why the GUI works this way
@@ -108,6 +110,7 @@ This mode is deliberately analogous to EBSD-style interpretive maps where catego
 The GUI is not meant to be a black-box convenience toy. It is designed to make scan interpretation inspectable:
 
 - full-scan mode avoids arbitrary sampling when a true map is desired
+- the pre-inference IPF-colored EBSD preview lets users verify they selected the intended scan before paying the full inference cost
 - confidence shading exposes low-trust transition regions
 - clicked-pixel pattern review ties each map decision back to the raw experimental evidence
 - grayscale-only display respects the native character of Kikuchi patterns

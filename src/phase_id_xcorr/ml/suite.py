@@ -89,6 +89,11 @@ def run_benchmark_suite(
         raise FileNotFoundError(f"base_train_config not found: {base_train_config}")
 
     base_train_payload = load_yaml(base_train_config)
+    global_train_overrides = suite_cfg.get("global_train_overrides", [])
+    if global_train_overrides:
+        if not isinstance(global_train_overrides, list):
+            raise ValueError("suite config key 'global_train_overrides' must be a list when provided")
+        base_train_payload = apply_overrides(base_train_payload, [str(x) for x in global_train_overrides])
 
     experiments = suite_cfg.get("experiments", [])
     if not isinstance(experiments, list) or not experiments:

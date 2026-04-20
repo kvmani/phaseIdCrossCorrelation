@@ -171,6 +171,96 @@ def _render_full_scan_phase_map(
     return image
 
 
+class OverlayImageWidget(QtWidgets.QWidget):
+    imageClicked = QtCore.Signal(int, int)
+
+    def __init__(self, placeholder: str) -> None:
+        super().__init__()
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        self.image_label = ClickableImageLabel(placeholder)
+        self.image_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.image_label.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        self.image_label.setMinimumSize(540, 420)
+        self.image_label.imageClicked.connect(self.imageClicked.emit)
+        layout.addWidget(self.image_label)
+        self._overlay_visible = False
+        self._overlay_progress = 0
+
+    def setText(self, text: str) -> None:  # noqa: N802
+        self.image_label.setText(text)
+
+    def text(self) -> str:
+        return self.image_label.text()
+
+    def setPixmap(self, pixmap: QtGui.QPixmap) -> None:  # noqa: N802
+        self.image_label.setPixmap(pixmap)
+
+    def pixmap(self) -> QtGui.QPixmap | None:
+        return self.image_label.pixmap()
+
+    def set_source_image_size(self, width: int | None, height: int | None) -> None:
+        self.image_label.set_source_image_size(width, height)
+
+    def set_overlay_progress(self, value: int) -> None:
+        self._overlay_progress = max(0, min(100, int(value)))
+        self._overlay_visible = True
+        self.update()
+
+    def clear_overlay(self) -> None:
+        self._overlay_visible = False
+        self.update()
+
+    def paintEvent(self, event: QtGui.QPaintEvent) -> None:  # noqa: N802
+        super().paintEvent(event)
+        if not self._overlay_visible:
+            return
+
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+        center = self.rect().center()
+        radius = max(48, min(self.width(), self.height()) // 9)
+        ring_rect = QtCore.QRectF(
+            float(center.x() - radius),
+            float(center.y() - radius - 16),
+            float(radius * 2),
+            float(radius * 2),
+        )
+
+        painter.setBrush(QtGui.QColor(15, 15, 15, 130))
+        painter.setPen(QtCore.Qt.NoPen)
+        backdrop_rect = ring_rect.adjusted(-28, -20, 28, 72)
+        painter.drawRoundedRect(backdrop_rect, 18.0, 18.0)
+
+        base_pen = QtGui.QPen(QtGui.QColor(245, 245, 245, 120))
+        base_pen.setWidth(10)
+        painter.setPen(base_pen)
+        painter.setBrush(QtCore.Qt.NoBrush)
+        painter.drawEllipse(ring_rect)
+
+        progress_pen = QtGui.QPen(QtGui.QColor(250, 250, 250))
+        progress_pen.setWidth(10)
+        progress_pen.setCapStyle(QtCore.Qt.RoundCap)
+        painter.setPen(progress_pen)
+        span_angle = int(round(-5760.0 * (self._overlay_progress / 100.0)))
+        painter.drawArc(ring_rect, 90 * 16, span_angle)
+
+        percent_font = QtGui.QFont(self.font())
+        percent_font.setPointSize(max(15, percent_font.pointSize() + 4))
+        percent_font.setBold(True)
+        painter.setFont(percent_font)
+        painter.setPen(QtGui.QColor(255, 255, 255))
+        percent_rect = QtCore.QRectF(
+            backdrop_rect.left(),
+            ring_rect.bottom() + 12.0,
+            backdrop_rect.width(),
+            34.0,
+        )
+        painter.drawText(percent_rect, QtCore.Qt.AlignCenter, f"{self._overlay_progress}%")
+        painter.end()
+
+
 class ClickableImageLabel(QtWidgets.QLabel):
     imageClicked = QtCore.Signal(int, int)
 
@@ -613,6 +703,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.state = GuiState(suite_root=initial_root, run_dirs=[])
         self._full_scan_thread: QtCore.QThread | None = None
         self._full_scan_worker: FullScanWorker | None = None
+        self._full_scan_preview_ready = False
         self.setWindowTitle("ML Phase ID Inference")
         self.resize(1320, 820)
 
@@ -696,7 +787,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.confidence_shading_checkbox = QtWidgets.QCheckBox("Use confidence shading")
         self.confidence_shading_checkbox.setChecked(True)
         self.confidence_shading_checkbox.toggled.connect(self._refresh_full_scan_preview)
-        btn_full_scan = QtWidgets.QPushButton("Run Full-Scan Inference")
+        btn_full_scan = QtWidgets.QPushButton("Start inference")
         btn_full_scan.clicked.connect(self._run_inference)
         self.btn_full_scan = btn_full_scan
         btn_export = QtWidgets.QPushButton("Export Results")
@@ -781,10 +872,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.predicted_map_layout = QtWidgets.QVBoxLayout(self.predicted_map_tab)
         self.predicted_map_layout.setContentsMargins(0, 0, 0, 0)
         self.predicted_map_layout.setSpacing(8)
-        self.result_preview = ClickableImageLabel("No result")
-        self.result_preview.setAlignment(QtCore.Qt.AlignCenter)
-        self.result_preview.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        self.result_preview.setMinimumSize(540, 420)
+        self.result_preview = OverlayImageWidget("No result")
         self.result_preview.imageClicked.connect(self._handle_phase_map_click)
         self.predicted_map_layout.addWidget(self.result_preview, stretch=1)
 
@@ -891,7 +979,10 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
             self.known_phase_combo.addItem(phase)
         self.known_phase_combo.blockSignals(False)
         self.status_label.setText(f"Loaded {loaded.model_name} from {loaded.run_dir}")
-        self._run_inference()
+        if self.state.inference_mode == INFERENCE_MODE_IMAGE:
+            self._run_inference()
+        else:
+            self._refresh_full_scan_ready_state()
 
     def _update_mode_ui(self) -> None:
         mode = str(self.mode_combo.currentData())
@@ -915,12 +1006,13 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
             if self.state.full_scan_result is not None:
                 self._refresh_full_scan_preview()
             elif self.state.oh5_path is not None:
-                self._run_inference()
+                self._load_full_scan_preview()
             else:
-                self.result_preview.setText("Select a .oh5 file to run full-scan inference.")
+                self.result_preview.setText("Select a .oh5 file to preview the IPF-colored EBSD map.")
                 self.result_preview.set_source_image_size(None, None)
-                self.ipf_preview.setText("Select a .oh5 file to render the IPF orientation reference.")
+                self.ipf_preview.setText("Select a .oh5 file to render the scan orientation preview.")
                 self.ipf_map_preview.setText("Select a .oh5 file to render the IPF-colored EBSD map.")
+            self._refresh_full_scan_ready_state()
 
     def _set_image_path(self, image_path: str) -> None:
         self.state.image_path = Path(image_path).expanduser().resolve()
@@ -934,13 +1026,107 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.state.full_scan_result = None
         self.state.full_scan_ipf_image = None
         self.state.full_scan_ipf_map_image = None
+        self._full_scan_preview_ready = False
         self._clear_selected_pixel()
-        self.notes.setPlainText(f"Selected .oh5: {self.state.oh5_path}\nRun full-scan inference to populate map and pixel-inspection details.")
-        self.ipf_preview.setText("Scan selected. Run full-scan inference to populate the IPF reference.")
-        self.ipf_map_preview.setText("Scan selected. Run full-scan inference to populate the IPF-colored EBSD map.")
+        self.result_preview.clear_overlay()
+        self.scan_progress.setValue(0)
+        self.scan_eta_label.setText("ETA: -")
+        self.notes.setPlainText(
+            f"Selected .oh5: {self.state.oh5_path}\n"
+            "Loading scan preview now. Review the IPF-colored EBSD map, then click Start inference."
+        )
+        self.ipf_preview.setText("Loading scan orientation preview...")
+        self.ipf_map_preview.setText("Loading IPF-colored EBSD map preview...")
         self._append_log("info", f"Selected .oh5 scan: {self.state.oh5_path}")
         if self.state.inference_mode == INFERENCE_MODE_FULL_SCAN:
-            self._run_inference()
+            self._load_full_scan_preview()
+        self._refresh_full_scan_ready_state()
+
+    def _load_full_scan_preview(self) -> None:
+        oh5_path = Path(self.oh5_edit.text().strip()).expanduser() if self.oh5_edit.text().strip() else self.state.oh5_path
+        if oh5_path is None:
+            return
+        resolved = oh5_path.resolve()
+        self.state.oh5_path = resolved
+        self._full_scan_preview_ready = False
+        self.result_preview.clear_overlay()
+        self.result_preview.setText("Loading IPF-colored EBSD map preview...")
+        self.result_preview.set_source_image_size(None, None)
+        self.ipf_preview.setText("Loading scan orientation preview...")
+        self.ipf_map_preview.setText("Loading IPF-colored EBSD map preview...")
+        self.prediction_label.setText("Prediction: preview loaded, inference not started")
+        self.status_label.setText(f"Loading scan preview for {resolved.name}...")
+        try:
+            from .oh5_reader import Oh5ScanReader
+
+            with Oh5ScanReader(resolved) as reader:
+                meta = reader.meta()
+                if not reader.euler_present:
+                    raise ValueError("No Euler angle fields were available in the selected .oh5 file")
+                eulers_deg = np.stack(
+                    [
+                        np.asarray(
+                            [
+                                float(euler_row["phi1"]),
+                                float(euler_row["Phi"]),
+                                float(euler_row["phi2"]),
+                            ],
+                            dtype=np.float64,
+                        )
+                        for idx in range(meta.total_pixels)
+                        for euler_row in [reader.read_euler_row(flat_index=idx, degrees=True)]
+                    ],
+                    axis=0,
+                )
+                preview_phase = self.state.loaded_model.class_names[0] if self.state.loaded_model and self.state.loaded_model.class_names else "Cu"
+                class_names = [preview_phase]
+                preview_indices = np.zeros((meta.total_pixels,), dtype=np.int64)
+                ipf_map_preview = render_ipf_colored_scan_map(
+                    eulers_deg=eulers_deg,
+                    predicted_indices=preview_indices,
+                    class_names=class_names,
+                    nx=meta.nx,
+                    ny=meta.ny,
+                )
+                ipf_preview = render_ipf_reference_panel(
+                    eulers_deg_by_phase={preview_phase: eulers_deg},
+                    phase_names=class_names,
+                    phase_colors={preview_phase: (0.20, 0.44, 0.88)},
+                    title=f"{resolved.stem} scan orientation preview",
+                )
+        except Exception as exc:
+            self.result_preview.setText(f"Preview loading failed: {exc}")
+            self.ipf_preview.setText(f"Preview loading failed: {exc}")
+            self.ipf_map_preview.setText(f"Preview loading failed: {exc}")
+            self.notes.setPlainText(f"Selected .oh5: {resolved}\nPreview loading failed: {exc}")
+            self.status_label.setText(f"Preview loading failed: {exc}")
+            self._append_log("error", f"Failed to load .oh5 preview for {resolved}: {exc}")
+            self._refresh_full_scan_ready_state()
+            return
+
+        self.state.full_scan_ipf_image = ipf_preview
+        self.state.full_scan_ipf_map_image = ipf_map_preview
+        self.result_preview.setPixmap(_rgb_array_to_pixmap(ipf_map_preview, target_size=self.result_preview.size()))
+        self.result_preview.set_source_image_size(meta.nx, meta.ny)
+        self.ipf_preview.setPixmap(_rgb_array_to_pixmap(ipf_preview, target_size=self.ipf_preview.size()))
+        self.ipf_map_preview.setPixmap(_rgb_array_to_pixmap(ipf_map_preview, target_size=self.ipf_map_preview.size()))
+        self.notes.setPlainText(
+            "\n".join(
+                [
+                    f"Selected .oh5: {resolved}",
+                    f"Grid: {meta.nx} x {meta.ny}",
+                    f"Total pixels: {meta.total_pixels}",
+                    f"Euler convention: {meta.euler_convention or 'unavailable'}",
+                    f"Euler source unit: {meta.euler_unit or 'unavailable'}",
+                    "",
+                    "Preview ready. Confirm the scan looks correct, then click Start inference.",
+                ]
+            )
+        )
+        self.status_label.setText(f"Preview ready for {resolved.name}. Click Start inference to begin processing.")
+        self._append_log("info", f"Loaded IPF preview for {resolved}")
+        self._full_scan_preview_ready = True
+        self._refresh_full_scan_ready_state()
 
     def _run_inference(self) -> None:
         if self.state.loaded_model is None:
@@ -1001,6 +1187,9 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         oh5_path = Path(self.oh5_edit.text().strip()).expanduser() if self.oh5_edit.text().strip() else self.state.oh5_path
         if oh5_path is None:
             return
+        if not self._full_scan_preview_ready:
+            self.status_label.setText("Load and review the scan preview first, then click Start inference.")
+            return
         if self._full_scan_thread is not None:
             self._append_log("warning", "Full-scan inference is already running.")
             return
@@ -1010,14 +1199,23 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.state.full_scan_ipf_image = None
         self.state.full_scan_ipf_map_image = None
         self._clear_selected_pixel()
-        self.result_preview.setText("Running full-scan inference...")
-        self.result_preview.set_source_image_size(None, None)
-        self.ipf_preview.setText("Waiting for Euler/IPF reference...")
-        self.ipf_map_preview.setText("Waiting for Euler/IPF-colored EBSD map...")
-        self.notes.setPlainText(f"Running full-scan inference for {resolved}...\nSelected-pixel notes will update after the map is available.")
+        if self.state.full_scan_ipf_map_image is not None:
+            self.result_preview.setPixmap(
+                _rgb_array_to_pixmap(self.state.full_scan_ipf_map_image, target_size=self.result_preview.size())
+            )
+            self.result_preview.set_source_image_size(None, None)
+        else:
+            self.result_preview.setText("Running full-scan inference...")
+            self.result_preview.set_source_image_size(None, None)
+        self.notes.setPlainText(
+            f"Running full-scan inference for {resolved}...\n"
+            "The centered circular indicator shows job completion over the scan preview. "
+            "Selected-pixel notes will update after the predicted phase map is available."
+        )
         self.status_label.setText(f"Running full-scan inference for {resolved.name}...")
         self.scan_progress.setValue(0)
         self.scan_eta_label.setText("ETA: estimating...")
+        self.result_preview.set_overlay_progress(0)
         self._append_log("info", f"Starting full-scan inference for {resolved}")
         self._set_full_scan_busy(True)
 
@@ -1096,7 +1294,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
             self._refresh_full_scan_preview()
 
     def _set_full_scan_busy(self, busy: bool) -> None:
-        self.btn_full_scan.setEnabled(not busy)
+        self.btn_full_scan.setEnabled((not busy) and self._full_scan_preview_ready)
         self.btn_export.setEnabled((not busy) and self.state.full_scan_result is not None)
         self.btn_oh5.setEnabled(not busy)
         self.model_combo.setEnabled(not busy)
@@ -1105,6 +1303,17 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self.confidence_shading_checkbox.setEnabled(not busy)
         self.histogram_normalization_checkbox.setEnabled(not busy)
         self.contrast_stretch_checkbox.setEnabled(not busy)
+
+    def _refresh_full_scan_ready_state(self) -> None:
+        if self.state.inference_mode != INFERENCE_MODE_FULL_SCAN:
+            return
+        can_start = (
+            self.state.loaded_model is not None
+            and self.state.oh5_path is not None
+            and self._full_scan_preview_ready
+            and self._full_scan_thread is None
+        )
+        self.btn_full_scan.setEnabled(can_start)
 
     def _append_log(self, level: str, message: str) -> None:
         level_name = str(level).upper()
@@ -1119,6 +1328,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         fraction = float(payload.get("fraction", 0.0))
         value = int(round(np.clip(fraction, 0.0, 1.0) * 100.0))
         self.scan_progress.setValue(value)
+        self.result_preview.set_overlay_progress(value)
         processed = int(payload.get("processed", 0))
         total = int(payload.get("total", 0))
         stage = str(payload.get("stage", "infer"))
@@ -1164,6 +1374,7 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
         self._refresh_full_scan_notes()
         self.status_label.setText(f"Full-scan inference complete for {result.oh5_path.name}")
         self.scan_progress.setValue(100)
+        self.result_preview.set_overlay_progress(100)
         self.scan_eta_label.setText("ETA: 00:00 | elapsed: complete")
         if ipf_image is None:
             self.ipf_preview.setText("No Euler angle fields were available in the scan, so no IPF reference could be rendered.")
@@ -1173,15 +1384,19 @@ class InferenceMainWindow(QtWidgets.QMainWindow):
                 "so no IPF-colored EBSD map could be rendered."
             )
         self._refresh_full_scan_preview()
+        self.result_preview.clear_overlay()
         self._update_known_phase_status()
+        self._refresh_full_scan_ready_state()
 
     def _on_full_scan_failed(self, message: str) -> None:
         self._full_scan_thread = None
         self._full_scan_worker = None
         self._set_full_scan_busy(False)
+        self.result_preview.clear_overlay()
         self.status_label.setText(f"Full-scan inference failed: {message}")
         self.scan_eta_label.setText("ETA: -")
         self._append_log("error", message)
+        self._refresh_full_scan_ready_state()
 
     def _refresh_phase_map_legend(self, class_names: list[str]) -> None:
         while self.map_legend_layout.count():

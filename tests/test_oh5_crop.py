@@ -247,6 +247,8 @@ def test_crop_gui_multiple_regions_track_selected_rectangle(tmp_path: Path) -> N
     app.processEvents()
     assert window.region_list.count() == 2
     assert window.region_list.currentRow() == 1
+    assert window.crop_plot._active_label.text() == "2"
+    assert len(window.crop_plot._overlay_items) == 1
 
     window.row_spin.setValue(0)
     window.col_spin.setValue(2)
@@ -263,6 +265,12 @@ def test_crop_gui_multiple_regions_track_selected_rectangle(tmp_path: Path) -> N
     app.processEvents()
     assert window.row_spin.value() == 1
     assert window.col_spin.value() == 1
+    assert window.crop_plot._active_label.text() == "1"
+
+    window._activate_region_from_plot(1)
+    app.processEvents()
+    assert window.region_list.currentRow() == 1
+    assert window.crop_plot._active_label.text() == "2"
     window.close()
 
 

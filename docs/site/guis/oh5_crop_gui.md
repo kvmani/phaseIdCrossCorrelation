@@ -13,6 +13,8 @@ python .\scripts\run_oh5_crop_gui.py --input path\to\source_scan.oh5 --debug
 - display the source `IQ` / `Image Quality` map as a grayscale scan view
 - define one or more crop rectangles by draggable overlay or numeric row/column/width/height fields
 - keep a crop-region list where numeric inputs always edit the selected rectangle
+- keep all defined rectangles visible on the IQ map, with the active rectangle highlighted in a different color and each rectangle labeled by its numeric ID
+- let the user click any rectangle on the IQ map to make that rectangle active and synchronize the corresponding region controls
 - export all defined crops in one pass as `{base_name}_crop_{row}_{col}.oh5`
 - automatically switch into review mode after export
 - keep a visible log console and progress/status bar during load, export, reload, and pixel review

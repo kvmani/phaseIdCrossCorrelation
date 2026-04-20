@@ -1,0 +1,46 @@
+schema_version: phase_id_xcorr.ml_dataset_prep.v3
+input_mode: single_phase_scan_map
+output_dir: reports/ml/datasets/april2026_cu_ni_balanced_smoke
+strict_pattern_presence: true
+
+data_source_folder: 'C:/Users/kvman/Documents/nomachine_trasfers/Data_April2026(1)/Data_April2026'
+allow_filename_phase_fallback: false
+
+phase_to_label:
+  Cu: 0
+  Ni: 1
+
+listOfFiles:
+  - file: Cu-1.oh5
+    scan_id: cu_1
+    phase_name: Cu
+  - file: Cu-11.oh5
+    scan_id: cu_11
+    phase_name: Cu
+  - file: Ni-1.oh5
+    scan_id: ni_1
+    phase_name: Ni
+  - file: Ni-8.oh5
+    scan_id: ni_8
+    phase_name: Ni
+
+quality_filters:
+  expression: "CI > 0.2 && Fit < 1.5"
+
+preprocessing:
+  resize_hw: [128, 128]
+  apply_circular_mask: true
+  normalize_mode: none
+
+phase_balancing:
+  equalize_to_min_count: true
+
+split:
+  train: 0.8
+  val: 0.1
+  test: 0.1
+  seed: 42
+  stratified: true
+  train_samples_per_phase: 64
+  val_samples_per_phase: 8
+  test_samples_per_phase: 8

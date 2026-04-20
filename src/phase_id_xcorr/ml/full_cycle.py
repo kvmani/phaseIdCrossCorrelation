@@ -156,6 +156,19 @@ def run_full_cycle(
     else:
         suite_cfg = load_yaml(suite_cfg_path)
 
+    benchmark_batch_size = cfg.get("benchmark_batch_size")
+    global_train_overrides = suite_cfg.get("global_train_overrides", [])
+    if global_train_overrides and not isinstance(global_train_overrides, list):
+        raise ValueError("suite config key 'global_train_overrides' must be a list when provided")
+    suite_cfg["global_train_overrides"] = [str(x) for x in global_train_overrides] if isinstance(global_train_overrides, list) else []
+    if benchmark_batch_size is not None:
+        suite_cfg["global_train_overrides"] = [
+            override
+            for override in suite_cfg["global_train_overrides"]
+            if not str(override).strip().startswith("batch_size=")
+        ]
+        suite_cfg["global_train_overrides"].append(f"batch_size={int(benchmark_batch_size)}")
+
     base_train_path = resolve_path(
         suite_cfg.get("base_train_config", "configs/ml/train.simple_cnn.debug.yml"),
         base_dir=suite_cfg_path.parent,

@@ -17,60 +17,91 @@ listOfFiles:
   - file: Cu-2.oh5
     scan_id: cu_2
     phase_name: Cu
-  - file: Cu-3.oh5
-    scan_id: cu_3
-    phase_name: Cu
-  - file: Cu-4.oh5
-    scan_id: cu_4
-    phase_name: Cu
-  - file: Cu-5.oh5
-    scan_id: cu_5
-    phase_name: Cu
-  - file: Cu-7.oh5
-    scan_id: cu_7
-    phase_name: Cu
-  - file: Cu-8.oh5
-    scan_id: cu_8
-    phase_name: Cu
+  # - file: Cu-3.oh5
+  #   scan_id: cu_3
+  #   phase_name: Cu
+  # - file: Cu-4.oh5
+  #   scan_id: cu_4
+  #   phase_name: Cu
+  # - file: Cu-5.oh5
+  #   scan_id: cu_5
+  #   phase_name: Cu
+  # - file: Cu-7.oh5
+  #   scan_id: cu_7
+  #   phase_name: Cu
+  # - file: Cu-8.oh5
+  #   scan_id: cu_8
+  #   phase_name: Cu
   - file: Cu-9.oh5
     scan_id: cu_9
     phase_name: Cu
   - file: Cu-10.oh5
     scan_id: cu_10
     phase_name: Cu
+  - file: Cu-11.oh5
+    scan_id: cu_11
+    phase_name: Cu
+
+  - file: Cu-13.oh5
+    scan_id: cu_13
+    phase_name: Cu
+  - file: Cu-14.oh5
+    scan_id: cu_14
+    phase_name: Cu
+  - file: Cu-15.oh5
+    scan_id: cu_15
+    phase_name: Cu
+
+
   - file: Ni-1.oh5
     scan_id: ni_1
     phase_name: Ni
   - file: Ni-2.oh5
     scan_id: ni_2
     phase_name: Ni
-  - file: Ni-3.oh5
-    scan_id: ni_3
-    phase_name: Ni
-  - file: Ni-4.oh5
-    scan_id: ni_4
-    phase_name: Ni
-  - file: Ni-5.oh5
-    scan_id: ni_5
-    phase_name: Ni
-  - file: Ni-7.oh5
-    scan_id: ni_7
-    phase_name: Ni
-  - file: Ni-8.oh5
-    scan_id: ni_8
-    phase_name: Ni
+  # - file: Ni-3.oh5
+  #   scan_id: ni_3
+  #   phase_name: Ni
+  # - file: Ni-4.oh5
+  #   scan_id: ni_4
+  #   phase_name: Ni
+  # - file: Ni-5.oh5
+  #   scan_id: ni_5
+  #   phase_name: Ni
+  # - file: Ni-7.oh5
+  #   scan_id: ni_7
+  #   phase_name: Ni
+  # - file: Ni-8.oh5
+  #   scan_id: ni_8
+  # phase_name: Ni
   - file: Ni-9.oh5
     scan_id: ni_9
     phase_name: Ni
   - file: Ni-10.oh5
     scan_id: ni_10
     phase_name: Ni
+  - file: Ni-11.oh5
+    scan_id: ni_11
+    phase_name: Ni
+  - file: Ni-12.oh5
+    scan_id: ni_12
+    phase_name: Ni
+  - file: Ni-13.oh5
+    scan_id: ni_13
+    phase_name: Ni
+  - file: Ni-14.oh5
+    scan_id: ni_14
+    phase_name: Ni
+  - file: Ni-15.oh5
+    scan_id: ni_15
+    phase_name: Ni
+
 
 quality_filters:
   expression: "CI > 0.2 && Fit < 1.5"
 
 preprocessing:
-  resize_hw: [128, 128]
+  resize_hw: [64, 64]
   apply_circular_mask: true
   normalize_mode: none
 
