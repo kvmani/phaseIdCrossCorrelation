@@ -116,3 +116,17 @@ Reference: `docs/hough_space_ncc_action_plan.md`
 - [ ] Add optional alternative similarity metrics for ablation.
 - [ ] Add LRS fusion-ready interfaces and sparse label handling.
 - [ ] Build manuscript asset generation workflow (figures, tables, supplementary).
+
+## Task log
+
+Checkpoint each substantial task here (AGENTS.md, cardinal rule 3): goal, plan, commits, tests
+run, decisions, blockers, next step. Newest first.
+
+### 2026-11-23 — Agent instructions refactor (done)
+- AGENTS.md restructured as the single instruction file for Codex, Claude and Gemini: the owner's
+  cardinal rules (fetch first, `main` only, this ledger, targeted tests, manual CI) were added;
+  sections 1–11 are kept verbatim except that §2 now points to `docs/status.md` for the current
+  state and §9 includes sync and the task log. Added quality bar, test table and map (§12–14).
+- `docs/agents.md` renamed to `docs/AGENTS.md`; removed the committed `.idea/` folder and ignored
+  IDE settings; added `.gemini/settings.json`.
+- Tests run: none needed (documentation and repository hygiene only).

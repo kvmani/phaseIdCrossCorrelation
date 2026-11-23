@@ -35,3 +35,7 @@ reports/presentations/
 reports/student_data_packet_phaseid2_method_comparison/
 reports/student_data_packet_phaseid2_validation/
 reports/student_data_packet_phaseid2_validation_after_bmp_fix/
+
+# IDE settings
+.idea/
+.vscode/
